@@ -153,6 +153,7 @@ function Logo() {
 
 function SidebarNav() {
   const [location] = useLocation();
+  const [isOpen, setIsOpen] = useState(false);
 
   const items = [
     { href: "/", label: "Home", icon: HomeIcon, testId: "link-nav-home" },
@@ -176,59 +177,103 @@ function SidebarNav() {
     },
   ];
 
-  return (
-    <aside className="hidden lg:block lg:col-span-3">
-      <div className="sticky top-6">
-        <div className="glass glow noise rounded-2xl p-4">
-          <Logo />
+  const content = (
+    <div className="glass glow noise h-full rounded-2xl p-4 lg:h-auto">
+      <div className="flex items-center justify-between lg:block">
+        <Logo />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={() => setIsOpen(false)}
+          data-testid="button-close-nav"
+        >
+          <Sparkles className="h-5 w-5 rotate-45" />
+        </Button>
+      </div>
 
-          <Separator className="my-4 opacity-60" />
+      <Separator className="my-4 opacity-60" />
 
-          <nav className="grid gap-1">
-            {items.map((it) => {
-              const active = it.href === "/" ? location === "/" : false;
-              const Icon = it.icon;
-              return (
-                <a
-                  key={it.label}
-                  href={it.href}
-                  data-testid={it.testId}
-                  className={cn(
-                    "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
-                    "hover:bg-white/5 hover:border-white/10 border border-transparent",
-                    active && "bg-white/6 border-white/10",
-                  )}
-                >
-                  <Icon className="h-4 w-4 text-foreground/80 group-hover:text-foreground" />
-                  <span className="font-medium">{it.label}</span>
-                </a>
-              );
-            })}
-          </nav>
+      <nav className="grid gap-1">
+        {items.map((it) => {
+          const active = it.href === "/" ? location === "/" : false;
+          const Icon = it.icon;
+          return (
+            <a
+              key={it.label}
+              href={it.href}
+              data-testid={it.testId}
+              onClick={() => setIsOpen(false)}
+              className={cn(
+                "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                "hover:bg-white/5 hover:border-white/10 border border-transparent",
+                active && "bg-white/6 border-white/10",
+              )}
+            >
+              <Icon className="h-4 w-4 text-foreground/80 group-hover:text-foreground" />
+              <span className="font-medium">{it.label}</span>
+            </a>
+          );
+        })}
+      </nav>
 
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/4 p-3">
-            <div className="text-xs text-muted-foreground" data-testid="text-tip">
-              Tip
-            </div>
-            <div className="mt-1 text-sm leading-snug text-foreground/90">
-              Upload a demo, get a shareable artist page, and start building your audience.
-            </div>
-            <div className="mt-3">
-              <Link href="/upload">
-                <Button
-                  size="sm"
-                  className="w-full"
-                  data-testid="button-sidebar-upload"
-                >
-                  <UploadCloud className="mr-2 h-4 w-4" />
-                  Upload a track
-                </Button>
-              </Link>
-            </div>
-          </div>
+      <div className="mt-4 rounded-xl border border-white/10 bg-white/4 p-3">
+        <div className="text-xs text-muted-foreground" data-testid="text-tip">
+          Tip
+        </div>
+        <div className="mt-1 text-sm leading-snug text-foreground/90">
+          Upload a demo, get a shareable artist page, and start building your audience.
+        </div>
+        <div className="mt-3">
+          <Link href="/upload">
+            <Button
+              size="sm"
+              className="w-full"
+              onClick={() => setIsOpen(false)}
+              data-testid="button-sidebar-upload"
+            >
+              <UploadCloud className="mr-2 h-4 w-4" />
+              Upload a track
+            </Button>
+          </Link>
         </div>
       </div>
-    </aside>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Mobile Toggle */}
+      <div className="fixed bottom-20 right-4 z-50 lg:hidden">
+        <Button
+          size="icon"
+          className="h-12 w-12 rounded-2xl shadow-lg shadow-primary/20"
+          onClick={() => setIsOpen(true)}
+          data-testid="button-toggle-nav"
+        >
+          <HomeIcon className="h-6 w-6" />
+        </Button>
+      </div>
+
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm lg:hidden">
+          <motion.div
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            className="h-full w-4/5 max-w-xs p-4"
+          >
+            {content}
+          </motion.div>
+          <div className="absolute inset-0 -z-10" onClick={() => setIsOpen(false)} />
+        </div>
+      )}
+
+      {/* Desktop Sidebar */}
+      <aside className="hidden lg:block lg:col-span-3">
+        <div className="sticky top-6">{content}</div>
+      </aside>
+    </>
   );
 }
 
