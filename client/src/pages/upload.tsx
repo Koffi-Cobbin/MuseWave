@@ -9,6 +9,8 @@ import {
   Link2,
   Music,
   Sparkles,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 type UploadDraft = {
   title: string;
@@ -41,6 +44,29 @@ function gradientFromTitle(title: string) {
   return options[hash % options.length];
 }
 
+// Helper to convert File to base64 data URL
+async function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// Helper to get audio duration
+async function getAudioDuration(file: File): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio();
+    audio.onloadedmetadata = () => {
+      resolve(audio.duration);
+      URL.revokeObjectURL(audio.src);
+    };
+    audio.onerror = reject;
+    audio.src = URL.createObjectURL(file);
+  });
+}
+
 export default function Upload() {
   const [draft, setDraft] = useState<UploadDraft>({
     title: "",
@@ -53,10 +79,16 @@ export default function Upload() {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createdTrackId, setCreatedTrackId] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<string>("");
+
+  const { toast } = useToast();
 
   const coverGradient = useMemo(() => gradientFromTitle(draft.title), [draft.title]);
 
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
 
   function update<K extends keyof UploadDraft>(key: K, value: UploadDraft[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
@@ -70,12 +102,171 @@ export default function Upload() {
         setPreviewUrl(null);
       }
     }
+    if (key === "audioFile") {
+      if (audioPreviewUrl) {
+        URL.revokeObjectURL(audioPreviewUrl);
+      }
+      if (value instanceof File) {
+        setAudioPreviewUrl(URL.createObjectURL(value));
+      } else {
+        setAudioPreviewUrl(null);
+      }
+    }
   }
 
-  function onSubmit() {
-    setSubmitted(true);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  async function onSubmit() {
+    // Validation
+    if (!draft.title.trim()) {
+      toast({
+        title: "Missing title",
+        description: "Please enter a track title.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!draft.artist.trim()) {
+      toast({
+        title: "Missing artist",
+        description: "Please enter an artist name.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!draft.audioFile) {
+      toast({
+        title: "Missing audio file",
+        description: "Please select an audio file to upload.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setUploadProgress("Preparing upload...");
+
+    try {
+      // Generate artist slug
+      const artistSlug = draft.artist
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+
+      let userId: string;
+
+      // Try to get existing user by username
+      setUploadProgress("Checking artist profile...");
+      try {
+        const userResponse = await fetch(`/api/users/username/${artistSlug}`);
+        if (userResponse.ok) {
+          const user = await userResponse.json();
+          userId = user.id;
+        } else {
+          // Create new user for this artist
+          setUploadProgress("Creating artist profile...");
+          const createUserResponse = await fetch("/api/users", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              username: artistSlug,
+              email: `${artistSlug}@indiewave.local`,
+              password: `temp-${Date.now()}-${Math.random().toString(36)}`,
+              displayName: draft.artist.trim(),
+              bio: `Indie artist sharing music on IndieWave`,
+            }),
+          });
+
+          if (!createUserResponse.ok) {
+            const error = await createUserResponse.json();
+            throw new Error(error.error || "Failed to create artist profile");
+          }
+
+          const newUser = await createUserResponse.json();
+          userId = newUser.id;
+        }
+      } catch (error) {
+        console.error("User creation error:", error);
+        throw new Error("Failed to create or find artist profile");
+      }
+
+      // Process audio file
+      setUploadProgress("Processing audio file...");
+      const audioDataUrl = await fileToDataUrl(draft.audioFile);
+      const audioDuration = await getAudioDuration(draft.audioFile);
+
+      // Process cover file if provided
+      let coverDataUrl: string | undefined;
+      if (draft.coverFile) {
+        setUploadProgress("Processing cover image...");
+        coverDataUrl = await fileToDataUrl(draft.coverFile);
+      }
+
+      // Create track
+      setUploadProgress("Publishing track...");
+      const trackData = {
+        userId,
+        title: draft.title.trim(),
+        artist: draft.artist.trim(),
+        artistSlug,
+        description: draft.description.trim() || undefined,
+        genre: draft.genre.trim() || "Indie",
+        mood: draft.mood.trim() || undefined,
+        tags: draft.mood ? [draft.mood.toLowerCase(), draft.genre.toLowerCase()] : [draft.genre.toLowerCase()],
+        audioUrl: audioDataUrl,
+        audioFileSize: draft.audioFile.size,
+        audioDuration: Math.round(audioDuration),
+        audioFormat: draft.audioFile.type.split("/")[1] || "mp3",
+        coverUrl: coverDataUrl,
+        coverGradient,
+        published: true,
+      };
+
+      const response = await fetch("/api/tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(trackData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to create track");
+      }
+
+      const createdTrack = await response.json();
+      setCreatedTrackId(createdTrack.id);
+      setSubmitted(true);
+      setUploadProgress("");
+
+      toast({
+        title: "Track published!",
+        description: `"${draft.title}" is now live on your artist page.`,
+      });
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      console.error("Upload error:", error);
+      setUploadProgress("");
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Something went wrong. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
+
+  const artistSlug = useMemo(
+    () =>
+      (draft.artist || "your-artist")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, ""),
+    [draft.artist]
+  );
 
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_420px_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(1100px_520px_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(900px_400px_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
@@ -88,7 +279,7 @@ export default function Upload() {
                 Upload
               </Badge>
               <span className="text-xs text-muted-foreground" data-testid="text-upload-note">
-                Prototype flow (files stay on your device)
+                Share your music with the world
               </span>
             </div>
             <h1 className="mt-2 text-2xl font-semibold tracking-tight" data-testid="text-upload-title">
@@ -105,12 +296,36 @@ export default function Upload() {
                 Back to Home
               </Button>
             </Link>
-            <Button onClick={onSubmit} data-testid="button-submit-upload">
-              <Sparkles className="mr-2 h-4 w-4" />
-              Publish
+            <Button onClick={onSubmit} disabled={isSubmitting} data-testid="button-submit-upload">
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Publishing...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Publish
+                </>
+              )}
             </Button>
           </div>
         </header>
+
+        {isSubmitting && uploadProgress && (
+          <div
+            className="glass glow noise mt-6 rounded-3xl border border-white/10 p-5"
+            data-testid="status-upload-progress"
+          >
+            <div className="flex items-center gap-3">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <div>
+                <div className="text-sm font-semibold">Uploading...</div>
+                <div className="mt-1 text-sm text-muted-foreground">{uploadProgress}</div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {submitted && (
           <div
@@ -123,10 +338,9 @@ export default function Upload() {
                   <CheckCircle2 className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <div className="text-sm font-semibold">Published (mock)</div>
+                  <div className="text-sm font-semibold">Published successfully!</div>
                   <div className="mt-1 text-sm text-muted-foreground">
-                    This is a prototype: your upload isn’t stored yet. You can still share the
-                    layout and flow.
+                    Your track has been saved to the database and is now live on your artist page.
                   </div>
                 </div>
               </div>
@@ -136,26 +350,18 @@ export default function Upload() {
                   className="border-white/10 bg-white/5"
                   data-testid="button-copy-link"
                   onClick={() => {
-                    const url = `${window.location.origin}/artist/${encodeURIComponent(
-                      (draft.artist || "your-artist")
-                        .trim()
-                        .toLowerCase()
-                        .replace(/\s+/g, "-")
-                        .replace(/[^a-z0-9-]/g, ""),
-                    )}`;
+                    const url = `${window.location.origin}/artist/${artistSlug}`;
                     navigator.clipboard.writeText(url);
+                    toast({
+                      title: "Link copied!",
+                      description: "Artist page link copied to clipboard.",
+                    });
                   }}
                 >
                   <Link2 className="mr-2 h-4 w-4" />
                   Copy artist link
                 </Button>
-                <Link
-                  href={`/artist/${(draft.artist || "your-artist")
-                    .trim()
-                    .toLowerCase()
-                    .replace(/\s+/g, "-")
-                    .replace(/[^a-z0-9-]/g, "")}`}
-                >
+                <Link href={`/artist/${artistSlug}`}>
                   <Button data-testid="button-view-artist">View artist page</Button>
                 </Link>
               </div>
@@ -184,24 +390,26 @@ export default function Upload() {
 
               <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="title">Track title</Label>
+                  <Label htmlFor="title">Track title *</Label>
                   <Input
                     id="title"
                     value={draft.title}
                     onChange={(e) => update("title", e.target.value)}
                     placeholder="e.g. Neon Postcard"
                     data-testid="input-track-title"
+                    disabled={isSubmitting}
                   />
                 </div>
 
                 <div className="grid gap-2">
-                  <Label htmlFor="artist">Artist name</Label>
+                  <Label htmlFor="artist">Artist name *</Label>
                   <Input
                     id="artist"
                     value={draft.artist}
                     onChange={(e) => update("artist", e.target.value)}
                     placeholder="e.g. Nova Sky"
                     data-testid="input-artist-name"
+                    disabled={isSubmitting}
                   />
                 </div>
 
@@ -214,6 +422,7 @@ export default function Upload() {
                       onChange={(e) => update("genre", e.target.value)}
                       placeholder="Indie / Lo-fi / Pop"
                       data-testid="input-genre"
+                      disabled={isSubmitting}
                     />
                   </div>
                   <div className="grid gap-2">
@@ -224,6 +433,7 @@ export default function Upload() {
                       onChange={(e) => update("mood", e.target.value)}
                       placeholder="Cozy / Driving / Bright"
                       data-testid="input-mood"
+                      disabled={isSubmitting}
                     />
                   </div>
                 </div>
@@ -236,6 +446,7 @@ export default function Upload() {
                     onChange={(e) => update("description", e.target.value)}
                     placeholder="Optional: a quick note for listeners…"
                     data-testid="input-description"
+                    disabled={isSubmitting}
                   />
                 </div>
 
@@ -247,6 +458,7 @@ export default function Upload() {
                     <label
                       className={cn(
                         "group flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-3 transition hover:bg-white/6",
+                        isSubmitting && "opacity-50 cursor-not-allowed"
                       )}
                       data-testid="label-audio-upload"
                     >
@@ -254,7 +466,7 @@ export default function Upload() {
                         <AudioLines className="h-5 w-5 text-primary" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-sm font-semibold">Audio file</div>
+                        <div className="text-sm font-semibold">Audio file *</div>
                         <div className="mt-0.5 truncate text-xs text-muted-foreground" data-testid="text-audio-file">
                           {draft.audioFile?.name || "Choose .mp3 or .wav"}
                         </div>
@@ -265,12 +477,14 @@ export default function Upload() {
                         className="hidden"
                         onChange={(e) => update("audioFile", e.target.files?.[0] || null)}
                         data-testid="input-audio-file"
+                        disabled={isSubmitting}
                       />
                     </label>
 
                     <label
                       className={cn(
                         "group flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-3 transition hover:bg-white/6",
+                        isSubmitting && "opacity-50 cursor-not-allowed"
                       )}
                       data-testid="label-cover-upload"
                     >
@@ -289,11 +503,15 @@ export default function Upload() {
                         className="hidden"
                         onChange={(e) => update("coverFile", e.target.files?.[0] || null)}
                         data-testid="input-cover-file"
+                        disabled={isSubmitting}
                       />
                     </label>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    In this mockup, uploads aren’t stored. We’re focusing on the experience.
+                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <span>
+                      Files are converted to base64 and stored in the JSON database. For production, use proper file storage.
+                    </span>
                   </div>
                 </div>
               </div>
@@ -318,7 +536,7 @@ export default function Upload() {
                   <div
                     className={cn(
                       "h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br",
-                      !previewUrl && coverGradient,
+                      !previewUrl && coverGradient
                     )}
                     aria-hidden="true"
                   >
@@ -357,13 +575,21 @@ export default function Upload() {
                         Quick preview
                       </div>
                     </div>
-                    <Button size="sm" variant="secondary" className="border-white/10 bg-white/5" data-testid="button-preview-play">
-                      Play
-                    </Button>
                   </div>
-                  <div className="text-xs text-muted-foreground" data-testid="text-preview-player-note">
-                    Audio playback will be wired once this prototype is upgraded.
-                  </div>
+                  {audioPreviewUrl ? (
+                    <audio
+                      controls
+                      src={audioPreviewUrl}
+                      className="h-10 w-full"
+                      data-testid="audio-preview-player"
+                    />
+                  ) : (
+                    <div className="text-xs text-muted-foreground" data-testid="text-preview-player-note">
+                      {draft.audioFile 
+                        ? "Audio preview available after upload"
+                        : "Upload an audio file to enable preview"}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -379,11 +605,7 @@ export default function Upload() {
                   <Label htmlFor="slug">Artist slug</Label>
                   <Input
                     id="slug"
-                    value={(draft.artist || "your-artist")
-                      .trim()
-                      .toLowerCase()
-                      .replace(/\s+/g, "-")
-                      .replace(/[^a-z0-9-]/g, "")}
+                    value={artistSlug}
                     readOnly
                     data-testid="input-artist-slug"
                   />
@@ -395,12 +617,12 @@ export default function Upload() {
                     variant="secondary"
                     className="border-white/10 bg-white/5"
                     onClick={() => {
-                      const url = `${window.location.origin}/artist/${(draft.artist || "your-artist")
-                        .trim()
-                        .toLowerCase()
-                        .replace(/\s+/g, "-")
-                        .replace(/[^a-z0-9-]/g, "")}`;
+                      const url = `${window.location.origin}/artist/${artistSlug}`;
                       navigator.clipboard.writeText(url);
+                      toast({
+                        title: "Link copied!",
+                        description: "Artist page link copied to clipboard.",
+                      });
                     }}
                     data-testid="button-copy-artist-link"
                   >
@@ -408,14 +630,8 @@ export default function Upload() {
                     Copy link
                   </Button>
 
-                  <Link
-                    href={`/artist/${(draft.artist || "your-artist")
-                      .trim()
-                      .toLowerCase()
-                      .replace(/\s+/g, "-")
-                      .replace(/[^a-z0-9-]/g, "")}`}
-                  >
-                    <Button data-testid="button-open-artist">Open artist page</Button>
+                  <Link href={`/artist/${artistSlug}`}>
+                    <Button data-testid="button-open-artist" className="w-full">Open artist page</Button>
                   </Link>
                 </div>
               </div>
