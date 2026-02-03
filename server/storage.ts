@@ -16,7 +16,7 @@ import type {
   UserStats,
   TrackStats,
   SearchIndex,
-} from "@shared/db-schema";
+} from "@shared/schema";
 
 // ============================================================================
 // DATABASE FILE PATHS
