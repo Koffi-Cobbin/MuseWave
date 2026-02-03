@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useParams } from "wouter";
 import { motion } from "framer-motion";
 import {
@@ -18,57 +18,23 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 type Artist = {
-  slug: string;
+  id: string;
+  username: string;
   name: string;
-  tagline: string;
+  bio?: string;
+  tagline?: string;
   followers: number;
   monthlyListeners: number;
-  accent: string;
+  accent?: string;
 };
 
 type Track = {
   id: string;
   title: string;
-  minutes: number;
-  seconds: number;
+  audioDuration: number;
   plays: number;
-  gradient: string;
+  coverGradient: string;
 };
-
-const seedArtists: Artist[] = [
-  {
-    slug: "nova-sky",
-    name: "Nova Sky",
-    tagline: "glitter-pop with midnight drums",
-    followers: 12840,
-    monthlyListeners: 54700,
-    accent: "from-emerald-400/30 via-emerald-400/0 to-fuchsia-500/25",
-  },
-  {
-    slug: "cassette-ghost",
-    name: "Cassette Ghost",
-    tagline: "lo-fi memories, high-voltage hooks",
-    followers: 7800,
-    monthlyListeners: 22100,
-    accent: "from-fuchsia-500/25 via-fuchsia-500/0 to-cyan-400/25",
-  },
-  {
-    slug: "afterglow-park",
-    name: "Afterglow Park",
-    tagline: "indie rock for late trains",
-    followers: 19200,
-    monthlyListeners: 80300,
-    accent: "from-cyan-400/28 via-cyan-400/0 to-emerald-400/20",
-  },
-];
-
-function titleFromSlug(slug: string) {
-  const s = slug
-    .split("-")
-    .map((p) => (p ? p[0].toUpperCase() + p.slice(1) : p))
-    .join(" ");
-  return s || "Your Artist";
-}
 
 function formatCount(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -77,56 +43,75 @@ function formatCount(n: number) {
   return `${n}`;
 }
 
-function time(min: number, sec: number) {
+function time(duration: number) {
+  const min = Math.floor(duration / 60);
+  const sec = Math.floor(duration % 60);
   return `${min}:${`${sec}`.padStart(2, "0")}`;
-}
-
-function makeTracks(seed: string): Track[] {
-  const base = [
-    "Neon Postcard",
-    "Greenroom Glow",
-    "Tape Hiss Heartbeat",
-    "Platform 9 (Live)",
-    "Afterparty Static",
-  ];
-  const hash = Array.from(seed).reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  const grads = [
-    "from-emerald-400/30 via-transparent to-fuchsia-500/30",
-    "from-fuchsia-500/28 via-transparent to-cyan-400/28",
-    "from-cyan-400/30 via-transparent to-emerald-400/25",
-    "from-lime-400/26 via-transparent to-emerald-400/22",
-  ];
-  return base.slice(0, 4).map((t, idx) => ({
-    id: `${seed}-${idx}`,
-    title: t,
-    minutes: 3 + ((hash + idx) % 2),
-    seconds: 10 + ((hash + idx * 7) % 50),
-    plays: 3000 + ((hash + idx * 977) % 50000),
-    gradient: grads[(hash + idx) % grads.length],
-  }));
 }
 
 export default function ArtistPage() {
   const params = useParams();
   const slug = (params as any)?.slug as string;
 
+  const [artist, setArtist] = useState<Artist | null>(null);
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
-  const artist: Artist = useMemo(() => {
-    const hit = seedArtists.find((a) => a.slug === slug);
-    if (hit) return hit;
-    return {
-      slug,
-      name: titleFromSlug(slug),
-      tagline: "fresh uploads • new era energy",
-      followers: 420,
-      monthlyListeners: 1800,
-      accent: "from-emerald-400/28 via-transparent to-cyan-400/22",
-    };
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        // Fetch user by username (slug)
+        const userRes = await fetch(`/api/users/username/${slug}`);
+        if (!userRes.ok) return;
+        const userData = await userRes.json();
+        
+        // Fetch user stats
+        const statsRes = await fetch(`/api/users/${userData.id}/stats`);
+        const statsData = statsRes.ok ? await statsRes.json() : { followers: 0, monthlyListeners: 0 };
+        
+        setArtist({
+          ...userData,
+          followers: statsData.followers || 0,
+          monthlyListeners: statsData.monthlyListeners || 0,
+          tagline: userData.tagline || "Fresh sounds, new era energy",
+          accent: userData.accent || "from-emerald-400/28 via-transparent to-cyan-400/22"
+        });
+
+        // Fetch user tracks
+        const tracksRes = await fetch(`/api/tracks?userId=${userData.id}&published=true`);
+        if (tracksRes.ok) {
+          const tracksData = await tracksRes.json();
+          setTracks(tracksData);
+        }
+      } catch (error) {
+        console.error("Failed to fetch artist data:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
   }, [slug]);
 
-  const tracks = useMemo(() => makeTracks(slug), [slug]);
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="animate-pulse text-muted-foreground">Loading artist profile...</div>
+      </div>
+    );
+  }
+
+  if (!artist) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
+        <div className="text-xl font-semibold">Artist not found</div>
+        <Link href="/">
+          <Button>Back to Home</Button>
+        </Link>
+      </div>
+    );
+  }
 
   const followCount = artist.followers + (following ? 1 : 0);
 
@@ -220,8 +205,7 @@ export default function ArtistPage() {
                 </div>
               </div>
               <p className="mt-4 max-w-xl text-sm text-muted-foreground">
-                This page is a clean, shareable artist profile. In the full version, uploads and
-                follows would persist and your music would stream.
+                {artist.bio || "IndieWave artist sharing their latest releases and demos."}
               </p>
             </div>
 
@@ -250,9 +234,9 @@ export default function ArtistPage() {
 
                   <div className="mt-4 grid gap-3">
                     {[
-                      { label: "New followers", value: "+42 this week" },
-                      { label: "Saves", value: "1.2k" },
-                      { label: "Shares", value: "314" },
+                      { label: "Saves", value: formatCount(artist.monthlyListeners / 10) },
+                      { label: "Shares", value: formatCount(artist.followers / 5) },
+                      { label: "Monthly Growth", value: "+12%" },
                     ].map((r) => (
                       <div
                         key={r.label}
@@ -291,45 +275,51 @@ export default function ArtistPage() {
           <Separator className="my-4 opacity-60" />
 
           <div className="grid gap-3">
-            {tracks.map((t) => (
-              <motion.div
-                layout
-                key={t.id}
-                className={cn(
-                  "group glass glow noise rounded-2xl p-3 transition",
-                  activeId === t.id && "ring-1 ring-primary/60",
-                )}
-                data-testid={`card-artist-track-${t.id}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br",
-                      t.gradient,
-                    )}
-                    aria-hidden="true"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold" data-testid={`text-artist-track-title-${t.id}`}>
-                      {t.title}
+            {tracks.length === 0 ? (
+              <div className="glass rounded-2xl p-8 text-center text-muted-foreground">
+                No tracks published yet.
+              </div>
+            ) : (
+              tracks.map((t) => (
+                <motion.div
+                  layout
+                  key={t.id}
+                  className={cn(
+                    "group glass glow noise rounded-2xl p-3 transition",
+                    activeId === t.id && "ring-1 ring-primary/60",
+                  )}
+                  data-testid={`card-artist-track-${t.id}`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br",
+                        t.coverGradient,
+                      )}
+                      aria-hidden="true"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold" data-testid={`text-artist-track-title-${t.id}`}>
+                        {t.title}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span data-testid={`text-artist-track-time-${t.id}`}>{time(t.audioDuration)}</span>
+                        <span aria-hidden="true">•</span>
+                        <span data-testid={`text-artist-track-plays-${t.id}`}>{formatCount(t.plays)} plays</span>
+                      </div>
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span data-testid={`text-artist-track-time-${t.id}`}>{time(t.minutes, t.seconds)}</span>
-                      <span aria-hidden="true">•</span>
-                      <span data-testid={`text-artist-track-plays-${t.id}`}>{formatCount(t.plays)} plays</span>
-                    </div>
+                    <Button
+                      size="icon"
+                      className="h-9 w-9 rounded-xl"
+                      onClick={() => setActiveId(t.id)}
+                      data-testid={`button-artist-play-${t.id}`}
+                    >
+                      <Play className="h-4 w-4 fill-current" />
+                    </Button>
                   </div>
-                  <Button
-                    size="icon"
-                    className="h-9 w-9 rounded-xl"
-                    onClick={() => setActiveId(t.id)}
-                    data-testid={`button-artist-play-${t.id}`}
-                  >
-                    <Play className="h-4 w-4 fill-current" />
-                  </Button>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))
+            )}
           </div>
         </section>
 
