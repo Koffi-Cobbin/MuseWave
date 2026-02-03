@@ -4,6 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider } from "@/contexts/auth-context";
+import { PlayerProvider } from "@/contexts/player-context";
+import PlayerBar from "@/components/PlayerBar";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Upload from "./pages/upload";
@@ -24,10 +26,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+        <PlayerProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+            <PlayerBar />
+          </TooltipProvider>
+        </PlayerProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

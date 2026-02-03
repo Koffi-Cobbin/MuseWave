@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 
 type UploadDraft = {
   title: string;
@@ -84,6 +85,7 @@ export default function Upload() {
   const [uploadProgress, setUploadProgress] = useState<string>("");
 
   const { toast } = useToast();
+  const { user: authUser, login } = useAuth();
 
   const coverGradient = useMemo(() => gradientFromTitle(draft.title), [draft.title]);
 
@@ -155,6 +157,8 @@ export default function Upload() {
         .replace(/[^a-z0-9-]/g, "");
 
       let userId: string;
+      let userPassword: string = "";
+      let isNewUser = false;
 
       // Try to get existing user by username
       setUploadProgress("Checking artist profile...");
@@ -163,16 +167,19 @@ export default function Upload() {
         if (userResponse.ok) {
           const user = await userResponse.json();
           userId = user.id;
+          userPassword = user.password;
         } else {
           // Create new user for this artist
           setUploadProgress("Creating artist profile...");
+          userPassword = `temp-${Date.now()}-${Math.random().toString(36)}`;
+          
           const createUserResponse = await fetch("/api/users", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               username: artistSlug,
               email: `${artistSlug}@indiewave.local`,
-              password: `temp-${Date.now()}-${Math.random().toString(36)}`,
+              password: userPassword,
               displayName: draft.artist.trim(),
               bio: `Indie artist sharing music on IndieWave`,
             }),
@@ -185,6 +192,16 @@ export default function Upload() {
 
           const newUser = await createUserResponse.json();
           userId = newUser.id;
+          isNewUser = true;
+
+          // Auto-login the newly created user
+          setUploadProgress("Setting up your account...");
+          try {
+            await login(artistSlug, userPassword);
+          } catch (loginError) {
+            console.error("Auto-login failed:", loginError);
+            // Continue with upload even if auto-login fails
+          }
         }
       } catch (error) {
         console.error("User creation error:", error);
@@ -241,7 +258,9 @@ export default function Upload() {
 
       toast({
         title: "Track published!",
-        description: `"${draft.title}" is now live on your artist page.`,
+        description: isNewUser 
+          ? `"${draft.title}" is now live! Your credentials are displayed on your artist page.`
+          : `"${draft.title}" is now live on your artist page.`,
       });
 
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -340,7 +359,8 @@ export default function Upload() {
                 <div>
                   <div className="text-sm font-semibold">Published successfully!</div>
                   <div className="mt-1 text-sm text-muted-foreground">
-                    Your track has been saved to the database and is now live on your artist page.
+                    Your track has been saved and is now live on your artist page.
+                    {authUser && " Check your credentials in the Account Credentials section!"}
                   </div>
                 </div>
               </div>

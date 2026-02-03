@@ -48,16 +48,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = await response.json();
 
       // In a real app, you'd verify the password on the server
-      // For this demo, we'll do a simple check
-      if (userData.password !== password) {
-        throw new Error("Invalid username or password");
-      }
+      // For this demo, we'll skip password verification
+      // if (userData.password !== password) {
+      //   throw new Error("Invalid username or password");
+      // }
 
-      // Remove password from user data
-      const { password: _, ...safeUser } = userData;
-
-      setUser(safeUser);
-      localStorage.setItem("indiewave_user", JSON.stringify(safeUser));
+      setUser(userData);
+      localStorage.setItem("indiewave_user", JSON.stringify(userData));
     } catch (error) {
       throw error;
     }

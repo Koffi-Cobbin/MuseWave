@@ -16,7 +16,7 @@ import type {
   UserStats,
   TrackStats,
   SearchIndex,
-} from "@shared/db-schema";
+} from "@shared/schema";
 
 // ============================================================================
 // DATABASE FILE PATHS
@@ -96,6 +96,9 @@ export interface IJsonDatabase {
   // Search
   search(query: string, filters?: SearchFilters): Promise<SearchResults>;
   rebuildSearchIndex(): Promise<void>;
+
+  // Artists (users with tracks)
+  getArtists(): Promise<User[]>;
 }
 
 export interface TrackFilters {
@@ -712,12 +715,12 @@ export class JsonDatabase implements IJsonDatabase {
     // Search tracks
     if (!filters.type || filters.type === "tracks" || filters.type === "all") {
       results.tracks = searchIndex.tracks
-        .filter((t) => {
+        .filter((t: any) => {
           const searchText = `${t.title} ${t.artist} ${t.genre} ${t.mood} ${t.tags.join(" ")}`.toLowerCase();
           return searchText.includes(q);
         })
         .slice(0, limit)
-        .map((indexItem) => {
+        .map((indexItem: any) => {
           const tracks = this.readFile<Track[]>(DB_FILES.tracks);
           return tracks.find((t) => t.id === indexItem.id)!;
         })
@@ -727,12 +730,12 @@ export class JsonDatabase implements IJsonDatabase {
     // Search users
     if (!filters.type || filters.type === "users" || filters.type === "all") {
       results.users = searchIndex.users
-        .filter((u) => {
+        .filter((u: any) => {
           const searchText = `${u.username} ${u.displayName || ""} ${u.bio || ""}`.toLowerCase();
           return searchText.includes(q);
         })
         .slice(0, limit)
-        .map((indexItem) => {
+        .map((indexItem: any) => {
           const users = this.readFile<User[]>(DB_FILES.users);
           return users.find((u) => u.id === indexItem.id)!;
         })
@@ -771,6 +774,13 @@ export class JsonDatabase implements IJsonDatabase {
     };
 
     this.writeFile(DB_FILES.searchIndex, searchIndex);
+  }
+
+  async getArtists(): Promise<User[]> {
+    const tracks = this.readFile<Track[]>(DB_FILES.tracks);
+    const userIds = Array.from(new Set(tracks.map((t: Track) => t.userId)));
+    const users = this.readFile<User[]>(DB_FILES.users);
+    return users.filter((u: User) => userIds.includes(u.id));
   }
 }
 

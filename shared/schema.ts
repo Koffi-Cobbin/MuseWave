@@ -93,10 +93,6 @@ export const createTrackSchema = trackSchema.omit({
 export const updateTrackSchema = trackSchema.partial().omit({
   id: true,
   userId: true,
-  plays: true,
-  likes: true,
-  downloads: true,
-  shares: true,
   createdAt: true,
 });
 

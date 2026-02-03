@@ -98,6 +98,18 @@ export async function registerRoutes(
     })
   );
 
+  // List users
+  app.get(
+    "/api/users",
+    asyncHandler(async (req: any, res: any) => {
+      const limit = req.query.limit ? parseInt(req.query.limit) : undefined;
+      const offset = req.query.offset ? parseInt(req.query.offset) : undefined;
+      const users = await jsonDb.listUsers(limit, offset);
+      const safeUsers = users.map(({ password, ...u }) => u);
+      res.json(safeUsers);
+    })
+  );
+
   // ============================================================================
   // TRACKS
   // ============================================================================
@@ -322,6 +334,16 @@ export async function registerRoutes(
     await jsonDb.rebuildSearchIndex();
     res.json({ success: true });
   }));
+
+  // Get artists (users with tracks)
+  app.get(
+    "/api/artists",
+    asyncHandler(async (req: any, res: any) => {
+      const artists = await jsonDb.getArtists();
+      const safeArtists = artists.map(({ password, ...u }) => u);
+      res.json(safeArtists);
+    })
+  );
 
   return httpServer;
 }

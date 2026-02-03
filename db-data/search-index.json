@@ -1,4 +1,28 @@
 {
-  "tracks": [],
-  "users": []
+  "tracks": [
+    {
+      "id": "2267b772-9e81-477e-bd31-b1869ede89cf",
+      "title": "Still Buildin'",
+      "artist": "Koffi Cobbin",
+      "artistSlug": "koffi-cobbin",
+      "genre": "Hip-hop",
+      "mood": "Hunger",
+      "tags": [
+        "hunger",
+        "hip-hop"
+      ],
+      "plays": 0,
+      "likes": 0,
+      "publishedAt": "2026-02-03T13:08:19.996Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "f15c1c4c-37a9-46fb-8487-57b5f069ab36",
+      "username": "koffi-cobbin",
+      "displayName": "Koffi Cobbin",
+      "bio": "Indie artist sharing music on IndieWave",
+      "verified": false
+    }
+  ]
 }
