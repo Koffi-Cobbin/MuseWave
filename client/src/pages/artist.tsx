@@ -381,6 +381,90 @@ export default function ArtistPage() {
           </div>
         </section>
 
+        {isOwner && (
+          <section className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Settings className="h-4 w-4 text-primary" />
+                <h2 className="text-lg font-semibold">Account Credentials</h2>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setIsEditingCredentials(!isEditingCredentials)}
+              >
+                {isEditingCredentials ? "Cancel" : "Edit"}
+              </Button>
+            </div>
+            
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="glass rounded-2xl p-4">
+                <div className="text-xs text-muted-foreground mb-1">Username</div>
+                <div className="flex items-center justify-between gap-2">
+                  {isEditingCredentials ? (
+                    <input
+                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none w-full py-1"
+                      placeholder={artist.username}
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                    />
+                  ) : (
+                    <span className="text-sm font-mono truncate">{artist.username}</span>
+                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => copyToClipboard(artist.username, "Username")}
+                  >
+                    {copied === "Username" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="glass rounded-2xl p-4">
+                <div className="text-xs text-muted-foreground mb-1">Password</div>
+                <div className="flex items-center justify-between gap-2">
+                  {isEditingCredentials ? (
+                    <input
+                      type="password"
+                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none w-full py-1"
+                      placeholder="New password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                  ) : (
+                    <span className="text-sm font-mono truncate">••••••••</span>
+                  )}
+                  <div className="flex gap-1">
+                    {!isEditingCredentials && (
+                       <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => copyToClipboard(artist.password || "", "Password")}
+                      >
+                        {copied === "Password" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {isEditingCredentials && (
+              <Button 
+                className="mt-4 w-full" 
+                size="sm"
+                onClick={handleUpdateCredentials}
+                disabled={!newUsername && !newPassword}
+              >
+                Save Changes
+              </Button>
+            )}
+          </section>
+        )}
+
         <section className="mt-6">
           <div className="flex items-end justify-between">
             <div>

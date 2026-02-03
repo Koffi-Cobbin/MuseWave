@@ -373,30 +373,42 @@ export class JsonDatabase implements IJsonDatabase {
   }
 
   async incrementTrackPlays(trackId: string): Promise<void> {
-    const track = await this.getTrack(trackId);
-    if (track) {
-      await this.updateTrack(trackId, { plays: track.plays + 1 });
+    const tracks = this.readFile<Track[]>(DB_FILES.tracks);
+    const index = tracks.findIndex((t) => t.id === trackId);
+    if (index !== -1) {
+      tracks[index].plays += 1;
+      tracks[index].updatedAt = new Date().toISOString();
+      this.writeFile(DB_FILES.tracks, tracks);
     }
   }
 
   async incrementTrackLikes(trackId: string): Promise<void> {
-    const track = await this.getTrack(trackId);
-    if (track) {
-      await this.updateTrack(trackId, { likes: track.likes + 1 });
+    const tracks = this.readFile<Track[]>(DB_FILES.tracks);
+    const index = tracks.findIndex((t) => t.id === trackId);
+    if (index !== -1) {
+      tracks[index].likes += 1;
+      tracks[index].updatedAt = new Date().toISOString();
+      this.writeFile(DB_FILES.tracks, tracks);
     }
   }
 
   async decrementTrackLikes(trackId: string): Promise<void> {
-    const track = await this.getTrack(trackId);
-    if (track) {
-      await this.updateTrack(trackId, { likes: Math.max(0, track.likes - 1) });
+    const tracks = this.readFile<Track[]>(DB_FILES.tracks);
+    const index = tracks.findIndex((t) => t.id === trackId);
+    if (index !== -1) {
+      tracks[index].likes = Math.max(0, tracks[index].likes - 1);
+      tracks[index].updatedAt = new Date().toISOString();
+      this.writeFile(DB_FILES.tracks, tracks);
     }
   }
 
   async incrementTrackDownloads(trackId: string): Promise<void> {
-    const track = await this.getTrack(trackId);
-    if (track) {
-      await this.updateTrack(trackId, { downloads: track.downloads + 1 });
+    const tracks = this.readFile<Track[]>(DB_FILES.tracks);
+    const index = tracks.findIndex((t) => t.id === trackId);
+    if (index !== -1) {
+      tracks[index].downloads += 1;
+      tracks[index].updatedAt = new Date().toISOString();
+      this.writeFile(DB_FILES.tracks, tracks);
     }
   }
 
@@ -642,7 +654,7 @@ export class JsonDatabase implements IJsonDatabase {
       updatedAt: new Date().toISOString(),
     };
 
-    const index = allStats.findIndex((s) => s.userId === userId);
+    const index = allStats.findIndex((s: any) => s.userId === userId);
     if (index >= 0) {
       allStats[index] = stats;
     } else {
@@ -659,20 +671,20 @@ export class JsonDatabase implements IJsonDatabase {
 
     // Daily plays
     const dailyPlays: Record<string, number> = {};
-    plays.forEach((p) => {
+    plays.forEach((p: any) => {
       const date = new Date(p.createdAt).toISOString().split("T")[0];
       dailyPlays[date] = (dailyPlays[date] || 0) + 1;
     });
 
     // Unique listeners
-    const uniqueListeners = new Set(plays.map((p) => p.userId).filter(Boolean));
+    const uniqueListeners = new Set(plays.map((p: any) => p.userId).filter(Boolean));
 
     // Average listen duration
-    const totalDuration = plays.reduce((sum, p) => sum + p.duration, 0);
+    const totalDuration = plays.reduce((sum: number, p: any) => sum + p.duration, 0);
     const avgListenDuration = plays.length > 0 ? totalDuration / plays.length : 0;
 
     // Completion rate
-    const completedPlays = plays.filter((p) => p.completed).length;
+    const completedPlays = plays.filter((p: any) => p.completed).length;
     const completionRate = plays.length > 0 ? (completedPlays / plays.length) * 100 : 0;
 
     const stats: TrackStats = {
@@ -684,7 +696,7 @@ export class JsonDatabase implements IJsonDatabase {
       updatedAt: new Date().toISOString(),
     };
 
-    const index = allStats.findIndex((s) => s.trackId === trackId);
+    const index = allStats.findIndex((s: any) => s.trackId === trackId);
     if (index >= 0) {
       allStats[index] = stats;
     } else {
