@@ -11,16 +11,23 @@ import {
   Share2,
   Sparkles,
   Users,
+  Copy,
+  Check,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 type Artist = {
   id: string;
   username: string;
   name: string;
+  password?: string;
   bio?: string;
   tagline?: string;
   followers: number;
@@ -58,6 +65,55 @@ export default function ArtistPage() {
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const { user: authUser } = useAuth();
+  const { toast } = useToast();
+  const [copied, setCopied] = useState<string | null>(null);
+  const [isEditingCredentials, setIsEditingCredentials] = useState(false);
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+
+  const isOwner = authUser?.id === artist?.id;
+
+  const copyToClipboard = (text: string, type: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(type);
+    setTimeout(() => setCopied(null), 2000);
+    toast({
+      title: "Copied",
+      description: `${type} copied to clipboard`,
+    });
+  };
+
+  const handleUpdateCredentials = async () => {
+    if (!artist) return;
+    try {
+      const updates: any = {};
+      if (newUsername) updates.username = newUsername;
+      if (newPassword) updates.password = newPassword;
+
+      if (Object.keys(updates).length === 0) return;
+
+      const res = await apiRequest("PATCH", `/api/users/${artist.id}`, updates);
+      if (!res.ok) throw new Error("Failed to update credentials");
+      
+      const updatedUser = await res.json();
+      setArtist(prev => prev ? { ...prev, ...updatedUser } : null);
+      setIsEditingCredentials(false);
+      setNewUsername("");
+      setNewPassword("");
+      
+      toast({
+        title: "Success",
+        description: "Credentials updated successfully",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update credentials",
+      });
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -73,6 +129,7 @@ export default function ArtistPage() {
         
         setArtist({
           ...userData,
+          password: userData.password, // Added for visibility on own profile
           followers: statsData.followers || 0,
           monthlyListeners: statsData.monthlyListeners || 0,
           tagline: userData.tagline || "Fresh sounds, new era energy",
@@ -253,6 +310,90 @@ export default function ArtistPage() {
             </div>
           </div>
         </section>
+
+        {isOwner && (
+          <section className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Settings className="h-4 w-4 text-primary" />
+                <h2 className="text-lg font-semibold">Account Credentials</h2>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setIsEditingCredentials(!isEditingCredentials)}
+              >
+                {isEditingCredentials ? "Cancel" : "Edit"}
+              </Button>
+            </div>
+            
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="glass rounded-2xl p-4">
+                <div className="text-xs text-muted-foreground mb-1">Username</div>
+                <div className="flex items-center justify-between gap-2">
+                  {isEditingCredentials ? (
+                    <input
+                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none w-full py-1"
+                      placeholder={artist.username}
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                    />
+                  ) : (
+                    <span className="text-sm font-mono truncate">{artist.username}</span>
+                  )}
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8"
+                    onClick={() => copyToClipboard(artist.username, "Username")}
+                  >
+                    {copied === "Username" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="glass rounded-2xl p-4">
+                <div className="text-xs text-muted-foreground mb-1">Password</div>
+                <div className="flex items-center justify-between gap-2">
+                  {isEditingCredentials ? (
+                    <input
+                      type="password"
+                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none w-full py-1"
+                      placeholder="New password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                    />
+                  ) : (
+                    <span className="text-sm font-mono truncate">••••••••</span>
+                  )}
+                  <div className="flex gap-1">
+                    {!isEditingCredentials && (
+                       <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={() => copyToClipboard(artist.password || "", "Password")}
+                      >
+                        {copied === "Password" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {isEditingCredentials && (
+              <Button 
+                className="mt-4 w-full" 
+                size="sm"
+                onClick={handleUpdateCredentials}
+                disabled={!newUsername && !newPassword}
+              >
+                Save Changes
+              </Button>
+            )}
+          </section>
+        )}
 
         <section className="mt-6">
           <div className="flex items-end justify-between">
