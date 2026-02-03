@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
 import {
@@ -26,11 +26,10 @@ type Track = {
   artistSlug: string;
   coverGradient: string;
   genre: string;
-  mood: string;
-  minutes: number;
-  seconds: number;
+  mood?: string;
+  audioDuration: number;
   plays: number;
-  uploadedAgo: string;
+  publishedAt?: string;
 };
 
 type Artist = {
@@ -69,61 +68,6 @@ const mockArtists: Artist[] = [
   },
 ];
 
-const mockTracks: Track[] = [
-  {
-    id: "t1",
-    title: "Neon Postcard",
-    artist: "Nova Sky",
-    artistSlug: "nova-sky",
-    coverGradient: "from-emerald-400/30 via-transparent to-fuchsia-500/30",
-    genre: "Alt Pop",
-    mood: "Bright",
-    minutes: 3,
-    seconds: 12,
-    plays: 18450,
-    uploadedAgo: "2h",
-  },
-  {
-    id: "t2",
-    title: "Tape Hiss Heartbeat",
-    artist: "Cassette Ghost",
-    artistSlug: "cassette-ghost",
-    coverGradient: "from-fuchsia-500/30 via-transparent to-cyan-400/30",
-    genre: "Lo-fi",
-    mood: "Cozy",
-    minutes: 2,
-    seconds: 47,
-    plays: 9200,
-    uploadedAgo: "1d",
-  },
-  {
-    id: "t3",
-    title: "Platform 9 (Live)",
-    artist: "Afterglow Park",
-    artistSlug: "afterglow-park",
-    coverGradient: "from-cyan-400/30 via-transparent to-emerald-400/25",
-    genre: "Indie Rock",
-    mood: "Driving",
-    minutes: 4,
-    seconds: 6,
-    plays: 27310,
-    uploadedAgo: "3d",
-  },
-  {
-    id: "t4",
-    title: "Greenroom Glow",
-    artist: "Nova Sky",
-    artistSlug: "nova-sky",
-    coverGradient: "from-emerald-400/25 via-transparent to-fuchsia-500/25",
-    genre: "Alt Pop",
-    mood: "Confident",
-    minutes: 3,
-    seconds: 31,
-    plays: 11400,
-    uploadedAgo: "6d",
-  },
-];
-
 function formatCount(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 10_000) return `${Math.round(n / 1_000)}k`;
@@ -131,9 +75,30 @@ function formatCount(n: number) {
   return `${n}`;
 }
 
-function secondsToTime(min: number, sec: number) {
+function secondsToTime(duration: number) {
+  const min = Math.floor(duration / 60);
+  const sec = Math.floor(duration % 60);
   const s = `${sec}`.padStart(2, "0");
   return `${min}:${s}`;
+}
+
+function timeAgo(dateString?: string) {
+  if (!dateString) return "just now";
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  let interval = seconds / 31536000;
+  if (interval > 1) return Math.floor(interval) + "y";
+  interval = seconds / 2592000;
+  if (interval > 1) return Math.floor(interval) + "mo";
+  interval = seconds / 86400;
+  if (interval > 1) return Math.floor(interval) + "d";
+  interval = seconds / 3600;
+  if (interval > 1) return Math.floor(interval) + "h";
+  interval = seconds / 60;
+  if (interval > 1) return Math.floor(interval) + "m";
+  return Math.floor(seconds) + "s";
 }
 
 function Logo() {
@@ -151,9 +116,8 @@ function Logo() {
   );
 }
 
-function SidebarNav() {
+function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
   const [location] = useLocation();
-  const [isOpen, setIsOpen] = useState(false);
 
   const items = [
     { href: "/", label: "Home", icon: HomeIcon, testId: "link-nav-home" },
@@ -177,19 +141,21 @@ function SidebarNav() {
     },
   ];
 
-  const content = (
+  return (
     <div className="glass glow noise h-full rounded-2xl p-4 lg:h-auto">
       <div className="flex items-center justify-between lg:block">
         <Logo />
-        <Button
-          variant="ghost"
-          size="icon"
-          className="lg:hidden"
-          onClick={() => setIsOpen(false)}
-          data-testid="button-close-nav"
-        >
-          <Sparkles className="h-5 w-5 rotate-45" />
-        </Button>
+        {onMobileClose && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={onMobileClose}
+            data-testid="button-close-nav"
+          >
+            <Sparkles className="h-5 w-5 rotate-45" />
+          </Button>
+        )}
       </div>
 
       <Separator className="my-4 opacity-60" />
@@ -203,7 +169,7 @@ function SidebarNav() {
               key={it.label}
               href={it.href}
               data-testid={it.testId}
-              onClick={() => setIsOpen(false)}
+              onClick={onMobileClose}
               className={cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
                 "hover:bg-white/5 hover:border-white/10 border border-transparent",
@@ -229,7 +195,7 @@ function SidebarNav() {
             <Button
               size="sm"
               className="w-full"
-              onClick={() => setIsOpen(false)}
+              onClick={onMobileClose}
               data-testid="button-sidebar-upload"
             >
               <UploadCloud className="mr-2 h-4 w-4" />
@@ -239,41 +205,6 @@ function SidebarNav() {
         </div>
       </div>
     </div>
-  );
-
-  return (
-    <>
-      {/* Mobile Toggle */}
-      <div className="fixed bottom-20 right-4 z-50 lg:hidden">
-        <Button
-          size="icon"
-          className="h-12 w-12 rounded-2xl shadow-lg shadow-primary/20"
-          onClick={() => setIsOpen(true)}
-          data-testid="button-toggle-nav"
-        >
-          <HomeIcon className="h-6 w-6" />
-        </Button>
-      </div>
-
-      {/* Mobile Overlay */}
-      {isOpen && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm lg:hidden">
-          <motion.div
-            initial={{ x: "-100%" }}
-            animate={{ x: 0 }}
-            className="h-full w-4/5 max-w-xs p-4"
-          >
-            {content}
-          </motion.div>
-          <div className="absolute inset-0 -z-10" onClick={() => setIsOpen(false)} />
-        </div>
-      )}
-
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:block lg:col-span-3">
-        <div className="sticky top-6">{content}</div>
-      </aside>
-    </>
   );
 }
 
@@ -391,14 +322,16 @@ function TrackCard({
             <Badge variant="secondary" className="border-white/10 bg-white/5">
               {track.genre}
             </Badge>
-            <Badge variant="outline" className="border-white/12 bg-transparent">
-              {track.mood}
-            </Badge>
+            {track.mood && (
+              <Badge variant="outline" className="border-white/12 bg-transparent">
+                {track.mood}
+              </Badge>
+            )}
             <span
               className="ml-auto text-xs text-muted-foreground"
               data-testid={`text-track-meta-${track.id}`}
             >
-              {secondsToTime(track.minutes, track.seconds)} • {formatCount(track.plays)} plays
+              {secondsToTime(track.audioDuration)} • {formatCount(track.plays)} plays
             </span>
           </div>
         </div>
@@ -500,21 +433,72 @@ function PlayerBar({
 export default function Home() {
   const [query, setQuery] = useState("");
   const [active, setActive] = useState<Track | null>(null);
+  const [tracks, setTracks] = useState<Track[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    async function fetchTracks() {
+      try {
+        const response = await fetch("/api/tracks?published=true");
+        if (response.ok) {
+          const data = await response.json();
+          setTracks(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch tracks:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchTracks();
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return mockTracks;
-    return mockTracks.filter((t) => {
-      const hay = `${t.title} ${t.artist} ${t.genre} ${t.mood}`.toLowerCase();
+    if (!q) return tracks;
+    return tracks.filter((t) => {
+      const hay = `${t.title} ${t.artist} ${t.genre} ${t.mood || ""}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [query]);
+  }, [query, tracks]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_420px_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(1100px_520px_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(900px_400px_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
       <div className="mx-auto max-w-6xl px-4 py-6 lg:py-8">
         <div className="grid gap-6 lg:grid-cols-12">
-          <SidebarNav />
+          {/* Mobile Toggle */}
+          <div className="fixed bottom-20 right-4 z-50 lg:hidden">
+            <Button
+              size="icon"
+              className="h-12 w-12 rounded-2xl shadow-lg shadow-primary/20"
+              onClick={() => setIsSidebarOpen(true)}
+              data-testid="button-toggle-nav"
+            >
+              <HomeIcon className="h-6 w-6" />
+            </Button>
+          </div>
+
+          {/* Mobile Sidebar Overlay */}
+          {isSidebarOpen && (
+            <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm lg:hidden">
+              <motion.div
+                initial={{ x: "-100%" }}
+                animate={{ x: 0 }}
+                className="h-full w-4/5 max-w-xs p-4"
+              >
+                <SidebarNav onMobileClose={() => setIsSidebarOpen(false)} />
+              </motion.div>
+              <div className="absolute inset-0 -z-10" onClick={() => setIsSidebarOpen(false)} />
+            </div>
+          )}
+
+          {/* Desktop Sidebar */}
+          <aside className="hidden lg:block lg:col-span-3">
+            <div className="sticky top-6">
+              <SidebarNav />
+            </div>
+          </aside>
 
           <main className="lg:col-span-9">
             <TopBar query={query} onQueryChange={setQuery} />
@@ -591,30 +575,34 @@ export default function Home() {
                         </div>
 
                         <div className="mt-3 space-y-2">
-                          {mockTracks.slice(0, 3).map((t) => (
-                            <button
-                              key={t.id}
-                              onClick={() => setActive(t)}
-                              className={cn(
-                                "w-full rounded-xl border border-white/10 bg-white/4 px-3 py-2 text-left transition",
-                                "hover:bg-white/6",
-                                active?.id === t.id && "bg-white/6 border-primary/40",
-                              )}
-                              data-testid={`button-mini-track-${t.id}`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <div className="min-w-0">
-                                  <div className="truncate text-xs font-semibold">{t.title}</div>
-                                  <div className="truncate text-[11px] text-muted-foreground">
-                                    {t.artist} • {t.uploadedAgo}
+                          {loading ? (
+                            <div className="text-xs text-muted-foreground animate-pulse">Loading trending...</div>
+                          ) : (
+                            tracks.slice(0, 3).map((t) => (
+                              <button
+                                key={t.id}
+                                onClick={() => setActive(t)}
+                                className={cn(
+                                  "w-full rounded-xl border border-white/10 bg-white/4 px-3 py-2 text-left transition",
+                                  "hover:bg-white/6",
+                                  active?.id === t.id && "bg-white/6 border-primary/40",
+                                )}
+                                data-testid={`button-mini-track-${t.id}`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="truncate text-xs font-semibold">{t.title}</div>
+                                    <div className="truncate text-[11px] text-muted-foreground">
+                                      {t.artist} • {timeAgo(t.publishedAt)}
+                                    </div>
+                                  </div>
+                                  <div className="text-[11px] text-muted-foreground">
+                                    {secondsToTime(t.audioDuration)}
                                   </div>
                                 </div>
-                                <div className="text-[11px] text-muted-foreground">
-                                  {secondsToTime(t.minutes, t.seconds)}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
+                              </button>
+                            ))
+                          )}
                         </div>
                       </div>
                     </div>
@@ -641,16 +629,22 @@ export default function Home() {
                 </div>
 
                 <div className="mt-4 grid gap-3">
-                  {filtered.map((t) => (
-                    <TrackCard
-                      key={t.id}
-                      track={t}
-                      onPlay={(trk) => setActive(trk)}
-                      isActive={active?.id === t.id}
-                    />
-                  ))}
+                  {loading ? (
+                    <div className="glass glow noise rounded-2xl p-6 text-center animate-pulse">
+                      <div className="text-sm text-muted-foreground">Finding fresh sounds...</div>
+                    </div>
+                  ) : (
+                    filtered.map((t) => (
+                      <TrackCard
+                        key={t.id}
+                        track={t}
+                        onPlay={(trk) => setActive(trk)}
+                        isActive={active?.id === t.id}
+                      />
+                    ))
+                  )}
 
-                  {filtered.length === 0 && (
+                  {!loading && filtered.length === 0 && (
                     <div
                       className="glass glow noise rounded-2xl p-6 text-center"
                       data-testid="status-empty-search"
@@ -658,31 +652,21 @@ export default function Home() {
                       <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/4">
                         <Search className="h-5 w-5 text-muted-foreground" />
                       </div>
-                      <div className="mt-3 text-sm font-semibold">No matches</div>
-                      <div className="mt-1 text-sm text-muted-foreground">
-                        Try searching by artist, genre, or vibe.
-                      </div>
-                      <div className="mt-4">
-                        <Button
-                          variant="secondary"
-                          className="border-white/10 bg-white/5"
-                          onClick={() => setQuery("")}
-                          data-testid="button-clear-search"
-                        >
-                          Clear search
-                        </Button>
+                      <div className="mt-3 text-sm font-medium">No tracks found</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Try a different search or genre.
                       </div>
                     </div>
                   )}
                 </div>
               </section>
 
-              <section id="community" aria-label="Community" className="scroll-mt-24">
-                <div className="flex items-center justify-between">
+              <section aria-label="Artists">
+                <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Compass className="h-4 w-4 text-accent" />
-                    <h3 className="text-lg font-semibold" data-testid="text-section-community">
-                      New artists to follow
+                    <Sparkles className="h-4 w-4 text-accent" />
+                    <h3 className="text-lg font-semibold" data-testid="text-section-artists">
+                      Artists to watch
                     </h3>
                   </div>
                   <Button
@@ -723,11 +707,11 @@ export default function Home() {
                   </div>
                 </div>
               </section>
-
-              <div className="h-20" aria-hidden="true" />
             </div>
           </main>
         </div>
+
+        <div className="h-24" aria-hidden="true" />
       </div>
 
       <PlayerBar active={active} onClear={() => setActive(null)} />
