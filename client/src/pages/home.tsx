@@ -60,6 +60,7 @@ type ArtistRowData = {
   followers: number;
   monthlyListeners: number;
   accent: string;
+  avatarUrl?: string;
 };
 
 function formatCount(n: number) {
@@ -514,11 +515,20 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
         <div className="flex min-w-0 items-center gap-3">         
           <div
             className={cn(
-              "h-12 w-12 shrink-0 rounded-2xl border border-white/10 bg-gradient-to-br",
-              artist.accent,
+              "h-12 w-12 shrink-0 rounded-2xl border border-white/10 overflow-hidden",
+              !artist.avatarUrl && "bg-gradient-to-br",
+              !artist.avatarUrl && artist.accent,
             )}
             aria-hidden="true"
-          />
+          >
+            {artist.avatarUrl ? (
+              <img
+                src={artist.avatarUrl}
+                alt={`${artist.name} profile`}
+                className="h-full w-full object-cover"
+              />
+            ) : null}
+          </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold" data-testid={`text-artist-name-${artist.slug}`}>
               {artist.name}
@@ -540,6 +550,7 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
     </Link>
   );
 }
+
 
 export default function Home() {
   const [query, setQuery] = useState("");
@@ -589,6 +600,7 @@ export default function Home() {
               followers,
               monthlyListeners: plays,
               accent: "from-emerald-400/30 via-emerald-400/0 to-fuchsia-500/20", // Default accent
+              avatarUrl: user.avatarUrl, // Include avatar URL
             };
           }));
           setArtists(mappedArtists);

@@ -1,10 +1,6 @@
 [
   {
-<<<<<<< HEAD
     "userId": "f15c1c4c-37a9-46fb-8487-57b5f069ab36",
-=======
-    "userId": "acf4a4a1-97d2-4a5b-ac16-7182e57a775c",
->>>>>>> e11b5587c0511de837ada8b4005428a49958bb97
     "totalTracks": 1,
     "totalPlays": 0,
     "totalLikes": 0,
@@ -12,10 +8,6 @@
     "totalFollowers": 0,
     "totalFollowing": 0,
     "monthlyListeners": 0,
-<<<<<<< HEAD
-    "updatedAt": "2026-02-03T13:08:20.622Z"
-=======
-    "updatedAt": "2026-02-03T11:08:18.118Z"
->>>>>>> e11b5587c0511de837ada8b4005428a49958bb97
+    "updatedAt": "2026-02-03T18:55:05.191Z"
   }
 ]
