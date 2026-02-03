@@ -12,12 +12,26 @@ import {
   Sparkles,
   UploadCloud,
   Users,
+  LogIn,
+  LogOut,
+  User as UserIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
 
 type Track = {
   id: string;
@@ -116,8 +130,112 @@ function Logo() {
   );
 }
 
+function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [open, setOpen] = useState(false);
+  const { login } = useAuth();
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      await login(username, password);
+      toast({
+        title: "Welcome back!",
+        description: "You've successfully logged in.",
+      });
+      setOpen(false);
+      setUsername("");
+      setPassword("");
+      onSuccess?.();
+    } catch (error) {
+      toast({
+        title: "Login failed",
+        description: error instanceof Error ? error.message : "Invalid credentials",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          className="w-full justify-start"
+          variant="ghost"
+          data-testid="button-login"
+        >
+          <LogIn className="mr-2 h-4 w-4" />
+          Log in
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Welcome back</DialogTitle>
+          <DialogDescription>
+            Log in to your IndieWave account to upload music and connect with listeners.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="grid gap-4">
+          <div className="grid gap-2">
+            <Label htmlFor="username">Username</Label>
+            <Input
+              id="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="your-username"
+              required
+              disabled={isLoading}
+              data-testid="input-login-username"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              required
+              disabled={isLoading}
+              data-testid="input-login-password"
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Button type="submit" disabled={isLoading} data-testid="button-submit-login">
+              {isLoading ? (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4 animate-spin" />
+                  Logging in...
+                </>
+              ) : (
+                <>
+                  <LogIn className="mr-2 h-4 w-4" />
+                  Log in
+                </>
+              )}
+            </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              Demo: Use username "koffi-cobbin" from the database
+            </p>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
   const [location] = useLocation();
+  const { user, logout, isAuthenticated } = useAuth();
+  const { toast } = useToast();
 
   const items = [
     { href: "/", label: "Home", icon: HomeIcon, testId: "link-nav-home" },
@@ -141,6 +259,15 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
     },
   ];
 
+  const handleLogout = () => {
+    logout();
+    toast({
+      title: "Logged out",
+      description: "You've been successfully logged out.",
+    });
+    onMobileClose?.();
+  };
+
   return (
     <div className="glass glow noise h-full rounded-2xl p-4 lg:h-auto">
       <div className="flex items-center justify-between lg:block">
@@ -159,6 +286,26 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
       </div>
 
       <Separator className="my-4 opacity-60" />
+
+      {isAuthenticated && user && (
+        <>
+          <div className="mb-4 rounded-xl border border-white/10 bg-white/4 p-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-emerald-400/30 to-fuchsia-500/20">
+                <UserIcon className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-semibold" data-testid="text-user-name">
+                  {user.displayName || user.username}
+                </div>
+                <div className="truncate text-xs text-muted-foreground" data-testid="text-user-email">
+                  {user.email}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       <nav className="grid gap-1">
         {items.map((it) => {
@@ -182,6 +329,22 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
           );
         })}
       </nav>
+
+      <Separator className="my-4 opacity-60" />
+
+      {isAuthenticated ? (
+        <Button
+          variant="ghost"
+          className="w-full justify-start"
+          onClick={handleLogout}
+          data-testid="button-logout"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Log out
+        </Button>
+      ) : (
+        <LoginDialog onSuccess={onMobileClose} />
+      )}
 
       <div className="mt-4 rounded-xl border border-white/10 bg-white/4 p-3">
         <div className="text-xs text-muted-foreground" data-testid="text-tip">
