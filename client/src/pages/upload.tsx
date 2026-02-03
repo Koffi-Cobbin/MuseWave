@@ -56,8 +56,20 @@ export default function Upload() {
 
   const coverGradient = useMemo(() => gradientFromTitle(draft.title), [draft.title]);
 
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
   function update<K extends keyof UploadDraft>(key: K, value: UploadDraft[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
+    if (key === "coverFile") {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+      if (value instanceof File) {
+        setPreviewUrl(URL.createObjectURL(value));
+      } else {
+        setPreviewUrl(null);
+      }
+    }
   }
 
   function onSubmit() {
@@ -306,10 +318,19 @@ export default function Upload() {
                   <div
                     className={cn(
                       "h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br",
-                      coverGradient,
+                      !previewUrl && coverGradient,
                     )}
                     aria-hidden="true"
-                  />
+                  >
+                    {previewUrl && (
+                      <img
+                        src={previewUrl}
+                        alt="Cover preview"
+                        className="h-full w-full object-cover"
+                        data-testid="img-cover-preview"
+                      />
+                    )}
+                  </div>
                   <div className="min-w-0">
                     <div className="truncate text-sm font-semibold" data-testid="text-preview-track-title">
                       {draft.title || "Track title"}
