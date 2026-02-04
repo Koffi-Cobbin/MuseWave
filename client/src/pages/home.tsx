@@ -583,13 +583,10 @@ export default function Home() {
         const response = await fetch("/api/artists");
         if (response.ok) {
           const data = await response.json();
-          // Map users to Artist type
           const mappedArtists: ArtistRowData[] = await Promise.all(data.map(async (user: any) => {
-            // Fetch followers
             const followersRes = await fetch(`/api/users/${user.id}/followers`);
             const followers = followersRes.ok ? (await followersRes.json()).length : 0;
             
-            // Fetch plays for monthly listeners (simplified: total plays)
             const playsRes = await fetch(`/api/users/${user.id}/plays`);
             const plays = playsRes.ok ? (await playsRes.json()).length : 0;
             
@@ -599,8 +596,8 @@ export default function Home() {
               tagline: user.bio || "Indie artist",
               followers,
               monthlyListeners: plays,
-              accent: "from-emerald-400/30 via-emerald-400/0 to-fuchsia-500/20", // Default accent
-              avatarUrl: user.avatarUrl, // Include avatar URL
+              accent: "from-emerald-400/30 via-emerald-400/0 to-fuchsia-500/20",
+              avatarUrl: user.avatarUrl,
             };
           }));
           setArtists(mappedArtists);
@@ -612,7 +609,7 @@ export default function Home() {
     fetchArtists();
   }, []);
 
-  const filtered = useMemo(() => {
+  const filteredTracks = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return tracks;
     return tracks.filter((t) => {
@@ -621,11 +618,19 @@ export default function Home() {
     });
   }, [query, tracks]);
 
+  const filteredArtists = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return artists;
+    return artists.filter((a) => {
+      const hay = `${a.name} ${a.tagline}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [query, artists]);
+
   return (
     <div className="min-h-screen bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
       <div className="mx-auto max-w-6xl px-2 py-3 sm:px-3 sm:py-4 lg:px-4 lg:py-6 xl:py-8">
         <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
-          {/* Mobile Toggle */}
           <div className="fixed bottom-24 right-4 z-50 lg:hidden">
             <Button
               size="icon"
@@ -637,7 +642,6 @@ export default function Home() {
             </Button>
           </div>
 
-          {/* Mobile Sidebar Overlay */}
           {isSidebarOpen && (
             <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm lg:hidden">
               <motion.div
@@ -651,7 +655,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* Desktop Sidebar */}
           <aside className="hidden lg:block lg:col-span-3">
             <div className="sticky top-6">
               <SidebarNav />
@@ -662,212 +665,120 @@ export default function Home() {
             <TopBar query={query} onQueryChange={setQuery} />
 
             <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4 lg:gap-6">
-              <section
-                className="glass glow noise overflow-hidden rounded-2xl border border-white/10 sm:rounded-3xl"
-                aria-label="Hero"
-              >
-                <div className="grid gap-3 p-3 sm:grid-cols-12 sm:gap-4 sm:items-center sm:p-4 lg:p-5 xl:p-6">
-                  <div className="sm:col-span-7">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        className="border-white/10 bg-white/5 text-xs"
-                        variant="secondary"
-                        data-testid="badge-new"
-                      >
-                        <Sparkles className="mr-1 h-3 w-3" />
-                        New
-                      </Badge>
-                      <span className="text-xs text-muted-foreground" data-testid="text-hero-note">
-                        Built for beginners, designed for listeners.
-                      </span>
-                    </div>
-                    <h2
-                      className="mt-3 text-balance text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl xl:text-3xl"
-                      data-testid="text-hero-title"
-                    >
-                      Upload a track. Get discovered.
-                      <span className="text-primary"> Build your audience.</span>
-                    </h2>
-                    <p
-                      className="mt-2 text-xs text-muted-foreground sm:text-sm"
-                      data-testid="text-hero-description"
-                    >
-                      IndieWave is a free, simple platform where artists share demos, fans find
-                      new sounds, and everyone helps the next release take off.
-                    </p>
-                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                      <Link href="/upload">
-                        <Button className="w-full sm:w-auto" data-testid="button-hero-upload">
-                          <UploadCloud className="mr-2 h-4 w-4" />
-                          Upload music
+              {!query && (
+                <section
+                  className="glass glow noise overflow-hidden rounded-2xl border border-white/10 sm:rounded-3xl"
+                  aria-label="Hero"
+                >
+                  <div className="grid gap-3 p-3 sm:grid-cols-12 sm:gap-4 sm:items-center sm:p-4 lg:p-5 xl:p-6">
+                    <div className="sm:col-span-7">
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          className="border-white/10 bg-white/5 text-xs"
+                          variant="secondary"
+                          data-testid="badge-new"
+                        >
+                          <Sparkles className="mr-1 h-3 w-3" />
+                          New
+                        </Badge>
+                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground sm:text-xs">
+                          Featured release
+                        </span>
+                      </div>
+                      <h2 className="mt-2 text-balance text-2xl font-bold tracking-tight sm:mt-3 sm:text-3xl lg:text-4xl">
+                        Midnight in Lagos
+                      </h2>
+                      <p className="mt-2 text-xs text-muted-foreground sm:mt-3 sm:text-sm lg:text-base">
+                        The latest project from emergent afro-fusion artists. 12 tracks of pure wave.
+                      </p>
+                      <div className="mt-4 flex flex-wrap items-center gap-2 sm:mt-5 sm:gap-3">
+                        <Button className="h-9 px-4 sm:h-11 sm:px-6 sm:text-base" data-testid="button-play-featured">
+                          <Play className="mr-2 h-4 w-4 sm:h-5 sm:w-5 fill-current" />
+                          Listen Now
                         </Button>
-                      </Link>
-                      <Button
-                        variant="secondary"
-                        className="w-full border-white/10 bg-white/5 sm:w-auto"
-                        data-testid="button-hero-discover"
-                        asChild
-                      >
-                        <a href="#discover">
-                          <Compass className="mr-2 h-4 w-4" />
-                          Discover artists
-                        </a>
-                      </Button>
+                        <Button
+                          variant="secondary"
+                          className="h-9 border-white/10 bg-white/5 px-4 sm:h-11 sm:px-6 sm:text-base"
+                          data-testid="button-view-featured"
+                        >
+                          View Album
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="sm:col-span-5">
-                    <div className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-white/10 via-white/0 to-white/8 p-3 sm:rounded-2xl sm:p-4">
-                      <div className="absolute -right-6 -top-6 h-20 w-20 rounded-full bg-emerald-400/25 blur-3xl sm:h-32 sm:w-32 sm:-right-8 sm:-top-8 md:h-40 md:w-40 md:-right-10 md:-top-10" />
-                      <div className="absolute -bottom-8 -left-8 h-20 w-20 rounded-full bg-fuchsia-500/20 blur-3xl sm:h-32 sm:w-32 sm:-bottom-10 sm:-left-10 md:h-40 md:w-40 md:-bottom-12 md:-left-12" />
-
-                      <div className="relative">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="h-2 w-2 rounded-full bg-emerald-400 sm:h-2.5 sm:w-2.5" />
-                            <div className="text-xs text-muted-foreground">Trending in community</div>
-                          </div>
-                          <Badge variant="outline" className="border-white/12 text-xs">
-                            Live
-                          </Badge>
-                        </div>
-
-                        <div className="mt-3 space-y-2">
-                          {loading ? (
-                            <div className="text-xs text-muted-foreground animate-pulse">Loading trending...</div>
-                          ) : (
-                            tracks.slice(0, 3).map((t) => (
-                              <button
-                                key={t.id}
-                                onClick={() => { setActive(t); setAutoPlay(true); }}
-                                className={cn(
-                                  "w-full rounded-lg border border-white/10 bg-white/4 px-3 py-2 text-left transition hover:bg-white/6 sm:rounded-xl",
-                                  active?.id === t.id && "bg-white/6 border-primary/40",
-                                )}
-                                data-testid={`button-mini-track-${t.id}`}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className="min-w-0 flex-1">
-                                    <div className="truncate text-xs font-semibold">{t.title}</div>
-                                    <div className="truncate text-[10px] text-muted-foreground sm:text-[11px]">
-                                      {t.artist} • {timeAgo(t.publishedAt)}
-                                    </div>
-                                  </div>
-                                  <div className="text-[10px] text-muted-foreground sm:text-[11px] shrink-0">
-                                    {secondsToTime(t.audioDuration)}
-                                  </div>
-                                </div>
-                              </button>
-                            ))
-                          )}
-                        </div>
+                    <div className="hidden sm:col-span-5 sm:block">
+                      <div className="aspect-square rounded-2xl bg-gradient-to-br from-emerald-400/30 via-fuchsia-500/20 to-cyan-400/40 p-1 shadow-2xl shadow-emerald-500/10">
+                        <div className="h-full w-full rounded-xl bg-background/20 backdrop-blur-md border border-white/5" />
                       </div>
                     </div>
                   </div>
-                </div>
-              </section>
+                </section>
+              )}
 
-              <section id="discover" aria-label="Discover" className="scroll-mt-24">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
+              <div className="grid gap-6 lg:grid-cols-12">
+                <div className="lg:col-span-8">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Flame className="h-4 w-4 text-primary" />
-                      <h3 className="text-lg font-semibold" data-testid="text-section-discover">
-                        Discover now
-                      </h3>
+                      <Compass className="h-4 w-4 text-emerald-400" />
+                      <h2 className="text-lg font-semibold" data-testid="text-discover-title">
+                        {query ? `Search results for "${query}"` : "Discover now"}
+                      </h2>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground" data-testid="text-section-discover-sub">
-                      Fresh uploads with quick previews.
-                    </p>
+                    <Badge variant="secondary" className="border-white/10 bg-white/5" data-testid="badge-track-count">
+                      {filteredTracks.length} tracks
+                    </Badge>
                   </div>
-                  <Badge variant="secondary" className="border-white/10 bg-white/5" data-testid="badge-count">
-                    {filtered.length} tracks
-                  </Badge>
+                  <div id="discover" className="mt-4 grid gap-3 scroll-mt-20">
+                    {loading ? (
+                      Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-24 w-full animate-pulse rounded-2xl bg-white/5" />
+                      ))
+                    ) : filteredTracks.length > 0 ? (
+                      filteredTracks.map((track) => (
+                        <TrackCard
+                          key={track.id}
+                          track={track}
+                          onPlay={(t) => {
+                            setAutoPlay(true);
+                            setActive(t);
+                          }}
+                          isActive={active?.id === track.id}
+                        />
+                      ))
+                    ) : (
+                      <div className="glass rounded-2xl p-8 text-center text-muted-foreground">
+                        No tracks found matching your search.
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                <div className="mt-4 grid gap-3">
-                  {loading ? (
-                    <div className="glass glow noise rounded-2xl p-6 text-center animate-pulse">
-                      <div className="text-sm text-muted-foreground">Finding fresh sounds...</div>
-                    </div>
-                  ) : (
-                    filtered.map((t) => (
-                      <TrackCard
-                        key={t.id}
-                        track={t}
-                        onPlay={(trk) => { setActive(trk); setAutoPlay(true); }}
-                        isActive={active?.id === t.id}
-                      />
-                    ))
-                  )}
-
-                  {!loading && filtered.length === 0 && (
-                    <div
-                      className="glass glow noise rounded-2xl p-6 text-center"
-                      data-testid="status-empty-search"
-                    >
-                      <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/4">
-                        <Search className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <div className="mt-3 text-sm font-medium">No tracks found</div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        Try a different search or genre.
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <section aria-label="Artists">
-                <div className="flex items-center justify-between gap-2">
+                <div className="lg:col-span-4">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-accent" />
-                    <h3 className="text-lg font-semibold" data-testid="text-section-artists">
-                      Artists to watch
-                    </h3>
+                    <Flame className="h-4 w-4 text-fuchsia-500" />
+                    <h2 className="text-lg font-semibold" data-testid="text-trending-title">
+                      {query ? "Matching Artists" : "Trending in community"}
+                    </h2>
                   </div>
-                  <Button
-                    variant="secondary"
-                    className="border-white/10 bg-white/5"
-                    data-testid="button-community-refresh"
-                  >
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Refresh
-                  </Button>
-                </div>
-
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  {artists.map((a) => (
-                    <ArtistRow key={a.slug} artist={a} />
-                  ))}
-                </div>
-
-                <div className="mt-6 grid gap-3 rounded-3xl border border-white/10 bg-gradient-to-br from-white/6 via-white/2 to-transparent p-5 sm:grid-cols-12 sm:items-center">
-                  <div className="sm:col-span-8">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-primary" />
-                      <div className="text-sm font-semibold" data-testid="text-community-cta-title">
-                        Build an audience—without the noise.
+                  <div id="community" className="mt-4 grid gap-3 scroll-mt-20">
+                    {loading ? (
+                      Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="h-20 w-full animate-pulse rounded-2xl bg-white/5" />
+                      ))
+                    ) : filteredArtists.length > 0 ? (
+                      filteredArtists.slice(0, 6).map((artist) => (
+                        <ArtistRow key={artist.slug} artist={artist} />
+                      ))
+                    ) : (
+                      <div className="glass rounded-2xl p-6 text-center text-xs text-muted-foreground">
+                        No artists match your search.
                       </div>
-                    </div>
-                    <div className="mt-1 text-sm text-muted-foreground" data-testid="text-community-cta-sub">
-                      Share your link, track followers, and connect with listeners who love discovering.
-                    </div>
-                  </div>
-                  <div className="sm:col-span-4 sm:flex sm:justify-end">
-                    <Link href="/upload">
-                      <Button data-testid="button-community-upload">
-                        <UploadCloud className="mr-2 h-4 w-4" />
-                        Upload now
-                      </Button>
-                    </Link>
+                    )}
                   </div>
                 </div>
-              </section>
+              </div>
             </div>
           </main>
         </div>
-
         <div className="h-24" aria-hidden="true" />
       </div>
     </div>
