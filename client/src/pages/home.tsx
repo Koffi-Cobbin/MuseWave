@@ -382,14 +382,6 @@ function TopBar({
             data-testid="input-search"
           />
         </div>
-        <Button
-          variant="secondary"
-          className="hidden sm:inline-flex"
-          data-testid="button-notifications"
-        >
-          <Bell className="mr-2 h-4 w-4" />
-          Alerts
-        </Button>
       </div>
     </div>
   );

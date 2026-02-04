@@ -16,6 +16,7 @@ import {
   Settings,
   Eye,
   EyeOff,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -128,8 +129,6 @@ export default function ArtistPage() {
       setNewDisplayName("");
       setNewBio("");
       setNewAvatarUrl("");
-      setNewAvatarFile(null);
-      setAvatarPreview(null);
       setNewAvatarFile(null);
       setAvatarPreview(null);
       
@@ -254,6 +253,14 @@ export default function ArtistPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="secondary"
+              className="border-white/10 bg-white/5"
+              data-testid="button-notifications"
+            >
+              <Bell className="mr-2 h-4 w-4" />
+              Alerts
+            </Button>
             <Button
               variant={following ? "secondary" : "default"}
               className={cn(
@@ -564,196 +571,105 @@ export default function ArtistPage() {
                         }}
                       />
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      Or enter a URL:
-                    </div>
-                    <Input
-                      type="url"
-                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none"
-                      placeholder="https://example.com/avatar.jpg"
-                      value={newAvatarUrl}
-                      onChange={(e) => setNewAvatarUrl(e.target.value)}
-                    />
                   </div>
                 </div>
               </div>
               )}
-              {/* EOF */}
 
               <div className="glass rounded-2xl p-3 sm:p-4">
-                <div className="text-xs text-muted-foreground mb-1">Username</div>
-                <div className="flex items-center justify-between gap-1">
-                  {isEditingCredentials ? (
-                    <Input
-                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none flex-1 py-1"
-                      placeholder={artist.username}
-                      value={newUsername}
-                      onChange={(e) => setNewUsername(e.target.value)}
-                    />
-                  ) : (
-                    <Input
-                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none flex-1 py-1"
-                      placeholder={artist.username}
-                      value={artist.username}
-                      readOnly={true}
-                    />
-                  )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 flex-shrink-0"
-                    onClick={() => copyToClipboard(artist.username, "Username")}
-                  >
-                    {copied === "Username" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="glass rounded-2xl p-3 sm:p-4">
-                <div className="text-xs text-muted-foreground mb-1">Email</div>
-                <div className="flex items-center justify-between gap-1">
-                  {isEditingCredentials ? (
-                    <Input
-                      type="email"
-                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none flex-1 py-1"
-                      placeholder={artist.email}
-                      value={newEmail}
-                      onChange={(e) => setNewEmail(e.target.value)}
-                    />
-                  ) : (
-                     <Input
-                      type="email"
-                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none flex-1 py-1"
-                      placeholder={artist.email}
-                      value={artist.email}
-                      readOnly={true}
-                    />
-                  )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 flex-shrink-0"
-                    onClick={() => copyToClipboard(artist.email, "Email")}
-                  >
-                    {copied === "Email" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="glass rounded-2xl p-3 sm:p-4">
-                <div className="text-xs text-muted-foreground mb-1">Display Name</div>
-                <div className="flex items-center justify-between gap-1">
-                  {isEditingCredentials ? (
-                    <Input
-                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none flex-1 py-1"
-                      placeholder={artist.displayName}
-                      value={newDisplayName}
-                      onChange={(e) => setNewDisplayName(e.target.value)}
-                    />
-                  ) : (
-                    <Input
-                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none flex-1 py-1"
-                      placeholder={artist.displayName}
-                      value={artist.displayName}
-                      readOnly={true}
-                    />
-                  )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 flex-shrink-0"
-                    onClick={() => copyToClipboard(artist.displayName || artist.username, "Display Name")}
-                  >
-                    {copied === "Display Name" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="glass rounded-2xl p-3 sm:p-4">
-                <div className="text-xs text-muted-foreground mb-1">Bio</div>
-                <div className="flex items-center justify-between gap-1">
-                  {isEditingCredentials ? (
-                    <Input
-                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none flex-1 py-1"
-                      placeholder={artist.bio || "Your bio..."}
-                      value={newBio}
-                      onChange={(e) => setNewBio(e.target.value)}
-                    />
-                  ) : (
-                     <Input
-                      className="bg-transparent border-b border-white/10 text-sm focus:outline-none flex-1 py-1"
-                      placeholder={artist.bio || "No bio set."}
-                      value={artist.bio || ""}
-                      readOnly={true}
-                    />
-                  )}
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 flex-shrink-0"
-                    onClick={() => copyToClipboard(artist.bio || "", "Bio")}
-                  >
-                    {copied === "Bio" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="glass rounded-2xl p-3 sm:col-span-2 sm:p-4">
-                <div className="text-xs text-muted-foreground mb-1">Password</div>
-                <div className="flex items-center justify-between gap-1">
-                  {isEditingCredentials ? (
-                    <>
-                      <Input
-                        type={showPassword ? "text" : "password"}
-                        className="bg-transparent border-b border-white/10 text-sm focus:outline-none flex-1 py-1"
-                        placeholder="New password"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                      />
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 flex-shrink-0"
-                        onClick={() => setShowPassword(!showPassword)}
-                      >
-                        {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                      </Button>
-                    </>
-                  ) : (
-                    <Input
-                        type={showPassword ? "text" : "password"}
-                        className="bg-transparent border-b border-white/10 text-sm focus:outline-none flex-1 py-1"
-                        placeholder="New password"
-                        value={artist.password || ""}
-                        readOnly={true}
-                      />
-                  )}
-                  <div className="flex gap-1">
-                    {!isEditingCredentials && (
-                       <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 flex-shrink-0"
-                        onClick={() => copyToClipboard(artist.password || "", "Password")}
-                      >
-                        {copied === "Password" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      </Button>
-                    )}
+                <div className="text-xs text-muted-foreground">Username</div>
+                {isEditingCredentials ? (
+                  <Input 
+                    value={newUsername} 
+                    onChange={(e) => setNewUsername(e.target.value)}
+                    className="mt-1 h-8 bg-transparent border-b border-white/10 focus:outline-none"
+                  />
+                ) : (
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-sm font-mono">{artist.username}</span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6"
+                      onClick={() => copyToClipboard(artist.username, 'Username')}
+                    >
+                      {copied === 'Username' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    </Button>
                   </div>
-                </div>
+                )}
               </div>
-            </div>
 
-            {isEditingCredentials && (
-              <Button 
-                className="mt-4 w-full" 
-                size="sm"
-                onClick={handleUpdateCredentials}
-                disabled={!newUsername && !newPassword && !newEmail && !newDisplayName && !newBio}
-              >
-                Save Changes
-              </Button>
-            )}
+              <div className="glass rounded-2xl p-3 sm:p-4">
+                <div className="text-xs text-muted-foreground">Password</div>
+                {isEditingCredentials ? (
+                  <div className="relative mt-1">
+                    <Input 
+                      type={showPassword ? "text" : "password"}
+                      value={newPassword} 
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      className="h-8 bg-transparent border-b border-white/10 focus:outline-none pr-8"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
+                      onClick={() => setShowPassword(!showPassword)}
+                    >
+                      {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-sm font-mono">••••••••</span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6"
+                      onClick={() => copyToClipboard(artist.password || '', 'Password')}
+                    >
+                      {copied === 'Password' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                <div className="text-xs text-muted-foreground">Email</div>
+                {isEditingCredentials ? (
+                  <Input 
+                    value={newEmail} 
+                    onChange={(e) => setNewEmail(e.target.value)}
+                    className="mt-1 h-8 bg-transparent border-b border-white/10 focus:outline-none"
+                  />
+                ) : (
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-sm">{artist.email}</span>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6"
+                      onClick={() => copyToClipboard(artist.email, 'Email')}
+                    >
+                      {copied === 'Email' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {isEditingCredentials && (
+                <div className="sm:col-span-2 flex justify-end gap-2 mt-2">
+                  <Button size="sm" variant="outline" onClick={() => setIsEditingCredentials(false)}>Cancel</Button>
+                  <Button size="sm" onClick={handleUpdateCredentials}>Save Changes</Button>
+                </div>
+              )}
+            </div>
+            
+            <p className="mt-4 text-xs text-muted-foreground/60 leading-relaxed">
+              Security Notice: These credentials are used for logging into IndieWave. 
+              Keep them private and do not share them with others.
+            </p>
           </section>
         )}
 
