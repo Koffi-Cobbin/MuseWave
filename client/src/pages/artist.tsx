@@ -30,6 +30,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
@@ -581,6 +582,17 @@ export default function ArtistPage() {
             </div>
             
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {isEditingCredentials && (
+                <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                  <div className="text-xs text-muted-foreground mb-2">Profile Bio</div>
+                  <Textarea
+                    value={newBio}
+                    onChange={(e) => setNewBio(e.target.value)}
+                    placeholder="Tell us about yourself..."
+                    className="bg-transparent border border-white/10 text-sm focus:outline-none w-full min-h-[100px] rounded-xl p-3"
+                  />
+                </div>
+              )}
               {isEditingCredentials && (
               <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
                 <div className="text-xs text-muted-foreground mb-2">Profile Picture</div>
