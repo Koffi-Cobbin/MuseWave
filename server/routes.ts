@@ -6,6 +6,7 @@ import {
   createUserSchema,
   createTrackSchema,
   updateTrackSchema,
+  createAlbumSchema,
 } from "@shared/schema";
 
 // Helper function to handle async route errors

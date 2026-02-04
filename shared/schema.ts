@@ -37,12 +37,41 @@ export type User = z.infer<typeof userSchema>;
 export type CreateUser = z.infer<typeof createUserSchema>;
 
 // ============================================================================
+// ALBUM SCHEMAS
+// ============================================================================
+
+export const albumSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  title: z.string().min(1).max(200),
+  artist: z.string().min(1).max(200),
+  description: z.string().max(2000).optional(),
+  coverUrl: z.string().url().optional(),
+  coverGradient: z.string().optional(),
+  releaseDate: z.string(),
+  genre: z.string().max(50),
+  published: z.boolean().default(false),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export const createAlbumSchema = albumSchema.omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type Album = z.infer<typeof albumSchema>;
+export type CreateAlbum = z.infer<typeof createAlbumSchema>;
+
+// ============================================================================
 // TRACK SCHEMAS
 // ============================================================================
 
 export const trackSchema = z.object({
   id: z.string(),
   userId: z.string(), // owner/artist
+  albumId: z.string().optional(), // Association with album
   title: z.string().min(1).max(200),
   artist: z.string().min(1).max(200),
   artistSlug: z.string(),

@@ -35,6 +35,7 @@ const DB_FILES = {
   userStats: path.join(DB_DIR, "user-stats.json"),
   trackStats: path.join(DB_DIR, "track-stats.json"),
   searchIndex: path.join(DB_DIR, "search-index.json"),
+  albums: path.join(DB_DIR, "albums.json"),
 };
 
 // ============================================================================
@@ -55,6 +56,7 @@ export interface IJsonDatabase {
   createTrack(track: CreateTrack): Promise<Track>;
   getTrack(id: string): Promise<Track | null>;
   getTracksByUser(userId: string): Promise<Track[]>;
+  getTracksByAlbum(albumId: string): Promise<Track[]>;
   updateTrack(id: string, updates: UpdateTrack): Promise<Track | null>;
   deleteTrack(id: string): Promise<boolean>;
   listTracks(filters?: TrackFilters): Promise<Track[]>;
@@ -62,6 +64,13 @@ export interface IJsonDatabase {
   incrementTrackLikes(trackId: string): Promise<void>;
   decrementTrackLikes(trackId: string): Promise<void>;
   incrementTrackDownloads(trackId: string): Promise<void>;
+
+  // Albums
+  createAlbum(album: CreateAlbum, trackIds: string[]): Promise<Album>;
+  getAlbum(id: string): Promise<Album | null>;
+  getAlbumsByUser(userId: string): Promise<Album[]>;
+  updateAlbum(id: string, updates: Partial<Album>): Promise<Album | null>;
+  deleteAlbum(id: string): Promise<boolean>;
 
   // Likes
   createLike(userId: string, trackId: string): Promise<Like>;
@@ -289,6 +298,11 @@ export class JsonDatabase implements IJsonDatabase {
     return tracks.filter((t) => t.userId === userId);
   }
 
+  async getTracksByAlbum(albumId: string): Promise<Track[]> {
+    const tracks = this.readFile<Track[]>(DB_FILES.tracks);
+    return tracks.filter((t) => t.albumId === albumId);
+  }
+
   async updateTrack(id: string, updates: UpdateTrack): Promise<Track | null> {
     const tracks = this.readFile<Track[]>(DB_FILES.tracks);
     const index = tracks.findIndex((t) => t.id === id);
@@ -410,6 +424,80 @@ export class JsonDatabase implements IJsonDatabase {
       tracks[index].updatedAt = new Date().toISOString();
       this.writeFile(DB_FILES.tracks, tracks);
     }
+  }
+
+  // ============================================================================
+  // ALBUMS
+  // ============================================================================
+
+  async createAlbum(createAlbum: CreateAlbum, trackIds: string[]): Promise<Album> {
+    const albums = this.readFile<Album[]>(DB_FILES.albums);
+    const album: Album = {
+      ...createAlbum,
+      id: randomUUID(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    albums.push(album);
+    this.writeFile(DB_FILES.albums, albums);
+
+    // Update track associations
+    const tracks = this.readFile<Track[]>(DB_FILES.tracks);
+    trackIds.forEach(trackId => {
+      const index = tracks.findIndex(t => t.id === trackId);
+      if (index !== -1) {
+        tracks[index].albumId = album.id;
+        tracks[index].updatedAt = new Date().toISOString();
+      }
+    });
+    this.writeFile(DB_FILES.tracks, tracks);
+
+    return album;
+  }
+
+  async getAlbum(id: string): Promise<Album | null> {
+    const albums = this.readFile<Album[]>(DB_FILES.albums);
+    return albums.find(a => a.id === id) || null;
+  }
+
+  async getAlbumsByUser(userId: string): Promise<Album[]> {
+    const albums = this.readFile<Album[]>(DB_FILES.albums);
+    return albums.filter(a => a.userId === userId);
+  }
+
+  async updateAlbum(id: string, updates: Partial<Album>): Promise<Album | null> {
+    const albums = this.readFile<Album[]>(DB_FILES.albums);
+    const index = albums.findIndex(a => a.id === id);
+    if (index === -1) return null;
+
+    albums[index] = {
+      ...albums[index],
+      ...updates,
+      id,
+      updatedAt: new Date().toISOString(),
+    };
+    this.writeFile(DB_FILES.albums, albums);
+    return albums[index];
+  }
+
+  async deleteAlbum(id: string): Promise<boolean> {
+    const albums = this.readFile<Album[]>(DB_FILES.albums);
+    const filtered = albums.filter(a => a.id !== id);
+    if (filtered.length === albums.length) return false;
+
+    this.writeFile(DB_FILES.albums, filtered);
+
+    // Remove associations from tracks
+    const tracks = this.readFile<Track[]>(DB_FILES.tracks);
+    tracks.forEach(t => {
+      if (t.albumId === id) {
+        t.albumId = undefined;
+        t.updatedAt = new Date().toISOString();
+      }
+    });
+    this.writeFile(DB_FILES.tracks, tracks);
+    return true;
   }
 
   // ============================================================================
