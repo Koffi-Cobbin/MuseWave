@@ -315,6 +315,66 @@ export async function registerRoutes(
   }));
 
   // ============================================================================
+  // ALBUMS
+  // ============================================================================
+
+  app.get(
+    "/api/users/:userId/albums",
+    asyncHandler(async (req: any, res: any) => {
+      const albums = await jsonDb.getAlbumsByUser(req.params.userId);
+      res.json(albums);
+    })
+  );
+
+  app.get(
+    "/api/albums/:id",
+    asyncHandler(async (req: any, res: any) => {
+      const album = await jsonDb.getAlbum(req.params.id);
+      if (!album) return res.status(404).json({ error: "Album not found" });
+      const tracks = await jsonDb.getTracksByAlbum(album.id);
+      res.json({ ...album, tracks });
+    })
+  );
+
+  app.post(
+    "/api/albums",
+    asyncHandler(async (req: any, res: any) => {
+      try {
+        const { trackIds, ...albumData } = req.body;
+        const validatedData = createAlbumSchema.parse(albumData);
+        if (!Array.isArray(trackIds)) {
+          return res.status(400).json({ error: "trackIds must be an array" });
+        }
+        const album = await jsonDb.createAlbum(validatedData, trackIds);
+        res.status(201).json(album);
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          return res.status(400).json({ error: error.errors });
+        }
+        throw error;
+      }
+    })
+  );
+
+  app.patch(
+    "/api/albums/:id",
+    asyncHandler(async (req: any, res: any) => {
+      const album = await jsonDb.updateAlbum(req.params.id, req.body);
+      if (!album) return res.status(404).json({ error: "Album not found" });
+      res.json(album);
+    })
+  );
+
+  app.delete(
+    "/api/albums/:id",
+    asyncHandler(async (req: any, res: any) => {
+      const deleted = await jsonDb.deleteAlbum(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Album not found" });
+      res.json({ success: true });
+    })
+  );
+
+  // ============================================================================
   // SEARCH
   // ============================================================================
 

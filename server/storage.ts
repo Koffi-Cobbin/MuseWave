@@ -13,6 +13,8 @@ import type {
   Follow,
   Playlist,
   Comment,
+  Album,
+  CreateAlbum,
   UserStats,
   TrackStats,
   SearchIndex,
