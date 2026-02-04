@@ -276,9 +276,37 @@ export default function ArtistPage() {
             <Button
               variant="secondary"
               className="border-white/10 bg-white/5"
-              onClick={() => {
+              onClick={async () => {
+                if (!artist) return;
                 const url = window.location.href;
-                navigator.clipboard.writeText(url);
+                const title = `${artist.displayName || artist.username} on MuseWave`;
+                const text = `Check out ${artist.displayName || artist.username}'s music on MuseWave!`;
+
+                if (navigator.share) {
+                  try {
+                    await navigator.share({
+                      title,
+                      text,
+                      url,
+                    });
+                  } catch (error) {
+                    console.log('Share cancelled or failed:', error);
+                  }
+                } else {
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    toast({
+                      title: "Link copied!",
+                      description: "Artist page link copied to clipboard",
+                    });
+                  } catch (error) {
+                    toast({
+                      title: "Share failed",
+                      description: "Unable to copy link to clipboard",
+                      variant: "destructive",
+                    });
+                  }
+                }
               }}
               data-testid="button-share"
             >
