@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link, useParams } from "wouter";
 import { motion } from "framer-motion";
+import { AlbumCreate } from "@/components/album-create";
 import {
   ArrowLeft,
   Crown,
@@ -17,6 +18,7 @@ import {
   Eye,
   EyeOff,
   Bell,
+  Disc,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +96,7 @@ export default function ArtistPage() {
   const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [isAlbumCreateOpen, setIsAlbumCreateOpen] = useState(false);
 
   const isOwner = authUser?.id === artist?.id;
 
@@ -395,18 +398,38 @@ export default function ArtistPage() {
                 {artist.bio || "IndieWave artist sharing their latest releases and demos."}
               </p>
               {isOwner && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-3 border-white/10 bg-white/5 hover:bg-white/10"
-                  onClick={() => {
-                    const credentialsSection = document.getElementById('credentials-section');
-                    credentialsSection?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  View Credentials & Settings
-                </Button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Dialog open={isAlbumCreateOpen} onOpenChange={setIsAlbumCreateOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="default" size="sm" className="glow transition-all hover:scale-[1.02]">
+                        <Disc className="mr-2 h-4 w-4" />
+                        Create Album
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl bg-black/95 border-white/10 backdrop-blur-xl">
+                      <DialogHeader>
+                        <DialogTitle>Create New Album</DialogTitle>
+                        <DialogDescription>
+                          Group your tracks into an album.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <AlbumCreate onSuccess={() => setIsAlbumCreateOpen(false)} />
+                    </DialogContent>
+                  </Dialog>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/10 bg-white/5 hover:bg-white/10"
+                    onClick={() => {
+                      const credentialsSection = document.getElementById('credentials-section');
+                      credentialsSection?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                  >
+                    <Settings className="mr-2 h-4 w-4" />
+                    View Credentials & Settings
+                  </Button>
+                </div>
               )}
             </div>
 
