@@ -586,17 +586,28 @@ export default function ArtistPage() {
               </div>
               <div className="flex items-center gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
+                  className="h-8 border-white/10 bg-white/5 hover:bg-white/10"
                   onClick={() => setShowCredentials(!showCredentials)}
-                  className="text-muted-foreground hover:text-foreground"
+                  data-testid="button-toggle-credentials"
                 >
-                  {showCredentials ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
-                  {showCredentials ? "Hide" : "Show"}
+                  {showCredentials ? (
+                    <>
+                      <EyeOff className="mr-2 h-4 w-4" />
+                      Hide
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="mr-2 h-4 w-4" />
+                      Show
+                    </>
+                  )}
                 </Button>
                 <Button 
-                  variant="ghost" 
+                  variant="outline" 
                   size="sm"
+                  className="h-8 border-white/10 bg-white/5 hover:bg-white/10"
                   onClick={() => {
                     setIsEditingCredentials(!isEditingCredentials);
                     if (!isEditingCredentials) {
@@ -610,8 +621,14 @@ export default function ArtistPage() {
                       setAvatarPreview(null);
                     }
                   }}
+                  data-testid="button-edit-credentials"
                 >
-                  {isEditingCredentials ? "Cancel" : "Edit"}
+                  {isEditingCredentials ? "Cancel" : (
+                    <>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Edit
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
