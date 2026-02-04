@@ -97,7 +97,7 @@ export default function ArtistPage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isAlbumCreateOpen, setIsAlbumCreateOpen] = useState(false);
-  const [showCredentials, setShowCredentials] = useState(true);
+  const [showCredentials, setShowCredentials] = useState(false);
 
   const isOwner = authUser?.id === artist?.id;
 
@@ -604,32 +604,34 @@ export default function ArtistPage() {
                     </>
                   )}
                 </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="h-8 border-white/10 bg-white/5 hover:bg-white/10"
-                  onClick={() => {
-                    setIsEditingCredentials(!isEditingCredentials);
-                    if (!isEditingCredentials) {
-                      // Initialize edit fields with current values
-                      setNewUsername(artist.username);
-                      setNewEmail(artist.email);
-                      setNewDisplayName(artist.displayName || "");
-                      setNewBio(artist.bio || "");
-                      setNewAvatarUrl(artist.avatarUrl || "");
-                      setNewAvatarFile(null);
-                      setAvatarPreview(null);
-                    }
-                  }}
-                  data-testid="button-edit-credentials"
-                >
-                  {isEditingCredentials ? "Cancel" : (
-                    <>
-                      <Settings className="mr-2 h-4 w-4" />
-                      Edit
-                    </>
-                  )}
-                </Button>
+                {showCredentials && (
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="h-8 border-white/10 bg-white/5 hover:bg-white/10"
+                    onClick={() => {
+                      setIsEditingCredentials(!isEditingCredentials);
+                      if (!isEditingCredentials) {
+                        // Initialize edit fields with current values
+                        setNewUsername(artist.username);
+                        setNewEmail(artist.email);
+                        setNewDisplayName(artist.displayName || "");
+                        setNewBio(artist.bio || "");
+                        setNewAvatarUrl(artist.avatarUrl || "");
+                        setNewAvatarFile(null);
+                        setAvatarPreview(null);
+                      }
+                    }}
+                    data-testid="button-edit-credentials"
+                  >
+                    {isEditingCredentials ? "Cancel" : (
+                      <>
+                        <Settings className="mr-2 h-4 w-4" />
+                        Edit
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
             
