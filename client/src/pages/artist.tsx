@@ -97,6 +97,7 @@ export default function ArtistPage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [isAlbumCreateOpen, setIsAlbumCreateOpen] = useState(false);
+  const [showCredentials, setShowCredentials] = useState(true);
 
   const isOwner = authUser?.id === artist?.id;
 
@@ -583,28 +584,39 @@ export default function ArtistPage() {
                 <Settings className="h-4 w-4 text-primary" />
                 <h2 className="text-lg font-semibold">Account Credentials</h2>
               </div>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={() => {
-                  setIsEditingCredentials(!isEditingCredentials);
-                  if (!isEditingCredentials) {
-                    // Initialize edit fields with current values
-                    setNewUsername(artist.username);
-                    setNewEmail(artist.email);
-                    setNewDisplayName(artist.displayName || "");
-                    setNewBio(artist.bio || "");
-                    setNewAvatarUrl(artist.avatarUrl || "");
-                    setNewAvatarFile(null);
-                    setAvatarPreview(null);
-                  }
-                }}
-              >
-                {isEditingCredentials ? "Cancel" : "Edit"}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowCredentials(!showCredentials)}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  {showCredentials ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+                  {showCredentials ? "Hide" : "Show"}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => {
+                    setIsEditingCredentials(!isEditingCredentials);
+                    if (!isEditingCredentials) {
+                      // Initialize edit fields with current values
+                      setNewUsername(artist.username);
+                      setNewEmail(artist.email);
+                      setNewDisplayName(artist.displayName || "");
+                      setNewBio(artist.bio || "");
+                      setNewAvatarUrl(artist.avatarUrl || "");
+                      setNewAvatarFile(null);
+                      setAvatarPreview(null);
+                    }
+                  }}
+                >
+                  {isEditingCredentials ? "Cancel" : "Edit"}
+                </Button>
+              </div>
             </div>
             
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className={cn("mt-3 grid gap-3 sm:grid-cols-2", !showCredentials && "hidden")}>
               {isEditingCredentials && (
                 <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
                   <div className="text-xs text-muted-foreground mb-2">Profile Bio</div>
