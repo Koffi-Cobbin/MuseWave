@@ -22,6 +22,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
@@ -68,6 +76,7 @@ export default function ArtistPage() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [justPlayedId, setJustPlayedId] = useState<string | null>(null);
   const { user: authUser } = useAuth();
@@ -344,13 +353,42 @@ export default function ArtistPage() {
                     {formatCount(artist.monthlyListeners)}
                   </div>
                 </div>
-                <div className="glass rounded-2xl px-3 py-2">
-                  <div className="text-xs text-muted-foreground">Support</div>
-                  <div className="flex items-center gap-2">
-                    <Crown className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-semibold">Tip jar</span>
-                  </div>
-                </div>
+                <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
+                  <DialogTrigger asChild>
+                    <button className="glass hover-elevate active-elevate-2 flex items-center gap-2 rounded-2xl px-3 py-2 transition-colors">
+                      <div className="text-left">
+                        <div className="text-xs text-muted-foreground">Support</div>
+                        <div className="flex items-center gap-2">
+                          <Crown className="h-4 w-4 text-primary" />
+                          <span className="text-sm font-semibold">Tip jar</span>
+                        </div>
+                      </div>
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center gap-2">
+                        <Crown className="h-5 w-5 text-primary" />
+                        Support {artist.displayName || artist.username}
+                      </DialogTitle>
+                      <DialogDescription>
+                        Show your appreciation for the music you love. Support features coming soon!
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="glass glow noise rounded-2xl p-4 text-center">
+                        <Crown className="mx-auto h-8 w-8 text-primary mb-2" />
+                        <div className="text-sm font-medium">Tip Jar</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Direct support for {artist.displayName || artist.username}
+                        </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground text-center">
+                        Support functionality is currently in development. Check back soon!
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
               <p className="mt-4 max-w-xl text-sm text-muted-foreground">
                 {artist.bio || "IndieWave artist sharing their latest releases and demos."}
