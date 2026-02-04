@@ -267,14 +267,16 @@ export default function ArtistPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              variant="secondary"
-              className="border-white/10 bg-white/5"
-              data-testid="button-notifications"
-            >
-              <Bell className="mr-2 h-4 w-4" />
-              Alerts
-            </Button>
+            {isOwner && (
+              <Button
+                variant="secondary"
+                className="border-white/10 bg-white/5"
+                data-testid="button-notifications"
+              >
+                <Bell className="mr-2 h-4 w-4" />
+                Alerts
+              </Button>
+            )}
             <Button
               variant={following ? "secondary" : "default"}
               className={cn(
