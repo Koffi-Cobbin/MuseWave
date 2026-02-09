@@ -164,11 +164,12 @@ export default function Upload() {
       setUploadProgress("Checking artist profile...");
       try {
         const userResponse = await fetch(`/musewave/users/username/${artistSlug}/`);
+        console.error("userResponse:", userResponse.body);
         if (userResponse.ok) {
           const user = await userResponse.json();
           userId = user.id;
         } else {
-          // Create new user for this artist
+          // Create new user for this artist          
           setUploadProgress("Creating artist profile...");
           const userPassword = `temp-${Date.now()}-${Math.random().toString(36)}`;
           
