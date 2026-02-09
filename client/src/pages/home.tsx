@@ -36,7 +36,9 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
 import { useToast } from "@/hooks/use-toast";
-import type { Track } from "../../../shared/schema";
+import { API_ENDPOINTS } from "@/lib/apiConfig";
+import { apiRequestJson } from "@/lib/queryClient-new";
+import type { Track, User } from "../../../shared/schema";
 
 type Artist = {
   id: string;
@@ -401,7 +403,7 @@ function TrackCard({
   const handlePlay = () => {
     onPlay(track);
     setJustPlayed(true);
-    setTimeout(() => setJustPlayed(false), 1000); // Reset after animation
+    setTimeout(() => setJustPlayed(false), 1000);
   };
 
   return (
@@ -555,11 +557,13 @@ export default function Home() {
   useEffect(() => {
     async function fetchTracks() {
       try {
-        const response = await fetch("/api/tracks?published=true");
-        if (response.ok) {
-          const data = await response.json();
-          setTracks(data);
-        }
+        const data = await apiRequestJson<Track[]>(
+          'GET',
+          API_ENDPOINTS.tracks.list,
+          undefined,
+          { published: true }
+        );
+        setTracks(data);
       } catch (error) {
         console.error("Failed to fetch tracks:", error);
       } finally {
@@ -572,28 +576,30 @@ export default function Home() {
   useEffect(() => {
     async function fetchArtists() {
       try {
-        const response = await fetch("/api/artists");
-        if (response.ok) {
-          const data = await response.json();
-          const mappedArtists: ArtistRowData[] = await Promise.all(data.map(async (user: any) => {
-            const followersRes = await fetch(`/api/users/${user.id}/followers`);
-            const followers = followersRes.ok ? (await followersRes.json()).length : 0;
-            
-            const playsRes = await fetch(`/api/users/${user.id}/plays`);
-            const plays = playsRes.ok ? (await playsRes.json()).length : 0;
-            
-            return {
-              slug: user.username,
-              name: user.displayName,
-              tagline: user.bio || "Indie artist",
-              followers,
-              monthlyListeners: plays,
-              accent: "from-emerald-400/30 via-emerald-400/0 to-fuchsia-500/20",
-              avatarUrl: user.avatarUrl,
-            };
-          }));
-          setArtists(mappedArtists);
-        }
+        const data = await apiRequestJson<User[]>('GET', API_ENDPOINTS.artists.list);
+
+        const mappedArtists: ArtistRowData[] = await Promise.all(data.map(async (user: any) => {
+          const followers = await apiRequestJson<any[]>(
+            'GET',
+            API_ENDPOINTS.follows.followers(user.id)
+          ).catch(() => []);
+
+          const plays = await apiRequestJson<any[]>(
+            'GET',
+            API_ENDPOINTS.plays.byUser(user.id)
+          ).catch(() => []);
+
+          return {
+            slug: user.username,
+            name: user.displayName,
+            tagline: user.bio || "Indie artist",
+            followers: followers.length,
+            monthlyListeners: plays.length,
+            accent: "from-emerald-400/30 via-emerald-400/0 to-fuchsia-500/20",
+            avatarUrl: user.avatarUrl,
+          };
+        }));
+        setArtists(mappedArtists);
       } catch (error) {
         console.error("Failed to fetch artists:", error);
       }

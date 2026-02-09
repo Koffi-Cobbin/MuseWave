@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequestJson, queryClient } from "@/lib/queryClient-new";
+import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { Loader2, Music } from "lucide-react";
 
 interface AlbumCreateProps {
@@ -24,16 +25,26 @@ export function AlbumCreate({ onSuccess }: AlbumCreateProps) {
   const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
 
   const { data: tracks, isLoading: tracksLoading } = useQuery<Track[]>({
-    queryKey: [`/api/tracks?userId=${user?.id}&published=true`],
+    queryKey: [API_ENDPOINTS.tracks.list, { userId: user?.id, published: true }],
+    queryFn: async () => {
+      return await apiRequestJson<Track[]>(
+        'GET',
+        API_ENDPOINTS.tracks.list,
+        undefined,
+        { userId: user?.id, published: true }
+      );
+    },
+    enabled: !!user?.id,
   });
 
   const createAlbumMutation = useMutation({
     mutationFn: async (data: any) => {
-      const res = await apiRequest("POST", "/api/albums", data);
-      return res.json();
+      return await apiRequestJson('POST', API_ENDPOINTS.albums.create, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/users/${user?.id}/albums`] });
+      queryClient.invalidateQueries({ 
+        queryKey: [API_ENDPOINTS.albums.byUser(user?.id || '')]
+      });
       toast({ title: "Success", description: "Album created successfully" });
       onSuccess?.();
     },
@@ -103,7 +114,7 @@ export function AlbumCreate({ onSuccess }: AlbumCreateProps) {
               required
             />
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Select Tracks</label>
             <div className="max-h-60 overflow-y-auto space-y-2 rounded-md border border-white/10 p-2">

@@ -1,80 +1,73 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { API_ENDPOINTS } from "@/lib/apiConfig";
+import { apiRequestJson } from "@/lib/queryClient-new";
+import type { User } from "../../../shared/schema";
 
-type User = {
-  id: string;
-  username: string;
-  displayName?: string;
-  email: string;
-  avatarUrl?: string;
-};
-
-type AuthContextType = {
-  user: User | null;
-  isLoading: boolean;
+interface AuthContextType {
+  user: Omit<User, "password"> | null;
+  isAuthenticated: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
-  isAuthenticated: boolean;
-};
+}
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<Omit<User, "password"> | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check for existing session in localStorage
-    const storedUser = localStorage.getItem("indiewave_user");
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error("Failed to parse stored user:", error);
-        localStorage.removeItem("indiewave_user");
-      }
+    // Check for existing session
+    const userId = localStorage.getItem("userId");
+    if (userId) {
+      loadUser(userId);
     }
-    setIsLoading(false);
   }, []);
+
+  const loadUser = async (userId: string) => {
+    try {
+      const userData = await apiRequestJson<User>('GET', API_ENDPOINTS.users.byId(userId));
+      const { password: _, ...safeUser } = userData;
+      setUser(safeUser);
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.error("Failed to load user:", error);
+      localStorage.removeItem("userId");
+      setUser(null);
+      setIsAuthenticated(false);
+    }
+  };
 
   const login = async (username: string, password: string) => {
     try {
-      // Try to get user by username
-      const response = await fetch(`/api/users/username/${username}`);
+      const userData = await apiRequestJson<User>(
+        'GET',
+        API_ENDPOINTS.users.byUsername(username)
+      );
 
-      if (!response.ok) {
-        throw new Error("Invalid username or password");
+      // Simple password check (in production, this should be handled server-side)
+      if (userData.password !== password) {
+        throw new Error("Invalid password");
       }
 
-      const userData = await response.json();
-
-      // In a real app, you'd verify the password on the server
-      // For this demo, we'll skip password verification
-      // if (userData.password !== password) {
-      //   throw new Error("Invalid username or password");
-      // }
-
-      setUser(userData);
-      localStorage.setItem("indiewave_user", JSON.stringify(userData));
+      const { password: _, ...safeUser } = userData;
+      setUser(safeUser);
+      setIsAuthenticated(true);
+      localStorage.setItem("userId", safeUser.id);
     } catch (error) {
+      console.error("Login failed:", error);
       throw error;
     }
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("indiewave_user");
+    setIsAuthenticated(false);
+    localStorage.removeItem("userId");
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        login,
-        logout,
-        isAuthenticated: !!user,
-      }}
-    >
+    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

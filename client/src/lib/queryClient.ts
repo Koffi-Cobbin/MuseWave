@@ -1,57 +1,89 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
-
-async function throwIfResNotOk(res: Response) {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
-  }
-}
-
-export async function apiRequest(
-  method: string,
-  url: string,
-  data?: unknown | undefined,
-): Promise<Response> {
-  const res = await fetch(url, {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
-
-  await throwIfResNotOk(res);
-  return res;
-}
-
-type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
-  on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
-  async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
-    });
-
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
-
-    await throwIfResNotOk(res);
-    return await res.json();
-  };
+import { QueryClient } from "@tanstack/react-query";
+import { API_BASE_URL } from "./apiConfig";
+import { toSnakeCaseObject, toCamelCaseObject, buildUrlWithParams } from "./caseTransform";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
+      queryFn: async ({ queryKey }) => {
+        const url = queryKey[0] as string;
+        const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+
+        const res = await fetch(fullUrl, {
+          credentials: 'include',
+        });
+
+        if (!res.ok) {
+          if (res.status >= 500) {
+            throw new Error(`${res.status}: ${res.statusText}`);
+          }
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.message || errorData.detail || `${res.status}: ${res.statusText}`);
+        }
+
+        const data = await res.json();
+        // Transform response from snake_case to camelCase
+        return toCamelCaseObject(data);
+      },
+      retry: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
-    },
-    mutations: {
-      retry: false,
     },
   },
 });
+
+/**
+ * Makes an API request to the Django backend
+ * Automatically handles case conversion between camelCase (frontend) and snake_case (backend)
+ */
+export async function apiRequest(
+  method: string,
+  url: string,
+  body?: any,
+  queryParams?: Record<string, any>
+): Promise<Response> {
+  // Build full URL
+  let fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+
+  // Add query parameters if provided
+  if (queryParams) {
+    fullUrl = buildUrlWithParams(fullUrl, queryParams);
+  }
+
+  // Prepare request options
+  const options: RequestInit = {
+    method,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  };
+
+  // Transform body from camelCase to snake_case if provided
+  if (body) {
+    options.body = JSON.stringify(toSnakeCaseObject(body));
+  }
+
+  const res = await fetch(fullUrl, options);
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || errorData.detail || `${res.status}: ${res.statusText}`);
+  }
+
+  return res;
+}
+
+/**
+ * Makes an API request and returns the transformed response data
+ */
+export async function apiRequestJson<T = any>(
+  method: string,
+  url: string,
+  body?: any,
+  queryParams?: Record<string, any>
+): Promise<T> {
+  const res = await apiRequest(method, url, body, queryParams);
+  const data = await res.json();
+  // Transform response from snake_case to camelCase
+  return toCamelCaseObject(data);
+}

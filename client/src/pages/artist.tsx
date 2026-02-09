@@ -37,7 +37,8 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { API_ENDPOINTS } from "@/lib/apiConfig";
+import { apiRequestJson } from "@/lib/queryClient-new";
 import type { Track, User } from "../../../shared/schema";
 import { Label } from "@/components/ui/label";
 
@@ -120,7 +121,7 @@ export default function ArtistPage() {
       if (newEmail) updates.email = newEmail;
       if (newDisplayName) updates.displayName = newDisplayName;
       if (newBio) updates.bio = newBio;
-      
+
       // Handle avatar file upload
       if (newAvatarFile) {
         const avatarDataUrl = await fileToDataUrl(newAvatarFile);
@@ -131,10 +132,12 @@ export default function ArtistPage() {
 
       if (Object.keys(updates).length === 0) return;
 
-      const res = await apiRequest("PATCH", `/api/users/${artist.id}`, updates);
-      if (!res.ok) throw new Error("Failed to update credentials");
-      
-      const updatedUser = await res.json();
+      const updatedUser = await apiRequestJson(
+        'PATCH',
+        API_ENDPOINTS.users.update(artist.id),
+        updates
+      );
+
       setArtist(prev => prev ? { ...prev, ...updatedUser } : null);
       setIsEditingCredentials(false);
       setNewUsername("");
@@ -145,7 +148,7 @@ export default function ArtistPage() {
       setNewAvatarUrl("");
       setNewAvatarFile(null);
       setAvatarPreview(null);
-      
+
       toast({
         title: "Success",
         description: "Credentials updated successfully",
@@ -163,29 +166,35 @@ export default function ArtistPage() {
     async function fetchData() {
       try {
         // Fetch user by username (slug)
-        const userRes = await fetch(`/api/users/username/${slug}`);
-        if (!userRes.ok) return;
-        const userData = await userRes.json();
-        
+        const userData = await apiRequestJson(
+          'GET',
+          API_ENDPOINTS.users.byUsername(slug)
+        );
+
         // Fetch user stats
-        const statsRes = await fetch(`/api/users/${userData.id}/stats`);
-        const statsData = statsRes.ok ? await statsRes.json() : { followers: 0, monthlyListeners: 0 };
-        
+        const statsData = await apiRequestJson(
+          'GET',
+          API_ENDPOINTS.users.stats(userData.id)
+        ).catch(() => ({ totalFollowers: 0, monthlyListeners: 0 }));
+
         setArtist({
           ...userData,
-          password: userData.password, // Added for visibility on own profile
-          followers: statsData.followers || 0,
+          password: userData.password,
+          followers: statsData.totalFollowers || 0,
           monthlyListeners: statsData.monthlyListeners || 0,
           tagline: userData.tagline || "Fresh sounds, new era energy",
           accent: userData.accent || "from-emerald-400/28 via-transparent to-cyan-400/22"
         });
 
         // Fetch user tracks
-        const tracksRes = await fetch(`/api/tracks?userId=${userData.id}&published=true`);
-        if (tracksRes.ok) {
-          const tracksData = await tracksRes.json();
-          setTracks(tracksData);
-        }
+        const tracksData = await apiRequestJson<Track[]>(
+          'GET',
+          API_ENDPOINTS.tracks.list,
+          undefined,
+          { userId: userData.id, published: true }
+        );
+
+        setTracks(tracksData);
       } catch (error) {
         console.error("Failed to fetch artist data:", error);
       } finally {
@@ -636,7 +645,7 @@ export default function ArtistPage() {
                 )}
               </div>
             </div>
-            
+
             <div className={cn("mt-3 grid gap-3 sm:grid-cols-2", !showCredentials && "hidden")}>
               {isEditingCredentials && (
                 <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
@@ -799,7 +808,7 @@ export default function ArtistPage() {
                 </div>
               )}
             </div>
-            
+
             <p className="mt-4 text-xs text-muted-foreground/60 leading-relaxed">
               Security Notice: These credentials are used for logging into IndieWave. 
               Keep them private and do not share them with others.
