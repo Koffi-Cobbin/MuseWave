@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
-import { apiRequestJson } from "@/lib/queryClient-new";
+import { apiRequestJson } from "@/lib/queryClient";
 import type { User } from "../../../shared/schema";
 
 interface AuthContextType {

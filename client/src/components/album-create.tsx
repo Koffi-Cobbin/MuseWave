@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequestJson, queryClient } from "@/lib/queryClient-new";
+import { apiRequestJson, queryClient } from "@/lib/queryClient";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { Loader2, Music } from "lucide-react";
 
