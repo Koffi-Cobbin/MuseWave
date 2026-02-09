@@ -149,6 +149,7 @@ export default function Upload() {
     setUploadProgress("Preparing upload...");
 
     try {
+      const API_BASE_URL = "https://kofficobbin.pythonanywhere.com/api";
       // Generate artist slug
       const artistSlug = draft.artist
         .trim()
@@ -163,23 +164,22 @@ export default function Upload() {
       // Try to get existing user by username
       setUploadProgress("Checking artist profile...");
       try {
-        const userResponse = await fetch(`/musewave/users/username/${artistSlug}/`);
-        console.error("userResponse:", userResponse.body);
+        const userResponse = await fetch(`${API_BASE_URL}/musewave/users/username/${artistSlug}/`);
         if (userResponse.ok) {
           const user = await userResponse.json();
           userId = user.id;
         } else {
           // Create new user for this artist          
           setUploadProgress("Creating artist profile...");
-          const userPassword = `temp-${Date.now()}-${Math.random().toString(36)}`;
+          const userPasswordGenerated = `temp-${Date.now()}-${Math.random().toString(36)}`;
           
-          const createUserResponse = await fetch("/musewave/users/create/", {
+          const createUserResponse = await fetch(`${API_BASE_URL}/musewave/users/create/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               username: artistSlug,
               email: `${artistSlug}@indiewave.local`,
-              password: userPassword,
+              password: userPasswordGenerated,
               display_name: draft.artist.trim(),
               bio: `Indie artist sharing music on IndieWave`,
             }),
@@ -197,7 +197,7 @@ export default function Upload() {
           // Auto-login the newly created user
           setUploadProgress("Setting up your account...");
           try {
-            await login(artistSlug, userPassword);
+            await login(artistSlug, userPasswordGenerated);
           } catch (loginError) {
             console.error("Auto-login failed:", loginError);
           }
@@ -239,7 +239,7 @@ export default function Upload() {
         published: true,
       };
 
-      const response = await fetch("/musewave/tracks/create/", {
+      const response = await fetch(`${API_BASE_URL}/musewave/tracks/create/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(trackData),
