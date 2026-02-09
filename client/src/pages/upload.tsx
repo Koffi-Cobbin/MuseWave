@@ -163,24 +163,23 @@ export default function Upload() {
       // Try to get existing user by username
       setUploadProgress("Checking artist profile...");
       try {
-        const userResponse = await fetch(`/api/users/username/${artistSlug}`);
+        const userResponse = await fetch(`/musewave/users/username/${artistSlug}/`);
         if (userResponse.ok) {
           const user = await userResponse.json();
           userId = user.id;
-          userPassword = user.password;
         } else {
           // Create new user for this artist
           setUploadProgress("Creating artist profile...");
-          userPassword = `temp-${Date.now()}-${Math.random().toString(36)}`;
+          const userPassword = `temp-${Date.now()}-${Math.random().toString(36)}`;
           
-          const createUserResponse = await fetch("/api/users", {
+          const createUserResponse = await fetch("/musewave/users/create/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               username: artistSlug,
               email: `${artistSlug}@indiewave.local`,
               password: userPassword,
-              displayName: draft.artist.trim(),
+              display_name: draft.artist.trim(),
               bio: `Indie artist sharing music on IndieWave`,
             }),
           });
@@ -200,7 +199,6 @@ export default function Upload() {
             await login(artistSlug, userPassword);
           } catch (loginError) {
             console.error("Auto-login failed:", loginError);
-            // Continue with upload even if auto-login fails
           }
         }
       } catch (error) {
@@ -223,24 +221,24 @@ export default function Upload() {
       // Create track
       setUploadProgress("Publishing track...");
       const trackData = {
-        userId,
+        user_id: userId,
         title: draft.title.trim(),
         artist: draft.artist.trim(),
-        artistSlug,
+        artist_slug: artistSlug,
         description: draft.description.trim() || undefined,
         genre: draft.genre.trim() || "Indie",
         mood: draft.mood.trim() || undefined,
         tags: draft.mood ? [draft.mood.toLowerCase(), draft.genre.toLowerCase()] : [draft.genre.toLowerCase()],
-        audioUrl: audioDataUrl,
-        audioFileSize: draft.audioFile.size,
-        audioDuration: Math.round(audioDuration),
-        audioFormat: draft.audioFile.type.split("/")[1] || "mp3",
-        coverUrl: coverDataUrl,
-        coverGradient,
+        audio_url: audioDataUrl,
+        audio_file_size: draft.audioFile.size,
+        audio_duration: Math.round(audioDuration),
+        audio_format: draft.audioFile.type.split("/")[1] || "mp3",
+        cover_url: coverDataUrl,
+        cover_gradient: coverGradient,
         published: true,
       };
 
-      const response = await fetch("/api/tracks", {
+      const response = await fetch("/musewave/tracks/create/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(trackData),
