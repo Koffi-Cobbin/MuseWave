@@ -41,19 +41,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (username: string, password: string) => {
     try {
       const userData = await apiRequestJson<User>(
-        'GET',
-        API_ENDPOINTS.users.byUsername(username)
+        'POST',
+        API_ENDPOINTS.users.login,
+        { username, password }
       );
-
-      // Simple password check (in production, this should be handled server-side)
-      if (userData.password !== password) {
-        throw new Error("Invalid password");
-      }
 
       const { password: _, ...safeUser } = userData;
       setUser(safeUser);
       setIsAuthenticated(true);
-      localStorage.setItem("userId", safeUser.id);
+      localStorage.setItem("userId", userData.id);
     } catch (error) {
       console.error("Login failed:", error);
       throw error;

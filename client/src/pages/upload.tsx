@@ -191,6 +191,7 @@ export default function Upload() {
           }
 
           const newUser = await createUserResponse.json();
+          console.log("New user created:", newUser);
           userId = newUser.id;
           isNewUser = true;
 
