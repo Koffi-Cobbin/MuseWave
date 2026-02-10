@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/auth-context";
+import { API_BASE_URL, API_ENDPOINTS } from "@/lib/apiConfig";
 
 type UploadDraft = {
   title: string;
@@ -149,7 +150,6 @@ export default function Upload() {
     setUploadProgress("Preparing upload...");
 
     try {
-      const API_BASE_URL = "https://kofficobbin.pythonanywhere.com/api";
       // Generate artist slug
       const artistSlug = draft.artist
         .trim()
@@ -164,7 +164,7 @@ export default function Upload() {
       // Try to get existing user by username
       setUploadProgress("Checking artist profile...");
       try {
-        const userResponse = await fetch(`${API_BASE_URL}/musewave/users/username/${artistSlug}/`);
+        const userResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.byUsername(artistSlug)}`);
         if (userResponse.ok) {
           const user = await userResponse.json();
           userId = user.id;
@@ -173,7 +173,7 @@ export default function Upload() {
           setUploadProgress("Creating artist profile...");
           const userPasswordGenerated = `temp-${Date.now()}-${Math.random().toString(36)}`;
           
-          const createUserResponse = await fetch(`${API_BASE_URL}/musewave/users/create/`, {
+          const createUserResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.create}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -239,7 +239,7 @@ export default function Upload() {
         published: true,
       };
 
-      const response = await fetch(`${API_BASE_URL}/musewave/tracks/create/`, {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.tracks.create}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(trackData),
