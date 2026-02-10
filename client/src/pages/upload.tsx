@@ -596,6 +596,24 @@ export default function Upload() {
                         : "Upload an audio file to enable preview"}
                     </div>
                   )}
+                  <Button 
+                    onClick={onSubmit} 
+                    disabled={isSubmitting} 
+                    className="w-full mt-4" 
+                    data-testid="button-submit-upload-preview"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Publishing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Publish Track
+                      </>
+                    )}
+                  </Button>
                 </div>
               </div>
 
