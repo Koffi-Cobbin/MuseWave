@@ -314,19 +314,6 @@ export default function Upload() {
                 Back to Home
               </Button>
             </Link>
-            <Button onClick={onSubmit} disabled={isSubmitting} data-testid="button-submit-upload">
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Publishing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Publish
-                </>
-              )}
-            </Button>
           </div>
         </header>
 
