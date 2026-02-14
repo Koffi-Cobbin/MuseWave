@@ -30,6 +30,14 @@ function PlayerBar() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
 
+  // Apply volume to audio element
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.volume = volume;
+    }
+  }, [volume]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -56,6 +64,12 @@ function PlayerBar() {
     }
   }, [autoPlay, active, isPlaying]);
 
+  // Reset player state when track changes
+  useEffect(() => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+  }, [active?.id]);
+
   const togglePlay = () => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -63,7 +77,15 @@ function PlayerBar() {
     if (isPlaying) {
       audio.pause();
     } else {
-      audio.play();
+      // Attempt to play and handle errors
+      audio.play().catch(error => {
+        console.error('Playback error:', error);
+        toast({
+          title: "Playback error",
+          description: "Unable to play this track. Please try again.",
+          variant: "destructive",
+        });
+      });
     }
     setIsPlaying(!isPlaying);
   };
@@ -121,6 +143,13 @@ function PlayerBar() {
 
   return (
     <>
+      {/* 
+        Audio player with streaming support.
+        The audioUrl from the backend points to the streaming endpoint that supports:
+        - HTTP Range requests for seeking
+        - Efficient buffering
+        - Direct file streaming from Django FileField
+      */}
       <audio ref={audioRef} src={active?.audioUrl} preload="metadata" />
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/8 bg-background/70 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-3 py-2 sm:px-4 sm:py-3">

@@ -9,8 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequestJson, queryClient } from "@/lib/queryClient";
-import { API_ENDPOINTS } from "@/lib/apiConfig";
-import { Loader2, Music } from "lucide-react";
+import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
+import { Loader2, Music, ImageIcon } from "lucide-react";
 
 interface AlbumCreateProps {
   onSuccess?: () => void;
@@ -23,6 +23,8 @@ export function AlbumCreate({ onSuccess }: AlbumCreateProps) {
   const [description, setDescription] = useState("");
   const [genre, setGenre] = useState("");
   const [selectedTracks, setSelectedTracks] = useState<string[]>([]);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
   const { data: tracks, isLoading: tracksLoading } = useQuery<Track[]>({
     queryKey: [API_ENDPOINTS.tracks.list, { userId: user?.id, published: true }],
@@ -38,20 +40,59 @@ export function AlbumCreate({ onSuccess }: AlbumCreateProps) {
   });
 
   const createAlbumMutation = useMutation({
-    mutationFn: async (data: any) => {
-      return await apiRequestJson('POST', API_ENDPOINTS.albums.create, data);
+    mutationFn: async (formData: FormData) => {
+      // Use fetch directly for FormData
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.albums.create}`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create album');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
         queryKey: [API_ENDPOINTS.albums.byUser(user?.id || '')]
       });
       toast({ title: "Success", description: "Album created successfully" });
+
+      // Reset form
+      setTitle("");
+      setDescription("");
+      setGenre("");
+      setSelectedTracks([]);
+      setCoverFile(null);
+      setCoverPreview(null);
+
       onSuccess?.();
     },
-    onError: () => {
-      toast({ variant: "destructive", title: "Error", description: "Failed to create album" });
+    onError: (error: Error) => {
+      toast({ 
+        variant: "destructive", 
+        title: "Error", 
+        description: error.message || "Failed to create album" 
+      });
     },
   });
+
+  const handleCoverFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setCoverFile(file);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCoverPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,16 +102,28 @@ export function AlbumCreate({ onSuccess }: AlbumCreateProps) {
       return;
     }
 
-    createAlbumMutation.mutate({
-      title,
-      description,
-      genre,
-      artist: user.displayName || user.username,
-      userId: user.id,
-      trackIds: selectedTracks,
-      releaseDate: new Date().toISOString(),
-      published: true,
-    });
+    // Create FormData for multipart upload
+    const formData = new FormData();
+    formData.append('user_id', user.id);
+    formData.append('title', title);
+    formData.append('artist', user.displayName || user.username);
+    formData.append('genre', genre);
+    formData.append('release_date', new Date().toISOString());
+    formData.append('published', 'true');
+
+    if (description) {
+      formData.append('description', description);
+    }
+
+    // Add cover file if provided
+    if (coverFile) {
+      formData.append('cover_file', coverFile);
+    }
+
+    // Add track IDs as JSON string
+    formData.append('track_ids', JSON.stringify(selectedTracks));
+
+    createAlbumMutation.mutate(formData);
   };
 
   const toggleTrack = (trackId: string) => {
@@ -97,6 +150,7 @@ export function AlbumCreate({ onSuccess }: AlbumCreateProps) {
               required
             />
           </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Description</label>
             <Textarea 
@@ -105,6 +159,7 @@ export function AlbumCreate({ onSuccess }: AlbumCreateProps) {
               placeholder="Tell us about this album"
             />
           </div>
+
           <div className="space-y-2">
             <label className="text-sm font-medium">Genre</label>
             <Input 
@@ -113,6 +168,42 @@ export function AlbumCreate({ onSuccess }: AlbumCreateProps) {
               placeholder="e.g. Electronic, Lo-fi"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Album Cover</label>
+            <div className="flex items-center gap-3">
+              {coverPreview && (
+                <div className="h-20 w-20 rounded-xl border border-white/10 overflow-hidden">
+                  <img 
+                    src={coverPreview} 
+                    alt="Album cover preview" 
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              )}
+              <label className="flex-1 cursor-pointer">
+                <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-3 transition hover:bg-white/6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/4">
+                    <ImageIcon className="h-5 w-5 text-accent" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">
+                      {coverFile ? "Cover selected" : "Choose cover image"}
+                    </div>
+                    <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {coverFile?.name || "Optional - JPG, PNG, or WebP"}
+                    </div>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleCoverFileChange}
+                  />
+                </div>
+              </label>
+            </div>
           </div>
 
           <div className="space-y-2">

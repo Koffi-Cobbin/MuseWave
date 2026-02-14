@@ -46,16 +46,6 @@ function gradientFromTitle(title: string) {
   return options[hash % options.length];
 }
 
-// Helper to convert File to base64 data URL
-async function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
 // Helper to get audio duration
 async function getAudioDuration(file: File): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -172,7 +162,7 @@ export default function Upload() {
           // Create new user for this artist          
           setUploadProgress("Creating artist profile...");
           const userPasswordGenerated = `temp-${Date.now()}-${Math.random().toString(36)}`;
-          
+
           const createUserResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.create}`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -208,42 +198,62 @@ export default function Upload() {
         throw new Error("Failed to create or find artist profile");
       }
 
-      // Process audio file
+      // Get audio duration
       setUploadProgress("Processing audio file...");
-      const audioDataUrl = await fileToDataUrl(draft.audioFile);
-      const audioDuration = await getAudioDuration(draft.audioFile);
-
-      // Process cover file if provided
-      let coverDataUrl: string | undefined;
-      if (draft.coverFile) {
-        setUploadProgress("Processing cover image...");
-        coverDataUrl = await fileToDataUrl(draft.coverFile);
+      let audioDuration = 0;
+      try {
+        audioDuration = await getAudioDuration(draft.audioFile);
+      } catch (error) {
+        console.error("Failed to get audio duration:", error);
       }
 
-      // Create track
-      setUploadProgress("Publishing track...");
-      const trackData = {
-        user_id: userId,
-        title: draft.title.trim(),
-        artist: draft.artist.trim(),
-        artist_slug: artistSlug,
-        description: draft.description.trim() || undefined,
-        genre: draft.genre.trim() || "Indie",
-        mood: draft.mood.trim() || undefined,
-        tags: draft.mood ? [draft.mood.toLowerCase(), draft.genre.toLowerCase()] : [draft.genre.toLowerCase()],
-        audio_url: audioDataUrl,
-        audio_file_size: draft.audioFile.size,
-        audio_duration: Math.round(audioDuration),
-        audio_format: draft.audioFile.type.split("/")[1] || "mp3",
-        cover_url: coverDataUrl,
-        cover_gradient: coverGradient,
-        published: true,
-      };
+      // Create FormData for file upload
+      setUploadProgress("Uploading files...");
+      const formData = new FormData();
 
+      // Add all text fields
+      formData.append('user_id', userId);
+      formData.append('title', draft.title.trim());
+      formData.append('artist', draft.artist.trim());
+      formData.append('artist_slug', artistSlug);
+
+      if (draft.description.trim()) {
+        formData.append('description', draft.description.trim());
+      }
+
+      formData.append('genre', draft.genre.trim() || 'Indie');
+
+      if (draft.mood.trim()) {
+        formData.append('mood', draft.mood.trim());
+      }
+
+      // Add tags as JSON string
+      const tags = draft.mood 
+        ? [draft.mood.toLowerCase(), draft.genre.toLowerCase()] 
+        : [draft.genre.toLowerCase()];
+      formData.append('tags', JSON.stringify(tags));
+
+      // Add audio file
+      formData.append('audio_file', draft.audioFile);
+      formData.append('audio_file_size', draft.audioFile.size.toString());
+      formData.append('audio_duration', Math.round(audioDuration).toString());
+      formData.append('audio_format', draft.audioFile.type.split("/")[1] || "mp3");
+
+      // Add cover file if provided
+      if (draft.coverFile) {
+        setUploadProgress("Uploading cover image...");
+        formData.append('cover_file', draft.coverFile);
+      }
+
+      formData.append('cover_gradient', coverGradient);
+      formData.append('published', 'true');
+
+      // Create track with multipart/form-data
+      setUploadProgress("Publishing track...");
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.tracks.create}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(trackData),
+        // Don't set Content-Type header - browser will set it automatically with boundary
+        body: formData,
       });
 
       if (!response.ok) {
@@ -517,7 +527,7 @@ export default function Upload() {
                   <div className="flex items-start gap-2 text-xs text-muted-foreground">
                     <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                     <span>
-                      Files are converted to base64 and stored in the JSON database. For production, use proper file storage.
+                      Files are uploaded using multipart/form-data. Make sure your backend accepts FormData with 'audio_file' and 'cover_file' fields.
                     </span>
                   </div>
                 </div>
