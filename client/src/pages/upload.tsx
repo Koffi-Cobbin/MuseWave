@@ -19,9 +19,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/auth-context";
-import { API_BASE_URL, API_ENDPOINTS } from "@/lib/apiConfig";
+import { apiRequestJson, apiRequestFormData } from "@/lib/queryClient";
+import { API_ENDPOINTS } from "@/lib/apiConfig";
 
 type UploadDraft = {
   title: string;
@@ -154,33 +153,24 @@ export default function Upload() {
       // Try to get existing user by username
       setUploadProgress("Checking artist profile...");
       try {
-        const userResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.byUsername(artistSlug)}`);
-        if (userResponse.ok) {
-          const user = await userResponse.json();
+        const user = await apiRequestJson<any>('GET', API_ENDPOINTS.users.byUsername(artistSlug))
+          .catch(() => null);
+
+        if (user) {
           userId = user.id;
         } else {
           // Create new user for this artist          
           setUploadProgress("Creating artist profile...");
           const userPasswordGenerated = `temp-${Date.now()}-${Math.random().toString(36)}`;
 
-          const createUserResponse = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.create}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              username: artistSlug,
-              email: `${artistSlug}@indiewave.local`,
-              password: userPasswordGenerated,
-              display_name: draft.artist.trim(),
-              bio: `Indie artist sharing music on IndieWave`,
-            }),
+          const newUser = await apiRequestJson<any>('POST', API_ENDPOINTS.users.create, {
+            username: artistSlug,
+            email: `${artistSlug}@indiewave.local`,
+            password: userPasswordGenerated,
+            display_name: draft.artist.trim(),
+            bio: `Indie artist sharing music on IndieWave`,
           });
 
-          if (!createUserResponse.ok) {
-            const error = await createUserResponse.json();
-            throw new Error(error.error || "Failed to create artist profile");
-          }
-
-          const newUser = await createUserResponse.json();
           console.log("New user created:", newUser);
           userId = newUser.id;
           isNewUser = true;
@@ -250,18 +240,8 @@ export default function Upload() {
 
       // Create track with multipart/form-data
       setUploadProgress("Publishing track...");
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.tracks.create}`, {
-        method: "POST",
-        // Don't set Content-Type header - browser will set it automatically with boundary
-        body: formData,
-      });
+      const createdTrack = await apiRequestFormData<any>('POST', API_ENDPOINTS.tracks.create, formData);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to create track");
-      }
-
-      const createdTrack = await response.json();
       setCreatedTrackId(createdTrack.id);
       setSubmitted(true);
       setUploadProgress("");

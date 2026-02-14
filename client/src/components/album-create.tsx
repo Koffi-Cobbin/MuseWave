@@ -41,19 +41,7 @@ export function AlbumCreate({ onSuccess }: AlbumCreateProps) {
 
   const createAlbumMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      // Use fetch directly for FormData
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.albums.create}`, {
-        method: 'POST',
-        body: formData,
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create album');
-      }
-
-      return response.json();
+      return await apiRequestFormData('POST', API_ENDPOINTS.albums.create, formData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
