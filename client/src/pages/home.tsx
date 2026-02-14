@@ -100,14 +100,14 @@ function timeAgo(dateString?: string) {
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2" data-testid="brand-indiewave">
+    <div className="flex items-center gap-2 min-w-0" data-testid="brand-indiewave">
       <div
-        className="h-9 w-9 rounded-xl bg-gradient-to-br from-emerald-400/90 via-emerald-400/20 to-fuchsia-500/80 shadow-[0_12px_40px_-24px_rgba(16,185,129,.9)]"
+        className="h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br from-emerald-400/90 via-emerald-400/20 to-fuchsia-500/80 shadow-[0_12px_40px_-24px_rgba(16,185,129,.9)]"
         aria-hidden="true"
       />
-      <div className="leading-tight">
-        <div className="text-[15px] font-semibold tracking-tight">IndieWave</div>
-        <div className="text-xs text-muted-foreground">music for the next favorite</div>
+      <div className="leading-tight min-w-0">
+        <div className="text-[15px] font-semibold tracking-tight truncate">IndieWave</div>
+        <div className="text-[10px] sm:text-xs text-muted-foreground truncate">music for the next favorite</div>
       </div>
     </div>
   );
@@ -266,14 +266,14 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
   };
 
   return (
-    <div className="glass glow noise h-full rounded-2xl p-4 lg:h-auto">
-      <div className="flex items-center justify-between lg:block">
+    <div className="glass glow noise h-full rounded-2xl p-3 sm:p-4 lg:h-auto overflow-y-auto">
+      <div className="flex items-center justify-between lg:block gap-2">
         <Logo />
         {onMobileClose && (
           <Button
             variant="ghost"
             size="icon"
-            className="lg:hidden"
+            className="lg:hidden shrink-0"
             onClick={onMobileClose}
             data-testid="button-close-nav"
           >
@@ -282,7 +282,7 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
         )}
       </div>
 
-      <Separator className="my-4 opacity-60" />
+      <Separator className="my-3 sm:my-4 opacity-60" />
 
       <nav className="grid gap-1">
         {items.map((it) => {
@@ -295,54 +295,56 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
               data-testid={it.testId}
               onClick={onMobileClose}
               className={cn(
-                "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                "group flex items-center gap-3 rounded-xl px-2 sm:px-3 py-2 sm:py-2.5 text-sm transition",
                 "hover:bg-white/5 hover:border-white/10 border border-transparent",
                 active && "bg-white/6 border-white/10",
               )}
             >
-              <Icon className="h-4 w-4 text-foreground/80 group-hover:text-foreground" />
-              <span className="font-medium">{it.label}</span>
+              <Icon className="h-4 w-4 shrink-0 text-foreground/80 group-hover:text-foreground" />
+              <span className="font-medium truncate">{it.label}</span>
             </a>
           );
         })}
       </nav>
 
-      <Separator className="my-4 opacity-60" />
+      <Separator className="my-3 sm:my-4 opacity-60" />
 
       {isAuthenticated && user && (
-        <>
+        <div className="mb-3 sm:mb-4">
           <Link href={`/artist/${user.username}`}>
-            <div className="mb-4 rounded-xl border border-white/10 bg-white/4 p-3 cursor-pointer hover:bg-white/6 transition">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-emerald-400/30 to-fuchsia-500/20">
-                  <UserIcon className="h-5 w-5" />
+            <div className="rounded-xl border border-white/10 bg-white/4 p-2 sm:p-3 cursor-pointer hover:bg-white/6 transition min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-emerald-400/30 to-fuchsia-500/20">
+                  <UserIcon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold" data-testid="text-user-name">
+                  <div className="truncate text-xs sm:text-sm font-semibold" data-testid="text-user-name">
                     {user.displayName || user.username}
                   </div>
-                  <div className="truncate text-xs text-muted-foreground" data-testid="text-user-email">
+                  <div className="truncate text-[10px] sm:text-xs text-muted-foreground" data-testid="text-user-email">
                     {user.email}
                   </div>
                 </div>
               </div>
             </div>
           </Link>
-        </>
+        </div>
       )}
 
       {isAuthenticated ? (
         <Button
           variant="ghost"
-          className="w-full justify-start"
+          className="w-full justify-start px-2 sm:px-3 text-xs sm:text-sm"
           onClick={handleLogout}
           data-testid="button-logout"
         >
-          <LogOut className="mr-2 h-4 w-4" />
-          Log out
+          <LogOut className="mr-2 h-4 w-4 shrink-0" />
+          <span className="truncate">Log out</span>
         </Button>
       ) : (
-        <LoginDialog onSuccess={onMobileClose} />
+        <div className="min-w-0 overflow-hidden">
+          <LoginDialog onSuccess={onMobileClose} />
+        </div>
       )}
     </div>
   );
@@ -356,8 +358,8 @@ function TopBar({
   onQueryChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
         <h1
           className="text-balance text-lg font-semibold tracking-tight sm:text-xl lg:text-2xl xl:text-3xl"
           data-testid="text-title"
@@ -379,8 +381,8 @@ function TopBar({
           <Input
             value={query}
             onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Search tracks, artists, vibes…"
-            className="pl-9 text-sm"
+            placeholder="Search tracks…"
+            className="pl-9 text-sm h-9"
             data-testid="input-search"
           />
         </div>
@@ -627,9 +629,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
-      <div className="mx-auto max-w-6xl px-2 py-3 sm:px-3 sm:py-4 lg:px-4 lg:py-6 xl:py-8">
+      <div className="mx-auto max-w-6xl px-3 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
         <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
-          <div className="fixed bottom-24 right-4 z-50 lg:hidden">
+          <div className="fixed bottom-6 right-4 z-50 lg:hidden sm:bottom-24">
             <Button
               size="icon"
               className="h-12 w-12 rounded-2xl shadow-lg shadow-primary/20"
@@ -645,7 +647,7 @@ export default function Home() {
               <motion.div
                 initial={{ x: "-100%" }}
                 animate={{ x: 0 }}
-                className="h-full w-4/5 max-w-xs p-4"
+                className="h-full w-[280px] max-w-[85vw] p-4"
               >
                 <SidebarNav onMobileClose={() => setIsSidebarOpen(false)} />
               </motion.div>
