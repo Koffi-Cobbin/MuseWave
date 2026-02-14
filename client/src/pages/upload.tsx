@@ -21,6 +21,8 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { apiRequestJson, apiRequestFormData } from "@/lib/queryClient";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/auth-context";
 
 type UploadDraft = {
   title: string;
