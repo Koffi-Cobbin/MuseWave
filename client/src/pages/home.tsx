@@ -73,13 +73,13 @@ function secondsToTime(duration: number) {
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2" data-testid="brand-indiewave">
+    <div className="flex items-center gap-2" data-testid="brand-musewave">
       <div
         className="h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br from-emerald-400/90 via-emerald-400/20 to-fuchsia-500/80 shadow-[0_12px_40px_-24px_rgba(16,185,129,.9)]"
         aria-hidden="true"
       />
       <div className="min-w-0 leading-tight">
-        <div className="truncate text-[15px] font-semibold tracking-tight">IndieWave</div>
+        <div className="truncate text-[15px] font-semibold tracking-tight">MuseWave</div>
         <div className="truncate text-xs text-muted-foreground">music for the next fave</div>
       </div>
     </div>
@@ -179,7 +179,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
       }
       // Auto-login after successful signup
       await login(signupUsername.trim().toLowerCase(), signupPassword);
-      toast({ title: "Account created!", description: "Welcome to IndieWave." });
+      toast({ title: "Account created!", description: "Welcome to MuseWave." });
       handleOpenChange(false);
       onSuccess?.();
     } catch (error) {
@@ -232,7 +232,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
         {view === "login" && (
           <>
             <DialogHeader>
-              <DialogTitle>Log in to IndieWave</DialogTitle>
+              <DialogTitle>Log in to MuseWave</DialogTitle>
               <DialogDescription>Enter your credentials to access your account.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleLogin} className="mt-4 grid gap-4">
@@ -317,7 +317,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
           <>
             <DialogHeader>
               <DialogTitle>Create an account</DialogTitle>
-              <DialogDescription>Join IndieWave and start sharing your music.</DialogDescription>
+              <DialogDescription>Join MuseWave and start sharing your music.</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSignup} className="mt-4 grid gap-3">
               <div className="grid gap-2">

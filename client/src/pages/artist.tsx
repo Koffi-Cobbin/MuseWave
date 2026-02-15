@@ -407,7 +407,7 @@ export default function ArtistPage() {
                 </Dialog>
               </div>
               <p className="mt-4 max-w-xl text-sm text-muted-foreground">
-                {artist.bio || "IndieWave artist sharing their latest releases and demos."}
+                {artist.bio || "MuseWave artist sharing their latest releases and demos."}
               </p>
               {isOwner && (
                 <div className="mt-3 flex flex-wrap gap-2">

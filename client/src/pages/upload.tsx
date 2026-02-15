@@ -167,10 +167,10 @@ export default function Upload() {
 
           const newUser = await apiRequestJson<any>('POST', API_ENDPOINTS.users.create, {
             username: artistSlug,
-            email: `${artistSlug}@indiewave.local`,
+            email: `${artistSlug}@musewave.local`,
             password: userPasswordGenerated,
             display_name: draft.artist.trim(),
-            bio: `Indie artist sharing music on IndieWave`,
+            bio: `Indie artist sharing music on MuseWave`,
           });
 
           console.log("New user created:", newUser);

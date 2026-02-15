@@ -1,8 +1,8 @@
-# IndieWave
+# MuseWave
 
 ## Overview
 
-IndieWave is a Spotify-inspired music platform for indie artists to upload tracks, share releases, and help listeners discover new music. The application provides artist profiles, track uploads, and a discovery-focused home page with genre browsing and trending content.
+MuseWave is a Spotify-inspired music platform for indie artists to upload tracks, share releases, and help listeners discover new music. The application provides artist profiles, track uploads, and a discovery-focused home page with genre browsing and trending content.
 
 ## User Preferences
 
