@@ -27,6 +27,7 @@ import { useAuth } from "@/contexts/auth-context";
 type UploadDraft = {
   title: string;
   artist: string;
+  email: string;
   genre: string;
   mood: string;
   description: string;
@@ -70,6 +71,7 @@ export default function Upload() {
   const [draft, setDraft] = useState<UploadDraft>({
     title: "",
     artist: "",
+    email: "",
     genre: "Indie",
     mood: "",
     description: "",
@@ -111,6 +113,10 @@ export default function Upload() {
       toast({ title: "Missing artist", description: "Please enter an artist name.", variant: "destructive" });
       return;
     }
+    if (!draft.email.trim()) {
+      toast({ title: "Missing email", description: "Please enter an email address.", variant: "destructive" });
+      return;
+    }
     if (!draft.audioFile) {
       toast({ title: "Missing audio file", description: "Please select an audio file to upload.", variant: "destructive" });
       return;
@@ -145,7 +151,7 @@ export default function Upload() {
 
           const newUser = await apiRequestJson<any>('POST', API_ENDPOINTS.users.create, {
             username: artistSlug,
-            email: `${artistSlug}@musewave.local`,
+            email: draft.email.trim(),
             password: generatedPassword,
             display_name: draft.artist.trim(),
             bio: `Indie artist sharing music on MuseWave`,
@@ -383,31 +389,48 @@ export default function Upload() {
                     id="artist"
                     value={draft.artist}
                     onChange={(e) => update("artist", e.target.value)}
-                    placeholder="e.g. Nova Sky"
+                    placeholder="e.g. Luna Waves"
                     data-testid="input-artist-name"
                     disabled={isSubmitting}
                   />
                 </div>
 
-                <div className="grid gap-2 sm:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={draft.email}
+                    onChange={(e) => update("email", e.target.value)}
+                    placeholder="e.g. artist@example.com"
+                    data-testid="input-email"
+                    disabled={isSubmitting}
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Used for account creation and recovery
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="genre">Genre</Label>
                     <Input
                       id="genre"
                       value={draft.genre}
                       onChange={(e) => update("genre", e.target.value)}
-                      placeholder="Indie / Lo-fi / Pop"
+                      placeholder="e.g. Indie"
                       data-testid="input-genre"
                       disabled={isSubmitting}
                     />
                   </div>
+
                   <div className="grid gap-2">
                     <Label htmlFor="mood">Mood</Label>
                     <Input
                       id="mood"
                       value={draft.mood}
                       onChange={(e) => update("mood", e.target.value)}
-                      placeholder="Cozy / Driving / Bright"
+                      placeholder="e.g. Chill"
                       data-testid="input-mood"
                       disabled={isSubmitting}
                     />
@@ -420,242 +443,194 @@ export default function Upload() {
                     id="description"
                     value={draft.description}
                     onChange={(e) => update("description", e.target.value)}
-                    placeholder="Optional: a quick note for listeners…"
+                    placeholder="Tell listeners about your track..."
+                    className="min-h-[80px] resize-none"
                     data-testid="input-description"
                     disabled={isSubmitting}
                   />
-                </div>
-
-                <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/3 p-4">
-                  <div className="text-sm font-semibold" data-testid="text-files-title">
-                    Files
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label
-                      className={cn(
-                        "group flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-3 transition hover:bg-white/6",
-                        isSubmitting && "opacity-50 cursor-not-allowed"
-                      )}
-                      data-testid="label-audio-upload"
-                    >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/4">
-                        <AudioLines className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold">Audio file *</div>
-                        <div className="mt-0.5 truncate text-xs text-muted-foreground" data-testid="text-audio-file">
-                          {draft.audioFile?.name || "Choose .mp3 or .wav"}
-                        </div>
-                      </div>
-                      <input
-                        type="file"
-                        accept="audio/*"
-                        className="hidden"
-                        onChange={(e) => update("audioFile", e.target.files?.[0] || null)}
-                        data-testid="input-audio-file"
-                        disabled={isSubmitting}
-                      />
-                    </label>
-
-                    <label
-                      className={cn(
-                        "group flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-3 transition hover:bg-white/6",
-                        isSubmitting && "opacity-50 cursor-not-allowed"
-                      )}
-                      data-testid="label-cover-upload"
-                    >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/4">
-                        <ImageIcon className="h-5 w-5 text-accent" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold">Cover image</div>
-                        <div className="mt-0.5 truncate text-xs text-muted-foreground" data-testid="text-cover-file">
-                          {draft.coverFile?.name || "Optional"}
-                        </div>
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => update("coverFile", e.target.files?.[0] || null)}
-                        data-testid="input-cover-file"
-                        disabled={isSubmitting}
-                      />
-                    </label>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <span>
-                      Files are uploaded using multipart/form-data. Make sure your backend accepts FormData with 'audio_file' and 'cover_file' fields.
-                    </span>
-                  </div>
                 </div>
               </div>
             </div>
           </section>
 
-          <aside className="lg:col-span-5">
-            <div className="sticky top-6 space-y-4">
-              <div className="glass glow noise rounded-3xl border border-white/10 p-5">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold" data-testid="text-preview-title">
-                    Preview
-                  </div>
-                  <Badge variant="outline" className="border-white/12" data-testid="badge-step-2">
-                    Step 2/2
-                  </Badge>
+          <section className="lg:col-span-5">
+            <div className="glass glow noise rounded-3xl border border-white/10 p-5">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold" data-testid="text-files-title">
+                  Files
                 </div>
+                <Badge variant="outline" className="border-white/12" data-testid="badge-step-2">
+                  Step 2/2
+                </Badge>
+              </div>
 
-                <Separator className="my-4 opacity-60" />
-
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br",
-                      !previewUrl && coverGradient
-                    )}
-                    aria-hidden="true"
-                  >
-                    {previewUrl && (
-                      <img
-                        src={previewUrl}
-                        alt="Cover preview"
-                        className="h-full w-full object-cover"
-                        data-testid="img-cover-preview"
-                      />
-                    )}
+              <div className="mt-4 grid gap-3">
+                <label
+                  className={cn(
+                    "group flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-3 transition hover:bg-white/6",
+                    isSubmitting && "opacity-50 cursor-not-allowed"
+                  )}
+                  data-testid="label-audio-upload"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/4">
+                    <AudioLines className="h-5 w-5 text-primary" />
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold" data-testid="text-preview-track-title">
-                      {draft.title || "Track title"}
-                    </div>
-                    <div className="truncate text-xs text-muted-foreground" data-testid="text-preview-artist">
-                      {draft.artist || "Artist name"}
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <Badge variant="secondary" className="border-white/10 bg-white/5" data-testid="badge-preview-genre">
-                        {draft.genre || "Genre"}
-                      </Badge>
-                      <Badge variant="outline" className="border-white/12" data-testid="badge-preview-mood">
-                        {draft.mood || "Mood"}
-                      </Badge>
+                    <div className="text-sm font-semibold">Audio file *</div>
+                    <div className="mt-0.5 truncate text-xs text-muted-foreground" data-testid="text-audio-file">
+                      {draft.audioFile?.name || "Choose .mp3 or .wav"}
                     </div>
                   </div>
-                </div>
-
-                <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-white/3 p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Music className="h-4 w-4 text-primary" />
-                      <div className="text-sm font-semibold" data-testid="text-preview-player">
-                        Quick preview
-                      </div>
-                    </div>
-                  </div>
-                  {audioPreviewUrl ? (
-                    <audio
-                      controls
-                      src={audioPreviewUrl}
-                      className="h-10 w-full"
-                      data-testid="audio-preview-player"
-                    />
-                  ) : (
-                    <div className="text-xs text-muted-foreground" data-testid="text-preview-player-note">
-                      {draft.audioFile 
-                        ? "Audio preview available after upload"
-                        : "Upload an audio file to enable preview"}
-                    </div>
-                  )}
-                  <Button 
-                    onClick={onSubmit} 
-                    disabled={isSubmitting} 
-                    className="w-full mt-4" 
-                    data-testid="button-submit-upload-preview"
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Publishing...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Publish Track
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              <div className="glass glow noise rounded-3xl border border-white/10 p-5">
-                <div className="text-sm font-semibold" data-testid="text-share-title">
-                  Share
-                </div>
-                <div className="mt-1 text-sm text-muted-foreground" data-testid="text-share-sub">
-                  Get a clean link to your artist page.
-                </div>
-
-                <div className="mt-4 grid gap-2">
-                  <Label htmlFor="slug">Artist slug</Label>
-                  <Input
-                    id="slug"
-                    value={artistSlug}
-                    readOnly
-                    data-testid="input-artist-slug"
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    className="hidden"
+                    onChange={(e) => update("audioFile", e.target.files?.[0] || null)}
+                    data-testid="input-audio-file"
+                    disabled={isSubmitting}
                   />
-                  <div className="text-xs text-muted-foreground">This becomes /artist/&lt;slug&gt;.</div>
-                </div>
+                </label>
 
-                <div className="mt-4 flex flex-col gap-2">
-                  <Button
-                    variant="secondary"
-                    className="border-white/10 bg-white/5"
-                    onClick={() => {
-                      const url = `${window.location.origin}/artist/${artistSlug}`;
-                      navigator.clipboard.writeText(url);
-                      toast({
-                        title: "Link copied!",
-                        description: "Artist page link copied to clipboard.",
-                      });
-                    }}
-                    data-testid="button-copy-artist-link"
-                  >
-                    <Link2 className="mr-2 h-4 w-4" />
-                    Copy link
-                  </Button>
-
-                  <Link href={`/artist/${artistSlug}`}>
-                    <Button data-testid="button-open-artist" className="w-full">Open artist page</Button>
-                  </Link>
-                </div>
-              </div>
-
-              <div className="glass glow noise rounded-3xl border border-white/10 p-5">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-accent" />
-                  <div className="text-sm font-semibold" data-testid="text-quality-title">
-                    Quick quality checklist
+                <label
+                  className={cn(
+                    "group flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-3 transition hover:bg-white/6",
+                    isSubmitting && "opacity-50 cursor-not-allowed"
+                  )}
+                  data-testid="label-cover-upload"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/4">
+                    <ImageIcon className="h-5 w-5 text-accent" />
                   </div>
-                </div>
-                <ul className="mt-3 grid gap-2 text-sm text-muted-foreground">
-                  {[
-                    "Lead with your best 12 seconds",
-                    "Add a clear genre + mood",
-                    "A cover image helps a lot",
-                    "Share to 2-3 places today",
-                  ].map((t, i) => (
-                    <li key={t} className="flex items-start gap-2" data-testid={`row-checklist-${i}`}>
-                      <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-primary/70" />
-                      <span>{t}</span>
-                    </li>
-                  ))}
-                </ul>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold">Cover image</div>
+                    <div className="mt-0.5 truncate text-xs text-muted-foreground" data-testid="text-cover-file">
+                      {draft.coverFile?.name || "Optional"}
+                    </div>
+                  </div>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => update("coverFile", e.target.files?.[0] || null)}
+                    data-testid="input-cover-file"
+                    disabled={isSubmitting}
+                  />
+                </label>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-muted-foreground mt-3">
+                <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                <span>
+                  Files are uploaded using multipart/form-data. Make sure your backend accepts FormData with 'audio_file' and 'cover_file' fields.
+                </span>
               </div>
             </div>
-          </aside>
-        </div>
 
-        <div className="h-16" aria-hidden="true" />
+            <div className="glass glow noise mt-6 rounded-3xl border border-white/10 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Music className="h-4 w-4 text-primary" />
+                <div className="text-sm font-semibold" data-testid="text-preview-title">
+                  Preview
+                </div>
+              </div>
+              <div className="space-y-3">
+                <motion.div
+                  className={cn(
+                    "relative h-32 w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br",
+                    coverGradient
+                  )}
+                  data-testid="preview-cover"
+                >
+                  {previewUrl && (
+                    <img
+                      src={previewUrl}
+                      alt="Cover preview"
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                </motion.div>
+                <div className="space-y-1">
+                  <div className="text-sm font-semibold truncate" data-testid="preview-title">
+                    {draft.title || "Untitled Track"}
+                  </div>
+                  <div className="text-xs text-muted-foreground truncate" data-testid="preview-artist">
+                    {draft.artist || "Unknown Artist"}
+                  </div>
+                </div>
+                {audioPreviewUrl ? (
+                  <audio
+                    controls
+                    src={audioPreviewUrl}
+                    className="h-10 w-full"
+                    data-testid="audio-preview-player"
+                  />
+                ) : (
+                  <div className="text-xs text-muted-foreground" data-testid="text-preview-player-note">
+                    {draft.audioFile 
+                      ? "Audio preview available after upload"
+                      : "Upload an audio file to enable preview"}
+                  </div>
+                )}
+                <Button 
+                  onClick={onSubmit} 
+                  disabled={isSubmitting} 
+                  className="w-full mt-4" 
+                  data-testid="button-submit-upload-preview"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Publishing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Publish Track
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="glass glow noise mt-6 rounded-3xl border border-white/10 p-5">
+              <div className="text-sm font-semibold" data-testid="text-share-title">
+                Share
+              </div>
+              <div className="mt-1 text-sm text-muted-foreground" data-testid="text-share-sub">
+                Get a clean link to your artist page.
+              </div>
+
+              <div className="mt-4 grid gap-2">
+                <Label htmlFor="slug">Artist slug</Label>
+                <Input
+                  id="slug"
+                  value={artistSlug}
+                  readOnly
+                  data-testid="input-artist-slug"
+                />
+                <div className="text-xs text-muted-foreground">This becomes /artist/&lt;slug&gt;.</div>
+              </div>
+
+              <div className="mt-4 flex flex-col gap-2">
+                <Button
+                  variant="secondary"
+                  className="border-white/10 bg-white/5"
+                  onClick={() => {
+                    const url = `${window.location.origin}/artist/${artistSlug}`;
+                    navigator.clipboard.writeText(url);
+                    toast({
+                      title: "Link copied!",
+                      description: "Artist page link copied to clipboard.",
+                    });
+                  }}
+                  data-testid="button-copy-slug-link"
+                >
+                  <Link2 className="mr-2 h-4 w-4" />
+                  Copy link
+                </Button>
+              </div>
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
