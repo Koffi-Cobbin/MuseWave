@@ -133,12 +133,12 @@ export default function ArtistPage() {
       if (Object.keys(updates).length === 0) return;
 
       const updatedUser = await apiRequestJson(
-        'PATCH',
+        "PATCH",
         API_ENDPOINTS.users.update(artist.id),
-        updates
+        updates,
       );
 
-      setArtist(prev => prev ? { ...prev, ...updatedUser } : null);
+      setArtist((prev) => (prev ? { ...prev, ...updatedUser } : null));
       setIsEditingCredentials(false);
       setNewUsername("");
       setNewPassword("");
@@ -167,14 +167,14 @@ export default function ArtistPage() {
       try {
         // Fetch user by username (slug)
         const userData = await apiRequestJson(
-          'GET',
-          API_ENDPOINTS.users.byUsername(slug)
+          "GET",
+          API_ENDPOINTS.users.byUsername(slug),
         );
 
         // Fetch user stats
         const statsData = await apiRequestJson(
-          'GET',
-          API_ENDPOINTS.users.stats(userData.id)
+          "GET",
+          API_ENDPOINTS.users.stats(userData.id),
         ).catch(() => ({ totalFollowers: 0, monthlyListeners: 0 }));
 
         setArtist({
@@ -183,15 +183,17 @@ export default function ArtistPage() {
           followers: statsData.totalFollowers || 0,
           monthlyListeners: statsData.monthlyListeners || 0,
           tagline: userData.tagline || "Fresh sounds, new era energy",
-          accent: userData.accent || "from-emerald-400/28 via-transparent to-cyan-400/22"
+          accent:
+            userData.accent ||
+            "from-emerald-400/28 via-transparent to-cyan-400/22",
         });
 
         // Fetch user tracks
         const tracksData = await apiRequestJson<Track[]>(
-          'GET',
+          "GET",
           API_ENDPOINTS.tracks.list,
           undefined,
-          { userId: userData.id, published: true }
+          { userId: userData.id, published: true },
         );
 
         setTracks(tracksData);
@@ -207,7 +209,9 @@ export default function ArtistPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading artist profile...</div>
+        <div className="animate-pulse text-muted-foreground">
+          Loading artist profile...
+        </div>
       </div>
     );
   }
@@ -246,7 +250,9 @@ export default function ArtistPage() {
               className={cn(
                 "h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/10",
                 !artist.avatarUrl && "bg-gradient-to-br",
-                artist.avatarUrl ? "" : artist.accent || "from-emerald-400/30 to-fuchsia-500/20",
+                artist.avatarUrl
+                  ? ""
+                  : artist.accent || "from-emerald-400/30 to-fuchsia-500/20",
               )}
               aria-hidden="true"
             >
@@ -259,17 +265,25 @@ export default function ArtistPage() {
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
                   <span className="text-lg font-semibold text-white">
-                    {(artist.displayName || artist.username).charAt(0).toUpperCase()}
+                    {(artist.displayName || artist.username)
+                      .charAt(0)
+                      .toUpperCase()}
                   </span>
                 </div>
               )}
             </div>
 
             <div>
-              <div className="text-xs text-muted-foreground" data-testid="text-artist-route">
+              <div
+                className="text-xs text-muted-foreground"
+                data-testid="text-artist-route"
+              >
                 Artist
               </div>
-              <div className="text-lg font-semibold" data-testid="text-artist-title">
+              <div
+                className="text-lg font-semibold"
+                data-testid="text-artist-title"
+              >
                 {artist.username}
               </div>
             </div>
@@ -288,14 +302,13 @@ export default function ArtistPage() {
             )}
             <Button
               variant={following ? "secondary" : "default"}
-              className={cn(
-                "border-white/10",
-                following ? "bg-white/5" : "",
-              )}
+              className={cn("border-white/10", following ? "bg-white/5" : "")}
               onClick={() => setFollowing((v) => !v)}
               data-testid="button-follow"
             >
-              <Heart className={cn("mr-2 h-4 w-4", following && "fill-current")} />
+              <Heart
+                className={cn("mr-2 h-4 w-4", following && "fill-current")}
+              />
               {following ? "Following" : "Follow"}
             </Button>
             <Button
@@ -315,7 +328,7 @@ export default function ArtistPage() {
                       url,
                     });
                   } catch (error) {
-                    console.log('Share cancelled or failed:', error);
+                    console.log("Share cancelled or failed:", error);
                   }
                 } else {
                   try {
@@ -345,27 +358,45 @@ export default function ArtistPage() {
           <div className="grid gap-5 p-6 sm:grid-cols-12 sm:items-center">
             <div className="sm:col-span-7">
               <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="border-white/10 bg-white/5" data-testid="badge-verified">
+                <Badge
+                  variant="secondary"
+                  className="border-white/10 bg-white/5"
+                  data-testid="badge-verified"
+                >
                   <Sparkles className="mr-1 h-3.5 w-3.5" />
                   Emerging
                 </Badge>
-                <span className="text-xs text-muted-foreground" data-testid="text-artist-tagline">
+                <span
+                  className="text-xs text-muted-foreground"
+                  data-testid="text-artist-tagline"
+                >
                   {artist.tagline}
                 </span>
               </div>
-              <h1 className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl" data-testid="text-artist-name">
+              <h1
+                className="mt-3 text-balance text-3xl font-semibold tracking-tight sm:text-4xl"
+                data-testid="text-artist-name"
+              >
                 {artist.displayName}
               </h1>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <div className="glass rounded-2xl px-3 py-2">
                   <div className="text-xs text-muted-foreground">Followers</div>
-                  <div className="text-sm font-semibold" data-testid="text-followers">
+                  <div
+                    className="text-sm font-semibold"
+                    data-testid="text-followers"
+                  >
                     {formatCount(followCount)}
                   </div>
                 </div>
                 <div className="glass rounded-2xl px-3 py-2">
-                  <div className="text-xs text-muted-foreground">Monthly listeners</div>
-                  <div className="text-sm font-semibold" data-testid="text-monthly">
+                  <div className="text-xs text-muted-foreground">
+                    Monthly listeners
+                  </div>
+                  <div
+                    className="text-sm font-semibold"
+                    data-testid="text-monthly"
+                  >
                     {formatCount(artist.monthlyListeners)}
                   </div>
                 </div>
@@ -373,7 +404,9 @@ export default function ArtistPage() {
                   <DialogTrigger asChild>
                     <button className="glass hover-elevate active-elevate-2 flex items-center gap-2 rounded-2xl px-3 py-2 transition-colors">
                       <div className="text-left">
-                        <div className="text-xs text-muted-foreground">Support</div>
+                        <div className="text-xs text-muted-foreground">
+                          Support
+                        </div>
                         <div className="flex items-center gap-2">
                           <Crown className="h-4 w-4 text-primary" />
                           <span className="text-sm font-semibold">Tip jar</span>
@@ -388,7 +421,8 @@ export default function ArtistPage() {
                         Support {artist.displayName || artist.username}
                       </DialogTitle>
                       <DialogDescription>
-                        Show your appreciation for the music you love. Support features coming soon!
+                        Show your appreciation for the music you love. Support
+                        features coming soon!
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
@@ -396,24 +430,34 @@ export default function ArtistPage() {
                         <Crown className="mx-auto h-8 w-8 text-primary mb-2" />
                         <div className="text-sm font-medium">Tip Jar</div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          Direct support for {artist.displayName || artist.username}
+                          Direct support for{" "}
+                          {artist.displayName || artist.username}
                         </div>
                       </div>
                       <div className="text-xs text-muted-foreground text-center">
-                        Support functionality is currently in development. Check back soon!
+                        Support functionality is currently in development. Check
+                        back soon!
                       </div>
                     </div>
                   </DialogContent>
                 </Dialog>
               </div>
               <p className="mt-4 max-w-xl text-sm text-muted-foreground">
-                {artist.bio || "MuseWave artist sharing their latest releases and demos."}
+                {artist.bio ||
+                  "MuseWave artist sharing their latest releases and demos."}
               </p>
               {isOwner && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <Dialog open={isAlbumCreateOpen} onOpenChange={setIsAlbumCreateOpen}>
+                  <Dialog
+                    open={isAlbumCreateOpen}
+                    onOpenChange={setIsAlbumCreateOpen}
+                  >
                     <DialogTrigger asChild>
-                      <Button variant="default" size="sm" className="glow transition-all hover:scale-[1.02]">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="glow transition-all hover:scale-[1.02]"
+                      >
                         <Disc className="mr-2 h-4 w-4" />
                         Create Album
                       </Button>
@@ -425,7 +469,9 @@ export default function ArtistPage() {
                           Group your tracks into an album.
                         </DialogDescription>
                       </DialogHeader>
-                      <AlbumCreate onSuccess={() => setIsAlbumCreateOpen(false)} />
+                      <AlbumCreate
+                        onSuccess={() => setIsAlbumCreateOpen(false)}
+                      />
                     </DialogContent>
                   </Dialog>
 
@@ -434,8 +480,12 @@ export default function ArtistPage() {
                     size="sm"
                     className="border-white/10 bg-white/5 hover:bg-white/10"
                     onClick={() => {
-                      const credentialsSection = document.getElementById('credentials-section');
-                      credentialsSection?.scrollIntoView({ behavior: 'smooth' });
+                      const credentialsSection = document.getElementById(
+                        "credentials-section",
+                      );
+                      credentialsSection?.scrollIntoView({
+                        behavior: "smooth",
+                      });
                     }}
                   >
                     <Settings className="mr-2 h-4 w-4" />
@@ -447,13 +497,21 @@ export default function ArtistPage() {
 
             <div className="sm:col-span-5">
               <div className="relative overflow-hidden rounded-3xl border border-white/10 p-5">
-                <div className={cn("absolute inset-0 bg-gradient-to-br", artist.accent)} />
+                <div
+                  className={cn(
+                    "absolute inset-0 bg-gradient-to-br",
+                    artist.accent,
+                  )}
+                />
                 <div className="absolute inset-0 opacity-60 blur-3xl" />
                 <div className="relative">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Users className="h-4 w-4 text-foreground/90" />
-                      <div className="text-sm font-semibold" data-testid="text-growth-title">
+                      <div
+                        className="text-sm font-semibold"
+                        data-testid="text-growth-title"
+                      >
                         Growth snapshot
                       </div>
                     </div>
@@ -470,8 +528,14 @@ export default function ArtistPage() {
 
                   <div className="mt-4 grid gap-3">
                     {[
-                      { label: "Saves", value: formatCount(artist.monthlyListeners / 10) },
-                      { label: "Shares", value: formatCount(artist.followers / 5) },
+                      {
+                        label: "Saves",
+                        value: formatCount(artist.monthlyListeners / 10),
+                      },
+                      {
+                        label: "Shares",
+                        value: formatCount(artist.followers / 5),
+                      },
                       { label: "Monthly Growth", value: "+12%" },
                     ].map((r) => (
                       <div
@@ -479,7 +543,9 @@ export default function ArtistPage() {
                         className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/6 px-3 py-2"
                         data-testid={`row-growth-${r.label.replace(/\s+/g, "-").toLowerCase()}`}
                       >
-                        <div className="text-sm text-foreground/90">{r.label}</div>
+                        <div className="text-sm text-foreground/90">
+                          {r.label}
+                        </div>
                         <div className="text-sm font-semibold">{r.value}</div>
                       </div>
                     ))}
@@ -490,21 +556,30 @@ export default function ArtistPage() {
           </div>
         </section>
 
-
         <section className="mt-6">
           <div className="flex items-end justify-between">
             <div>
               <div className="flex items-center gap-2">
                 <Music2 className="h-4 w-4 text-primary" />
-                <h2 className="text-lg font-semibold" data-testid="text-tracks-title">
+                <h2
+                  className="text-lg font-semibold"
+                  data-testid="text-tracks-title"
+                >
                   Tracks
                 </h2>
               </div>
-              <div className="mt-1 text-sm text-muted-foreground" data-testid="text-tracks-sub">
+              <div
+                className="mt-1 text-sm text-muted-foreground"
+                data-testid="text-tracks-sub"
+              >
                 Quick previews and share-ready cards.
               </div>
             </div>
-            <Badge variant="secondary" className="border-white/10 bg-white/5" data-testid="badge-track-count">
+            <Badge
+              variant="secondary"
+              className="border-white/10 bg-white/5"
+              data-testid="badge-track-count"
+            >
               {tracks.length} tracks
             </Badge>
           </div>
@@ -547,22 +622,36 @@ export default function ArtistPage() {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold" data-testid={`text-artist-track-title-${t.id}`}>
+                      <div
+                        className="truncate text-sm font-semibold"
+                        data-testid={`text-artist-track-title-${t.id}`}
+                      >
                         {t.title}
                       </div>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        <span data-testid={`text-artist-track-time-${t.id}`}>{time(t.audioDuration)}</span>
+                        <span data-testid={`text-artist-track-time-${t.id}`}>
+                          {time(t.audioDuration)}
+                        </span>
                         <span aria-hidden="true">•</span>
-                        <span data-testid={`text-artist-track-plays-${t.id}`}>{formatCount(t.plays)} plays</span>
+                        <span data-testid={`text-artist-track-plays-${t.id}`}>
+                          {formatCount(t.plays)} plays
+                        </span>
                       </div>
                     </div>
                     {active?.id === t.id ? (
-                      <Badge variant="secondary" className="border-white/10 bg-primary/20 text-primary px-3 py-1">
+                      <Badge
+                        variant="secondary"
+                        className="border-white/10 bg-primary/20 text-primary px-3 py-1"
+                      >
                         Playing
                       </Badge>
                     ) : (
                       <motion.div
-                        animate={justPlayedId === t.id ? { scale: 1.2, rotate: 360 } : { scale: 1, rotate: 0 }}
+                        animate={
+                          justPlayedId === t.id
+                            ? { scale: 1.2, rotate: 360 }
+                            : { scale: 1, rotate: 0 }
+                        }
                         transition={{ duration: 0.5 }}
                       >
                         <Button
@@ -589,7 +678,10 @@ export default function ArtistPage() {
         </section>
 
         {isOwner && (
-          <section id="credentials-section" className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6">
+          <section
+            id="credentials-section"
+            className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6"
+          >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <Settings className="h-4 w-4 text-primary" />
@@ -616,8 +708,8 @@ export default function ArtistPage() {
                   )}
                 </Button>
                 {showCredentials && (
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     size="sm"
                     className="h-8 border-white/10 bg-white/5 hover:bg-white/10"
                     onClick={() => {
@@ -635,7 +727,9 @@ export default function ArtistPage() {
                     }}
                     data-testid="button-edit-credentials"
                   >
-                    {isEditingCredentials ? "Cancel" : (
+                    {isEditingCredentials ? (
+                      "Cancel"
+                    ) : (
                       <>
                         <Settings className="mr-2 h-4 w-4" />
                         Edit
@@ -646,10 +740,17 @@ export default function ArtistPage() {
               </div>
             </div>
 
-            <div className={cn("mt-3 grid gap-3 sm:grid-cols-2", !showCredentials && "hidden")}>
+            <div
+              className={cn(
+                "mt-3 grid gap-3 sm:grid-cols-2",
+                !showCredentials && "hidden",
+              )}
+            >
               {isEditingCredentials && (
                 <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                  <div className="text-xs text-muted-foreground mb-2">Profile Bio</div>
+                  <div className="text-xs text-muted-foreground mb-2">
+                    Profile Bio
+                  </div>
                   <Textarea
                     value={newBio}
                     onChange={(e) => setNewBio(e.target.value)}
@@ -659,84 +760,102 @@ export default function ArtistPage() {
                 </div>
               )}
               {isEditingCredentials && (
-              <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                <div className="text-xs text-muted-foreground mb-2">Profile Picture</div>
-                <div className="flex items-center gap-3">
-                  <div
-                    className={cn(
-                      "h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10",
-                      !avatarPreview && !artist.avatarUrl && "bg-gradient-to-br",
-                      avatarPreview || artist.avatarUrl ? "" : artist.accent || "from-emerald-400/30 to-fuchsia-500/20",
-                    )}
-                    aria-hidden="true"
-                  >
-                    {avatarPreview ? (
-                      <img
-                        src={avatarPreview}
-                        alt="Avatar preview"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : artist.avatarUrl ? (
-                      <img
-                        src={artist.avatarUrl}
-                        alt={`${artist.displayName || artist.username} avatar`}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center">
-                        <span className="text-xl font-semibold text-white">
-                          {(artist.displayName || artist.username).charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    )}
+                <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                  <div className="text-xs text-muted-foreground mb-2">
+                    Profile Picture
                   </div>
-                  <div className="flex-1 space-y-2">
-                    <div>
-                      <Label htmlFor="avatar-file" className="text-xs text-muted-foreground">
-                        Upload Image
-                      </Label>
-                      <Input
-                        id="avatar-file"
-                        type="file"
-                        accept="image/*"
-                        className="bg-transparent border-b border-white/10 text-sm focus:outline-none file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-white/10 file:text-white hover:file:bg-white/20"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setNewAvatarFile(file);
-                            // Create preview
-                            const previewUrl = await fileToDataUrl(file);
-                            setAvatarPreview(previewUrl);
-                          } else {
-                            setNewAvatarFile(null);
-                            setAvatarPreview(null);
-                          }
-                        }}
-                      />
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10",
+                        !avatarPreview &&
+                          !artist.avatarUrl &&
+                          "bg-gradient-to-br",
+                        avatarPreview || artist.avatarUrl
+                          ? ""
+                          : artist.accent ||
+                              "from-emerald-400/30 to-fuchsia-500/20",
+                      )}
+                      aria-hidden="true"
+                    >
+                      {avatarPreview ? (
+                        <img
+                          src={avatarPreview}
+                          alt="Avatar preview"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : artist.avatarUrl ? (
+                        <img
+                          src={artist.avatarUrl}
+                          alt={`${artist.displayName || artist.username} avatar`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center">
+                          <span className="text-xl font-semibold text-white">
+                            {(artist.displayName || artist.username)
+                              .charAt(0)
+                              .toUpperCase()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <div>
+                        <Label
+                          htmlFor="avatar-file"
+                          className="text-xs text-muted-foreground"
+                        >
+                          Upload Image
+                        </Label>
+                        <Input
+                          id="avatar-file"
+                          type="file"
+                          accept="image/*"
+                          className="bg-transparent border-b border-white/10 text-sm focus:outline-none file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-white/10 file:text-white hover:file:bg-white/20"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setNewAvatarFile(file);
+                              // Create preview
+                              const previewUrl = await fileToDataUrl(file);
+                              setAvatarPreview(previewUrl);
+                            } else {
+                              setNewAvatarFile(null);
+                              setAvatarPreview(null);
+                            }
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
               )}
 
               <div className="glass rounded-2xl p-3 sm:p-4">
                 <div className="text-xs text-muted-foreground">Username</div>
                 {isEditingCredentials ? (
-                  <Input 
-                    value={newUsername} 
+                  <Input
+                    value={newUsername}
                     onChange={(e) => setNewUsername(e.target.value)}
                     className="mt-1 h-8 bg-transparent border-b border-white/10 focus:outline-none"
                   />
                 ) : (
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-sm font-mono">{artist.username}</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-6 w-6"
-                      onClick={() => copyToClipboard(artist.username, 'Username')}
+                      onClick={() =>
+                        copyToClipboard(artist.username, "Username")
+                      }
                     >
-                      {copied === 'Username' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                      {copied === "Username" ? (
+                        <Check className="h-3 w-3 text-emerald-400" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
                     </Button>
                   </div>
                 )}
@@ -746,9 +865,9 @@ export default function ArtistPage() {
                 <div className="text-xs text-muted-foreground">Password</div>
                 {isEditingCredentials ? (
                   <div className="relative mt-1">
-                    <Input 
+                    <Input
                       type={showPassword ? "text" : "password"}
-                      value={newPassword} 
+                      value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       placeholder="Enter new password"
                       className="h-8 bg-transparent border-b border-white/10 focus:outline-none pr-8"
@@ -760,19 +879,29 @@ export default function ArtistPage() {
                       className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                      {showPassword ? (
+                        <EyeOff className="h-3 w-3" />
+                      ) : (
+                        <Eye className="h-3 w-3" />
+                      )}
                     </Button>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-sm font-mono">••••••••</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-6 w-6"
-                      onClick={() => copyToClipboard(artist.password || '', 'Password')}
+                      onClick={() =>
+                        copyToClipboard(artist.password || "", "Password")
+                      }
                     >
-                      {copied === 'Password' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                      {copied === "Password" ? (
+                        <Check className="h-3 w-3 text-emerald-400" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
                     </Button>
                   </div>
                 )}
@@ -781,21 +910,25 @@ export default function ArtistPage() {
               <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
                 <div className="text-xs text-muted-foreground">Email</div>
                 {isEditingCredentials ? (
-                  <Input 
-                    value={newEmail} 
+                  <Input
+                    value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     className="mt-1 h-8 bg-transparent border-b border-white/10 focus:outline-none"
                   />
                 ) : (
                   <div className="flex items-center justify-between mt-1">
                     <span className="text-sm">{artist.email}</span>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-6 w-6"
-                      onClick={() => copyToClipboard(artist.email, 'Email')}
+                      onClick={() => copyToClipboard(artist.email, "Email")}
                     >
-                      {copied === 'Email' ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
+                      {copied === "Email" ? (
+                        <Check className="h-3 w-3 text-emerald-400" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
                     </Button>
                   </div>
                 )}
@@ -803,15 +936,23 @@ export default function ArtistPage() {
 
               {isEditingCredentials && (
                 <div className="sm:col-span-2 flex justify-end gap-2 mt-2">
-                  <Button size="sm" variant="outline" onClick={() => setIsEditingCredentials(false)}>Cancel</Button>
-                  <Button size="sm" onClick={handleUpdateCredentials}>Save Changes</Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setIsEditingCredentials(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleUpdateCredentials}>
+                    Save Changes
+                  </Button>
                 </div>
               )}
             </div>
 
             <p className="mt-4 text-xs text-muted-foreground/60 leading-relaxed">
-              Security Notice: These credentials are used for logging into IndieWave. 
-              Keep them private and do not share them with others.
+              Security Notice: Keep credentials private and do not share them
+              with others.
             </p>
           </section>
         )}
