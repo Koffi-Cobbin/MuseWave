@@ -88,7 +88,7 @@ function Logo() {
 
 // ─── Login Dialog ─────────────────────────────────────────────────────────────
 
-type DialogView = "login" | "forgot" | "sent";
+type DialogView = "login" | "signup" | "forgot" | "sent";
 
 function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
   const [view, setView] = useState<DialogView>("login");
@@ -99,6 +99,15 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Signup state
+  const [signupUsername, setSignupUsername] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupDisplayName, setSignupDisplayName] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  const [signupConfirm, setSignupConfirm] = useState("");
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [isSigningUp, setIsSigningUp] = useState(false);
 
   // Forgot password state
   const [resetEmail, setResetEmail] = useState("");
@@ -113,14 +122,15 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
     if (!next) {
       setTimeout(() => {
         setView("login");
-        setUsername("");
-        setPassword("");
-        setShowPassword(false);
+        setUsername(""); setPassword(""); setShowPassword(false);
+        setSignupUsername(""); setSignupEmail(""); setSignupDisplayName("");
+        setSignupPassword(""); setSignupConfirm(""); setShowSignupPassword(false);
         setResetEmail("");
       }, 200);
     }
   };
 
+  // ── Login ──────────────────────────────────────────────────────────────────
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoggingIn(true);
@@ -140,6 +150,50 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
     }
   };
 
+  // ── Signup ─────────────────────────────────────────────────────────────────
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (signupPassword !== signupConfirm) {
+      toast({ title: "Passwords don't match", description: "Please make sure both passwords are the same.", variant: "destructive" });
+      return;
+    }
+    if (signupPassword.length < 8) {
+      toast({ title: "Password too short", description: "Password must be at least 8 characters.", variant: "destructive" });
+      return;
+    }
+    setIsSigningUp(true);
+    try {
+      const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.create}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          username: signupUsername.trim().toLowerCase(),
+          email: signupEmail.trim(),
+          password: signupPassword,
+          display_name: signupDisplayName.trim() || signupUsername.trim(),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || data.detail || data.username?.[0] || data.email?.[0] || "Signup failed. Please try again.");
+      }
+      // Auto-login after successful signup
+      await login(signupUsername.trim().toLowerCase(), signupPassword);
+      toast({ title: "Account created!", description: "Welcome to IndieWave." });
+      handleOpenChange(false);
+      onSuccess?.();
+    } catch (error) {
+      toast({
+        title: "Signup failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSigningUp(false);
+    }
+  };
+
+  // ── Forgot password ────────────────────────────────────────────────────────
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSendingReset(true);
@@ -149,7 +203,6 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: resetEmail }),
       });
-      // Treat both success and "email not found" as success to avoid enumeration
       if (!response.ok && response.status !== 400) {
         throw new Error("Failed to send reset email. Please try again.");
       }
@@ -174,7 +227,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="sm:max-w-[400px]">
+      <DialogContent className="left-1/2 w-[calc(100%-1.5rem)] -translate-x-1/2 sm:w-full sm:max-w-[400px]">
         {/* ── Login view ── */}
         {view === "login" && (
           <>
@@ -196,9 +249,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
                 />
               </div>
               <div className="grid gap-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                </div>
+                <Label htmlFor="password">Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -237,13 +288,133 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
                     </>
                   )}
                 </Button>
+                {/* Forgot password + Sign up on the same line */}
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setView("forgot")}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    data-testid="button-forgot-password"
+                  >
+                    Forgot password?
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setView("signup")}
+                    className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                    data-testid="button-go-to-signup"
+                  >
+                    Sign up
+                  </button>
+                </div>
+              </div>
+            </form>
+          </>
+        )}
+
+        {/* ── Signup view ── */}
+        {view === "signup" && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Create an account</DialogTitle>
+              <DialogDescription>Join IndieWave and start sharing your music.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleSignup} className="mt-4 grid gap-3">
+              <div className="grid gap-2">
+                <Label htmlFor="signup-displayname">Display name</Label>
+                <Input
+                  id="signup-displayname"
+                  value={signupDisplayName}
+                  onChange={(e) => setSignupDisplayName(e.target.value)}
+                  placeholder="Your Name"
+                  autoComplete="name"
+                  data-testid="input-signup-displayname"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="signup-username">Username <span className="text-rose-500">*</span></Label>
+                <Input
+                  id="signup-username"
+                  value={signupUsername}
+                  onChange={(e) => setSignupUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
+                  placeholder="your-username"
+                  autoComplete="username"
+                  required
+                  data-testid="input-signup-username"
+                />
+                <p className="text-xs text-muted-foreground">Lowercase letters, numbers, hyphens and underscores only.</p>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="signup-email">Email <span className="text-rose-500">*</span></Label>
+                <Input
+                  id="signup-email"
+                  type="email"
+                  value={signupEmail}
+                  onChange={(e) => setSignupEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  required
+                  data-testid="input-signup-email"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="signup-password">Password <span className="text-rose-500">*</span></Label>
+                <div className="relative">
+                  <Input
+                    id="signup-password"
+                    type={showSignupPassword ? "text" : "password"}
+                    value={signupPassword}
+                    onChange={(e) => setSignupPassword(e.target.value)}
+                    placeholder="Min. 8 characters"
+                    autoComplete="new-password"
+                    className="pr-10"
+                    required
+                    data-testid="input-signup-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+                    onClick={() => setShowSignupPassword((v) => !v)}
+                    data-testid="button-toggle-signup-password"
+                  >
+                    {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="signup-confirm">Confirm password <span className="text-rose-500">*</span></Label>
+                <Input
+                  id="signup-confirm"
+                  type="password"
+                  value={signupConfirm}
+                  onChange={(e) => setSignupConfirm(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  required
+                  data-testid="input-signup-confirm"
+                />
+              </div>
+              <div className="flex flex-col gap-2 pt-1">
+                <Button type="submit" disabled={isSigningUp} data-testid="button-submit-signup">
+                  {isSigningUp ? (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4 animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    "Create account"
+                  )}
+                </Button>
                 <button
                   type="button"
-                  onClick={() => setView("forgot")}
-                  className="text-xs text-muted-foreground hover:text-foreground text-center transition-colors"
-                  data-testid="button-forgot-password"
+                  onClick={() => setView("login")}
+                  className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  data-testid="button-back-to-login-from-signup"
                 >
-                  Forgot password?
+                  <ArrowLeft className="h-3 w-3" />
+                  Already have an account? Log in
                 </button>
               </div>
             </form>
