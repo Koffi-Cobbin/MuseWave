@@ -6,6 +6,8 @@ type PlayerContextType = {
   setActive: (track: Track | null) => void;
   autoPlay: boolean;
   setAutoPlay: (value: boolean) => void;
+  isPlaying: boolean;
+  setIsPlaying: (value: boolean) => void;
 };
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -13,9 +15,10 @@ const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 export function PlayerProvider({ children }: { children: ReactNode }) {
   const [active, setActive] = useState<Track | null>(null);
   const [autoPlay, setAutoPlay] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   return (
-    <PlayerContext.Provider value={{ active, setActive, autoPlay, setAutoPlay }}>
+    <PlayerContext.Provider value={{ active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying }}>
       {children}
     </PlayerContext.Provider>
   );

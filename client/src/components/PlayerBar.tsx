@@ -20,12 +20,12 @@ import { useToast } from "@/hooks/use-toast";
 import type { Track } from "../../../shared/schema";
 
 function PlayerBar() {
-  const { active, setActive, autoPlay, setAutoPlay } = usePlayer();
+  // isPlaying is now in shared context so TrackCard can read it
+  const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
   const { toast } = useToast();
   const [supportOpen, setSupportOpen] = useState(false);
   const [volumeOpen, setVolumeOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
@@ -62,7 +62,7 @@ function PlayerBar() {
       togglePlay();
       setAutoPlay(false);
     }
-  }, [autoPlay, active, isPlaying]);
+  }, [autoPlay, active]);
 
   // Reset player state when track changes
   useEffect(() => {
@@ -76,8 +76,8 @@ function PlayerBar() {
 
     if (isPlaying) {
       audio.pause();
+      setIsPlaying(false);
     } else {
-      // Attempt to play and handle errors
       audio.play().catch(error => {
         console.error('Playback error:', error);
         toast({
@@ -86,8 +86,8 @@ function PlayerBar() {
           variant: "destructive",
         });
       });
+      setIsPlaying(true);
     }
-    setIsPlaying(!isPlaying);
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,42 +114,22 @@ function PlayerBar() {
 
     if (navigator.share) {
       try {
-        await navigator.share({
-          title,
-          text,
-          url,
-        });
+        await navigator.share({ title, text, url });
       } catch (error) {
-        // User cancelled or error occurred
         console.log('Share cancelled or failed:', error);
       }
     } else {
-      // Fallback to clipboard
       try {
         await navigator.clipboard.writeText(url);
-        toast({
-          title: "Link copied!",
-          description: "Share link copied to clipboard",
-        });
+        toast({ title: "Link copied!", description: "Share link copied to clipboard" });
       } catch (error) {
-        toast({
-          title: "Share failed",
-          description: "Unable to copy link to clipboard",
-          variant: "destructive",
-        });
+        toast({ title: "Share failed", description: "Unable to copy link to clipboard", variant: "destructive" });
       }
     }
   };
 
   return (
     <>
-      {/* 
-        Audio player with streaming support.
-        The audioUrl from the backend points to the streaming endpoint that supports:
-        - HTTP Range requests for seeking
-        - Efficient buffering
-        - Direct file streaming from Django FileField
-      */}
       <audio ref={audioRef} src={active?.audioUrl} preload="metadata" />
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/8 bg-background/70 backdrop-blur-xl">
         <div className="mx-auto max-w-6xl px-3 py-2 sm:px-4 sm:py-3">
@@ -235,7 +215,7 @@ function PlayerBar() {
 
                 {/* Volume & Actions */}
                 <div className="flex items-center gap-2 shrink-0">
-                  {/* Volume control - icon only on small screens, icon + slider on larger screens */}
+                  {/* Volume control - desktop */}
                   <div className="hidden sm:flex items-center gap-1">
                     <span className="text-xs text-muted-foreground">🔊</span>
                     <input
@@ -305,32 +285,32 @@ function PlayerBar() {
                         <Crown className="h-3 w-3" />
                       </Button>
                     </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle className="flex items-center gap-2">
-                        <Crown className="h-5 w-5 text-primary" />
-                        Support the Artist
-                      </DialogTitle>
-                      <DialogDescription>
-                        Show your appreciation for the music you love. Support features coming soon!
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="glass glow noise rounded-2xl p-4 text-center">
-                        <Crown className="mx-auto h-8 w-8 text-primary mb-2" />
-                        <div className="text-sm font-medium">Tip Jar</div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Direct support for artists
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Crown className="h-5 w-5 text-primary" />
+                          Support the Artist
+                        </DialogTitle>
+                        <DialogDescription>
+                          Show your appreciation for the music you love. Support features coming soon!
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="glass glow noise rounded-2xl p-4 text-center">
+                          <Crown className="mx-auto h-8 w-8 text-primary mb-2" />
+                          <div className="text-sm font-medium">Tip Jar</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Direct support for artists
+                          </div>
+                        </div>
+                        <div className="text-xs text-muted-foreground text-center">
+                          Support functionality is currently in development. Check back soon!
                         </div>
                       </div>
-                      <div className="text-xs text-muted-foreground text-center">
-                        Support functionality is currently in development. Check back soon!
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogContent>
+                  </Dialog>
+                </div>
               </div>
-            </div>
             )}
           </div>
         </div>

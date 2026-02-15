@@ -10,11 +10,13 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Upload from "./pages/upload";
 import Artist from "./pages/artist";
+import Discover from "./pages/discover";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/discover" component={Discover} />
       <Route path="/upload" component={Upload} />
       <Route path="/artist/:slug" component={Artist} />
       <Route component={NotFound} />
