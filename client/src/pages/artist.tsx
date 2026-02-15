@@ -590,7 +590,7 @@ export default function ArtistPage() {
 
         {isOwner && (
           <section id="credentials-section" className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <Settings className="h-4 w-4 text-primary" />
                 <h2 className="text-lg font-semibold">Account Credentials</h2>
