@@ -201,12 +201,22 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.resetPassword}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail }),
+        body: JSON.stringify({ email: resetEmail.trim() }),
       });
-      if (!response.ok && response.status !== 400) {
-        throw new Error("Failed to send reset email. Please try again.");
+
+      // Backend returns 200/201 on success, and may return 400 for invalid email
+      // We show the same message regardless for security (don't reveal if email exists)
+      if (response.ok || response.status === 400) {
+        setView("sent");
+      } else {
+        // Only throw error for unexpected status codes (500, etc)
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || 
+          errorData.detail || 
+          "Failed to send reset email. Please try again."
+        );
       }
-      setView("sent");
     } catch (error) {
       toast({
         title: "Something went wrong",
@@ -217,6 +227,9 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
       setIsSendingReset(false);
     }
   };
+
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>

@@ -19,6 +19,7 @@ import {
   EyeOff,
   Bell,
   Disc,
+  Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -677,283 +678,287 @@ export default function ArtistPage() {
           </div>
         </section>
 
+
         {isOwner && (
           <section
-            id="credentials-section"
-            className="mt-6 overflow-hidden rounded-3xl border border-white/10 bg-white/5 p-6"
+            className="glass glow noise rounded-3xl border border-white/10 p-5 lg:p-6"
+            data-testid="section-account-credentials"
           >
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-2">
-                <Settings className="h-4 w-4 text-primary" />
-                <h2 className="text-lg font-semibold">Account Credentials</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border-white/10 bg-white/5 hover:bg-white/10"
-                  onClick={() => setShowCredentials(!showCredentials)}
-                  data-testid="button-toggle-credentials"
-                >
-                  {showCredentials ? (
-                    <>
-                      <EyeOff className="mr-2 h-4 w-4" />
-                      Hide
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="mr-2 h-4 w-4" />
-                      Show
-                    </>
-                  )}
-                </Button>
-                {showCredentials && (
+            <div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-base font-semibold">Account Credentials</h2>
+                  <p className="mt-1 text-xs text-muted-foreground/80">
+                    Your login information for accessing MuseWave
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     className="h-8 border-white/10 bg-white/5 hover:bg-white/10"
-                    onClick={() => {
-                      setIsEditingCredentials(!isEditingCredentials);
-                      if (!isEditingCredentials) {
-                        // Initialize edit fields with current values
-                        setNewUsername(artist.username);
-                        setNewEmail(artist.email);
-                        setNewDisplayName(artist.displayName || "");
-                        setNewBio(artist.bio || "");
-                        setNewAvatarUrl(artist.avatarUrl || "");
-                        setNewAvatarFile(null);
-                        setAvatarPreview(null);
-                      }
-                    }}
-                    data-testid="button-edit-credentials"
+                    onClick={() => setShowCredentials(!showCredentials)}
+                    data-testid="button-toggle-credentials"
                   >
-                    {isEditingCredentials ? (
-                      "Cancel"
+                    {showCredentials ? (
+                      <>
+                        <EyeOff className="mr-2 h-4 w-4" />
+                        Hide
+                      </>
                     ) : (
                       <>
-                        <Settings className="mr-2 h-4 w-4" />
-                        Edit
+                        <Eye className="mr-2 h-4 w-4" />
+                        Show
                       </>
                     )}
                   </Button>
-                )}
-              </div>
-            </div>
-
-            <div
-              className={cn(
-                "mt-3 grid gap-3 sm:grid-cols-2",
-                !showCredentials && "hidden",
-              )}
-            >
-              {isEditingCredentials && (
-                <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                  <div className="text-xs text-muted-foreground mb-2">
-                    Profile Bio
-                  </div>
-                  <Textarea
-                    value={newBio}
-                    onChange={(e) => setNewBio(e.target.value)}
-                    placeholder="Tell us about yourself..."
-                    className="bg-transparent border border-white/10 text-sm focus:outline-none w-full min-h-[100px] rounded-xl p-3"
-                  />
-                </div>
-              )}
-              {isEditingCredentials && (
-                <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                  <div className="text-xs text-muted-foreground mb-2">
-                    Profile Picture
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10",
-                        !avatarPreview &&
-                          !artist.avatarUrl &&
-                          "bg-gradient-to-br",
-                        avatarPreview || artist.avatarUrl
-                          ? ""
-                          : artist.accent ||
-                              "from-emerald-400/30 to-fuchsia-500/20",
-                      )}
-                      aria-hidden="true"
+                  {showCredentials && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 border-white/10 bg-white/5 hover:bg-white/10"
+                      onClick={() => {
+                        setIsEditingCredentials(!isEditingCredentials);
+                        if (!isEditingCredentials) {
+                          // Initialize edit fields with current values
+                          setNewUsername(artist.username);
+                          setNewEmail(artist.email);
+                          setNewDisplayName(artist.displayName || "");
+                          setNewBio(artist.bio || "");
+                          setNewAvatarUrl(artist.avatarUrl || "");
+                          setNewAvatarFile(null);
+                          setAvatarPreview(null);
+                        }
+                      }}
+                      data-testid="button-edit-credentials"
                     >
-                      {avatarPreview ? (
-                        <img
-                          src={avatarPreview}
-                          alt="Avatar preview"
-                          className="h-full w-full object-cover"
-                        />
-                      ) : artist.avatarUrl ? (
-                        <img
-                          src={artist.avatarUrl}
-                          alt={`${artist.displayName || artist.username} avatar`}
-                          className="h-full w-full object-cover"
-                        />
+                      {isEditingCredentials ? (
+                        "Cancel"
                       ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <span className="text-xl font-semibold text-white">
-                            {(artist.displayName || artist.username)
-                              .charAt(0)
-                              .toUpperCase()}
-                          </span>
-                        </div>
+                        <>
+                          <Settings className="mr-2 h-4 w-4" />
+                          Edit
+                        </>
                       )}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div
+                className={cn(
+                  "mt-3 grid gap-3 sm:grid-cols-2",
+                  !showCredentials && "hidden",
+                )}
+              >
+                {isEditingCredentials && (
+                  <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Profile Bio
                     </div>
-                    <div className="flex-1 space-y-2">
-                      <div>
-                        <Label
-                          htmlFor="avatar-file"
-                          className="text-xs text-muted-foreground"
-                        >
-                          Upload Image
-                        </Label>
+                    <Textarea
+                      value={newBio}
+                      onChange={(e) => setNewBio(e.target.value)}
+                      placeholder="Tell us about yourself..."
+                      className="bg-transparent border border-white/10 text-sm focus:outline-none w-full min-h-[100px] rounded-xl p-3"
+                    />
+                  </div>
+                )}
+                {isEditingCredentials && (
+                  <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                    <div className="text-xs text-muted-foreground mb-2">
+                      Profile Picture
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className={cn(
+                          "h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10",
+                          !avatarPreview &&
+                            !artist.avatarUrl &&
+                            "bg-gradient-to-br",
+                          avatarPreview || artist.avatarUrl
+                            ? ""
+                            : artist.accent ||
+                                "from-emerald-400/30 to-fuchsia-500/20",
+                        )}
+                        aria-hidden="true"
+                      >
+                        {avatarPreview ? (
+                          <img
+                            src={avatarPreview}
+                            alt="Avatar preview"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : artist.avatarUrl ? (
+                          <img
+                            src={artist.avatarUrl}
+                            alt="Avatar"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <UserIcon className="h-8 w-8 text-white/40" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
                         <Input
-                          id="avatar-file"
                           type="file"
                           accept="image/*"
-                          className="bg-transparent border-b border-white/10 text-sm focus:outline-none file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-medium file:bg-white/10 file:text-white hover:file:bg-white/20"
-                          onChange={async (e) => {
+                          onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
                               setNewAvatarFile(file);
-                              // Create preview
-                              const previewUrl = await fileToDataUrl(file);
-                              setAvatarPreview(previewUrl);
-                            } else {
-                              setNewAvatarFile(null);
-                              setAvatarPreview(null);
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setAvatarPreview(reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
                             }
                           }}
+                          className="h-9 text-xs file:mr-3 file:h-full file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:text-xs file:font-medium file:text-primary hover:file:bg-primary/20"
                         />
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-
-              <div className="glass rounded-2xl p-3 sm:p-4">
-                <div className="text-xs text-muted-foreground">Username</div>
-                {isEditingCredentials ? (
-                  <Input
-                    value={newUsername}
-                    onChange={(e) => setNewUsername(e.target.value)}
-                    className="mt-1 h-8 bg-transparent border-b border-white/10 focus:outline-none"
-                  />
-                ) : (
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-sm font-mono">{artist.username}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() =>
-                        copyToClipboard(artist.username, "Username")
-                      }
-                    >
-                      {copied === "Username" ? (
-                        <Check className="h-3 w-3 text-emerald-400" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </Button>
-                  </div>
                 )}
-              </div>
-
-              <div className="glass rounded-2xl p-3 sm:p-4">
-                <div className="text-xs text-muted-foreground">Password</div>
-                {isEditingCredentials ? (
-                  <div className="relative mt-1">
+                {isEditingCredentials && (
+                  <div className="glass rounded-2xl p-3 sm:p-4">
+                    <div className="text-xs text-muted-foreground">Display Name</div>
                     <Input
-                      type={showPassword ? "text" : "password"}
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder="Enter new password"
-                      className="h-8 bg-transparent border-b border-white/10 focus:outline-none pr-8"
+                      value={newDisplayName}
+                      onChange={(e) => setNewDisplayName(e.target.value)}
+                      placeholder="Your display name"
+                      className="mt-1 h-8 bg-transparent border-b border-white/10 focus:outline-none"
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-2 hover:bg-transparent"
-                      onClick={() => setShowPassword(!showPassword)}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-3 w-3" />
-                      ) : (
-                        <Eye className="h-3 w-3" />
-                      )}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-sm font-mono">••••••••</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() =>
-                        copyToClipboard(artist.password || "", "Password")
-                      }
-                    >
-                      {copied === "Password" ? (
-                        <Check className="h-3 w-3 text-emerald-400" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </Button>
                   </div>
                 )}
-              </div>
 
-              <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                <div className="text-xs text-muted-foreground">Email</div>
-                {isEditingCredentials ? (
-                  <Input
-                    value={newEmail}
-                    onChange={(e) => setNewEmail(e.target.value)}
-                    className="mt-1 h-8 bg-transparent border-b border-white/10 focus:outline-none"
-                  />
-                ) : (
-                  <div className="flex items-center justify-between mt-1">
-                    <span className="text-sm">{artist.email}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => copyToClipboard(artist.email, "Email")}
-                    >
-                      {copied === "Email" ? (
-                        <Check className="h-3 w-3 text-emerald-400" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              {isEditingCredentials && (
-                <div className="sm:col-span-2 flex justify-end gap-2 mt-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setIsEditingCredentials(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={handleUpdateCredentials}>
-                    Save Changes
-                  </Button>
+                <div className="glass rounded-2xl p-3 sm:p-4">
+                  <div className="text-xs text-muted-foreground">Username</div>
+                  {isEditingCredentials ? (
+                    <Input
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      className="mt-1 h-8 bg-transparent border-b border-white/10 focus:outline-none"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-sm font-mono">{artist.username}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() =>
+                          copyToClipboard(artist.username, "Username")
+                        }
+                      >
+                        {copied === "Username" ? (
+                          <Check className="h-3 w-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <p className="mt-4 text-xs text-muted-foreground/60 leading-relaxed">
-              Security Notice: Keep credentials private and do not share them
-              with others.
-            </p>
+                {/* UPDATED PASSWORD FIELD - DISABLED WITH EMAIL BADGE */}
+                <div className="glass rounded-2xl p-3 sm:p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs text-muted-foreground">Password</div>
+                    {!isEditingCredentials && (
+                      <Badge 
+                        variant="secondary" 
+                        className="h-5 text-[10px] bg-blue-500/10 text-blue-400 border-blue-500/20"
+                      >
+                        <Mail className="mr-1 h-2.5 w-2.5" />
+                        Sent to email
+                      </Badge>
+                    )}
+                  </div>
+                  {isEditingCredentials ? (
+                    <div className="mt-1 flex items-center gap-2">
+                      <Input
+                        type="text"
+                        disabled
+                        value="Password cannot be edited here"
+                        className="h-8 bg-transparent border-b border-white/10 text-muted-foreground/50 cursor-not-allowed"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-sm text-muted-foreground italic">
+                        Check your email
+                      </span>
+                      <Mail className="h-4 w-4 text-blue-400" />
+                    </div>
+                  )}
+                </div>
+
+                <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                  <div className="text-xs text-muted-foreground">Email</div>
+                  {isEditingCredentials ? (
+                    <Input
+                      value={newEmail}
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      className="mt-1 h-8 bg-transparent border-b border-white/10 focus:outline-none"
+                    />
+                  ) : (
+                    <div className="flex items-center justify-between mt-1">
+                      <span className="text-sm">{artist.email}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6"
+                        onClick={() => copyToClipboard(artist.email, "Email")}
+                      >
+                        {copied === "Email" ? (
+                          <Check className="h-3 w-3 text-emerald-400" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {isEditingCredentials && (
+                  <div className="sm:col-span-2 flex justify-end gap-2 mt-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setIsEditingCredentials(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={handleUpdateCredentials}>
+                      Save Changes
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 rounded-xl bg-blue-500/5 border border-blue-500/10 p-3">
+                <div className="flex items-start gap-2">
+                  <Mail className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-blue-400">
+                      Password Sent via Email
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground/80 leading-relaxed">
+                      Your system-generated password has been sent to <span className="font-medium text-foreground">{artist.email}</span>. 
+                      Check your inbox (and spam folder) for your login credentials.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <p className="mt-4 text-xs text-muted-foreground/60 leading-relaxed">
+                Security Notice: Keep credentials private and do not share them
+                with others. You can change your password after logging in.
+              </p>
+            </div>
           </section>
         )}
 

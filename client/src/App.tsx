@@ -11,6 +11,7 @@ import Home from "@/pages/home";
 import Upload from "./pages/upload";
 import Artist from "./pages/artist";
 import Discover from "./pages/discover";
+import ResetPassword from "./pages/reset-password";
 
 function Router() {
   return (
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/discover" component={Discover} />
       <Route path="/upload" component={Upload} />
       <Route path="/artist/:slug" component={Artist} />
+      <Route path="/reset-password/:uid/:token" component={ResetPassword} />
       <Route component={NotFound} />
     </Switch>
   );
