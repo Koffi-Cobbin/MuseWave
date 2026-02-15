@@ -17,10 +17,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check for existing session with token
     const accessToken = localStorage.getItem("accessToken");
     const userId = localStorage.getItem("userId");
-
     if (accessToken && userId) {
       loadUser(userId);
     }
@@ -34,7 +32,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsAuthenticated(true);
     } catch (error) {
       console.error("Failed to load user:", error);
-      // Clear tokens on failure
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("userId");
@@ -45,22 +42,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, password: string) => {
     try {
-      // Backend expects username_or_email field
+      // Backend login_view expects `username_or_email` field (confirmed in source)
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.login}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          username_or_email: username,  // Changed from 'username' to 'username_or_email'
-          password: password
-        })
+        body: JSON.stringify({ username_or_email: username, password }),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || `${response.status}: ${response.statusText}`);
+        // FIX: backend returns { error, status, attempts_remaining } on 401 —
+        // extract the `error` field specifically (not just statusText)
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error ||
+          errorData.detail ||
+          errorData.non_field_errors?.[0] ||
+          `${response.status}: ${response.statusText}`
+        );
       }
 
       const data = await response.json();
@@ -68,15 +67,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Backend returns: { token: { access, refresh }, user: {...}, message }
       const { token, user: userData } = data;
 
-      // Store tokens
-      if (token?.access) {
-        localStorage.setItem("accessToken", token.access);
-      }
-      if (token?.refresh) {
-        localStorage.setItem("refreshToken", token.refresh);
-      }
+      if (token?.access) localStorage.setItem("accessToken", token.access);
+      if (token?.refresh) localStorage.setItem("refreshToken", token.refresh);
 
-      // Store user data
       if (userData?.id) {
         localStorage.setItem("userId", userData.id);
         setUser(userData);
@@ -93,8 +86,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     try {
       const refreshToken = localStorage.getItem("refreshToken");
-
-      // Call logout endpoint to blacklist token
       if (refreshToken) {
         await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.logout}`, {
           method: 'POST',
@@ -103,13 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             'Authorization': `Bearer ${localStorage.getItem("accessToken")}`,
           },
           credentials: 'include',
-          body: JSON.stringify({ refresh: refreshToken })
+          body: JSON.stringify({ refresh: refreshToken }),
         });
       }
     } catch (error) {
       console.error("Logout error:", error);
     } finally {
-      // Clear local state regardless of API call success
       setUser(null);
       setIsAuthenticated(false);
       localStorage.removeItem("accessToken");

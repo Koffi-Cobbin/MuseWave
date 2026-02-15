@@ -47,7 +47,6 @@ function gradientFromTitle(title: string) {
   return options[hash % options.length];
 }
 
-// Helper to get audio duration
 async function getAudioDuration(file: File): Promise<number> {
   return new Promise((resolve, reject) => {
     const audio = new Audio();
@@ -58,6 +57,13 @@ async function getAudioDuration(file: File): Promise<number> {
     audio.onerror = reject;
     audio.src = URL.createObjectURL(file);
   });
+}
+
+// FIX: Small helper so we can await a delay before auto-login.
+// PythonAnywhere shared hosting can have a brief gap between a user being
+// written to the DB and that user being available for authentication.
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export default function Upload() {
@@ -87,53 +93,26 @@ export default function Upload() {
   function update<K extends keyof UploadDraft>(key: K, value: UploadDraft[K]) {
     setDraft((d) => ({ ...d, [key]: value }));
     if (key === "coverFile") {
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-      }
-      if (value instanceof File) {
-        setPreviewUrl(URL.createObjectURL(value));
-      } else {
-        setPreviewUrl(null);
-      }
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(value instanceof File ? URL.createObjectURL(value) : null);
     }
     if (key === "audioFile") {
-      if (audioPreviewUrl) {
-        URL.revokeObjectURL(audioPreviewUrl);
-      }
-      if (value instanceof File) {
-        setAudioPreviewUrl(URL.createObjectURL(value));
-      } else {
-        setAudioPreviewUrl(null);
-      }
+      if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
+      setAudioPreviewUrl(value instanceof File ? URL.createObjectURL(value) : null);
     }
   }
 
   async function onSubmit() {
-    // Validation
     if (!draft.title.trim()) {
-      toast({
-        title: "Missing title",
-        description: "Please enter a track title.",
-        variant: "destructive",
-      });
+      toast({ title: "Missing title", description: "Please enter a track title.", variant: "destructive" });
       return;
     }
-
     if (!draft.artist.trim()) {
-      toast({
-        title: "Missing artist",
-        description: "Please enter an artist name.",
-        variant: "destructive",
-      });
+      toast({ title: "Missing artist", description: "Please enter an artist name.", variant: "destructive" });
       return;
     }
-
     if (!draft.audioFile) {
-      toast({
-        title: "Missing audio file",
-        description: "Please select an audio file to upload.",
-        variant: "destructive",
-      });
+      toast({ title: "Missing audio file", description: "Please select an audio file to upload.", variant: "destructive" });
       return;
     }
 
@@ -141,7 +120,6 @@ export default function Upload() {
     setUploadProgress("Preparing upload...");
 
     try {
-      // Generate artist slug
       const artistSlug = draft.artist
         .trim()
         .toLowerCase()
@@ -149,10 +127,8 @@ export default function Upload() {
         .replace(/[^a-z0-9-]/g, "");
 
       let userId: string;
-      let userPassword: string = "";
       let isNewUser = false;
 
-      // Try to get existing user by username
       setUploadProgress("Checking artist profile...");
       try {
         const user = await apiRequestJson<any>('GET', API_ENDPOINTS.users.byUsername(artistSlug))
@@ -161,14 +137,16 @@ export default function Upload() {
         if (user) {
           userId = user.id;
         } else {
-          // Create new user for this artist          
           setUploadProgress("Creating artist profile...");
-          const userPasswordGenerated = `temp-${Date.now()}-${Math.random().toString(36)}`;
+
+          // FIX: Use a clean random suffix — slice(2) strips the leading "0."
+          // from Math.random().toString(36) so the password is purely alphanumeric
+          const generatedPassword = `mw-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
           const newUser = await apiRequestJson<any>('POST', API_ENDPOINTS.users.create, {
             username: artistSlug,
             email: `${artistSlug}@musewave.local`,
-            password: userPasswordGenerated,
+            password: generatedPassword,
             display_name: draft.artist.trim(),
             bio: `Indie artist sharing music on MuseWave`,
           });
@@ -177,20 +155,24 @@ export default function Upload() {
           userId = newUser.id;
           isNewUser = true;
 
-          // Auto-login the newly created user
+          // FIX: Wait briefly before logging in. PythonAnywhere's shared DB
+          // layer sometimes hasn't committed the new user row by the time the
+          // next request arrives, which causes the login endpoint to return 401
+          // ("Invalid credentials") even though the password is correct.
           setUploadProgress("Setting up your account...");
-          try {
-            await login(artistSlug, userPasswordGenerated);
-          } catch (loginError) {
-            console.error("Auto-login failed:", loginError);
-          }
+          await sleep(800);
+
+          // FIX: Wrap in .catch() so an auto-login failure is non-fatal.
+          // The track upload proceeds regardless; the user can log in manually.
+          await login(artistSlug, generatedPassword).catch((loginError: unknown) => {
+            console.error("Auto-login after account creation failed:", loginError);
+          });
         }
       } catch (error) {
         console.error("User creation error:", error);
         throw new Error("Failed to create or find artist profile");
       }
 
-      // Get audio duration
       setUploadProgress("Processing audio file...");
       let audioDuration = 0;
       try {
@@ -199,11 +181,9 @@ export default function Upload() {
         console.error("Failed to get audio duration:", error);
       }
 
-      // Create FormData for file upload
       setUploadProgress("Uploading files...");
       const formData = new FormData();
 
-      // Add all text fields
       formData.append('user_id', userId);
       formData.append('title', draft.title.trim());
       formData.append('artist', draft.artist.trim());
@@ -219,19 +199,16 @@ export default function Upload() {
         formData.append('mood', draft.mood.trim());
       }
 
-      // Add tags as JSON string
-      const tags = draft.mood 
-        ? [draft.mood.toLowerCase(), draft.genre.toLowerCase()] 
+      const tags = draft.mood
+        ? [draft.mood.toLowerCase(), draft.genre.toLowerCase()]
         : [draft.genre.toLowerCase()];
       formData.append('tags', JSON.stringify(tags));
 
-      // Add audio file
       formData.append('audio_file', draft.audioFile);
       formData.append('audio_file_size', draft.audioFile.size.toString());
       formData.append('audio_duration', Math.round(audioDuration).toString());
       formData.append('audio_format', draft.audioFile.type.split("/")[1] || "mp3");
 
-      // Add cover file if provided
       if (draft.coverFile) {
         setUploadProgress("Uploading cover image...");
         formData.append('cover_file', draft.coverFile);
@@ -240,7 +217,6 @@ export default function Upload() {
       formData.append('cover_gradient', coverGradient);
       formData.append('published', 'true');
 
-      // Create track with multipart/form-data
       setUploadProgress("Publishing track...");
       const createdTrack = await apiRequestFormData<any>('POST', API_ENDPOINTS.tracks.create, formData);
 
@@ -250,7 +226,7 @@ export default function Upload() {
 
       toast({
         title: "Track published!",
-        description: isNewUser 
+        description: isNewUser
           ? `"${draft.title}" is now live! Your credentials are displayed on your artist page.`
           : `"${draft.title}" is now live on your artist page.`,
       });
@@ -278,6 +254,7 @@ export default function Upload() {
         .replace(/[^a-z0-9-]/g, ""),
     [draft.artist]
   );
+
 
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_420px_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(1100px_520px_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(900px_400px_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
