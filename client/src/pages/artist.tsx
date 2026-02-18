@@ -94,13 +94,9 @@ function time(duration: number) {
   return `${min}:${`${sec}`.padStart(2, "0")}`;
 }
 
-async function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+/** Creates a local object URL preview for an image file. */
+function createLocalPreview(file: File): string {
+  return URL.createObjectURL(file);
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -400,32 +396,62 @@ export default function ArtistPage() {
 
   const handleUpdateCredentials = async () => {
     if (!artist) return;
+
+    // Build only the fields that were actually changed
+    const hasAvatar = !!newAvatarFile;
+    const jsonUpdates: Record<string, string> = {};
+    if (newUsername.trim())     jsonUpdates.username     = newUsername.trim();
+    if (newPassword.trim())     jsonUpdates.password     = newPassword.trim();
+    if (newEmail.trim())        jsonUpdates.email        = newEmail.trim();
+    if (newDisplayName.trim())  jsonUpdates.display_name = newDisplayName.trim();
+    if (newBio.trim())          jsonUpdates.bio          = newBio.trim();
+
+    if (!hasAvatar && Object.keys(jsonUpdates).length === 0) {
+      toast({ title: "Nothing to update", description: "Make a change first." });
+      return;
+    }
+
     try {
-      const updates: any = {};
-      if (newUsername) updates.username = newUsername;
-      if (newPassword) updates.password = newPassword;
-      if (newEmail) updates.email = newEmail;
-      if (newDisplayName) updates.displayName = newDisplayName;
-      if (newBio) updates.bio = newBio;
-      if (newAvatarFile) {
-        updates.avatarUrl = await fileToDataUrl(newAvatarFile);
-      } else if (newAvatarUrl !== undefined) {
-        updates.avatarUrl = newAvatarUrl;
+      let updatedUser: any;
+
+      if (hasAvatar) {
+        // Use multipart/form-data when a new avatar file is selected so the
+        // backend receives an actual file rather than a raw base64 string.
+        const formData = new FormData();
+        formData.append("avatar", newAvatarFile!);
+        Object.entries(jsonUpdates).forEach(([k, v]) => formData.append(k, v));
+
+        const { apiRequestFormData } = await import("@/lib/queryClient");
+        updatedUser = await apiRequestFormData(
+          "PATCH",
+          // Django update endpoint includes the /update/ suffix
+          `/api/users/${artist.id}/update/`,
+          formData,
+        );
+      } else {
+        // Plain JSON update — apiRequestJson handles camelCase→snake_case
+        // but we've already built snake_case keys ourselves here to be explicit.
+        updatedUser = await apiRequestJson(
+          "PATCH",
+          `/api/users/${artist.id}/update/`,
+          jsonUpdates,
+        );
       }
-      if (Object.keys(updates).length === 0) return;
-      const updatedUser = await apiRequestJson(
-        "PATCH",
-        API_ENDPOINTS.users.update(artist.id),
-        updates,
-      );
+
+      // Merge returned data back into local state (response is camelCased by apiRequestJson)
       setArtist((prev) => (prev ? { ...prev, ...updatedUser } : null));
       setIsEditingCredentials(false);
       setNewUsername(""); setNewPassword(""); setNewEmail("");
       setNewDisplayName(""); setNewBio(""); setNewAvatarUrl("");
       setNewAvatarFile(null); setAvatarPreview(null);
-      toast({ title: "Success", description: "Credentials updated successfully" });
-    } catch {
-      toast({ variant: "destructive", title: "Error", description: "Failed to update credentials" });
+      toast({ title: "Profile updated!", description: "Your changes have been saved." });
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Something went wrong.";
+      toast({
+        variant: "destructive",
+        title: "Update failed",
+        description: msg,
+      });
     }
   };
 
@@ -1190,11 +1216,11 @@ export default function ArtistPage() {
                                 type="file"
                                 accept="image/*"
                                 className="hidden"
-                                onChange={async (e) => {
+                                onChange={(e) => {
                                   const file = e.target.files?.[0];
                                   if (file) {
                                     setNewAvatarFile(file);
-                                    setAvatarPreview(await fileToDataUrl(file));
+                                    setAvatarPreview(createLocalPreview(file));
                                   }
                                 }}
                               />
