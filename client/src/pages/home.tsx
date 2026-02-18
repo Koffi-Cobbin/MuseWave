@@ -800,6 +800,18 @@ export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
 
+  // Featured track - most recently published track
+  const featuredTrack = useMemo(() => {
+    if (tracks.length === 0) return null;
+    // Sort by publishedAt or createdAt, descending
+    const sorted = [...tracks].sort((a, b) => {
+      const dateA = new Date(a.publishedAt ?? a.createdAt ?? 0).getTime();
+      const dateB = new Date(b.publishedAt ?? b.createdAt ?? 0).getTime();
+      return dateB - dateA;
+    });
+    return sorted[0];
+  }, [tracks]);
+
   useEffect(() => {
     async function fetchTracks() {
       try {
@@ -885,8 +897,8 @@ export default function Home() {
 
             <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4 lg:gap-6">
 
-              {/* Hero */}
-              {!query && (
+              {/* Hero - Featured Track */}
+              {!query && featuredTrack && (
                 <section
                   className="glass glow noise overflow-hidden rounded-2xl border border-white/10 sm:rounded-3xl"
                   aria-label="Hero"
@@ -903,28 +915,56 @@ export default function Home() {
                         </span>
                       </div>
                       <h2 className="mt-2 text-balance text-xl font-bold tracking-tight sm:mt-3 sm:text-3xl lg:text-4xl">
-                        Midnight in Lagos
+                        {featuredTrack.title}
                       </h2>
                       <p className="mt-2 text-xs text-muted-foreground sm:mt-3 sm:text-sm lg:text-base">
-                        The latest project from emergent afro-fusion artists. 12 tracks of pure wave.
+                        {featuredTrack.description || `The latest from ${featuredTrack.artist}. ${featuredTrack.genre} · ${featuredTrack.mood || 'New Release'}`}
                       </p>
                       <div className="mt-3 flex flex-col gap-2 sm:mt-5 sm:flex-row sm:flex-wrap sm:gap-3">
-                        <Button className="h-9 w-full px-4 sm:h-11 sm:w-auto sm:px-6 sm:text-base" data-testid="button-play-featured">
+                        <Button 
+                          className="h-9 w-full px-4 sm:h-11 sm:w-auto sm:px-6 sm:text-base" 
+                          data-testid="button-play-featured"
+                          onClick={() => {
+                            if (active?.id === featuredTrack.id) {
+                              setIsPlaying(!isPlaying);
+                            } else {
+                              setAutoPlay(true);
+                              setActive(featuredTrack);
+                            }
+                          }}
+                        >
                           <Play className="mr-2 h-4 w-4 sm:h-5 sm:w-5 fill-current" />
                           Listen Now
                         </Button>
-                        <Button
-                          variant="secondary"
-                          className="h-9 w-full border-white/10 bg-white/5 px-4 sm:h-11 sm:w-auto sm:px-6 sm:text-base"
-                          data-testid="button-view-featured"
-                        >
-                          View Album
-                        </Button>
+                        <Link href={`/artist/${featuredTrack.artistSlug}`}>
+                          <Button
+                            variant="secondary"
+                            className="h-9 w-full border-white/10 bg-white/5 px-4 sm:h-11 sm:w-auto sm:px-6 sm:text-base"
+                            data-testid="button-view-featured"
+                          >
+                            View Artist
+                          </Button>
+                        </Link>
                       </div>
                     </div>
                     <div className="hidden sm:col-span-5 sm:block">
-                      <div className="aspect-square rounded-2xl bg-gradient-to-br from-emerald-400/30 via-fuchsia-500/20 to-cyan-400/40 p-1 shadow-2xl shadow-emerald-500/10">
-                        <div className="h-full w-full rounded-xl bg-background/20 backdrop-blur-md border border-white/5" />
+                      <div 
+                        className={cn(
+                          "aspect-square rounded-2xl p-1 shadow-2xl shadow-emerald-500/10",
+                          featuredTrack.coverUrl 
+                            ? "bg-white/5" 
+                            : `bg-gradient-to-br ${featuredTrack.coverGradient || 'from-emerald-400/30 via-fuchsia-500/20 to-cyan-400/40'}`
+                        )}
+                      >
+                        {featuredTrack.coverUrl ? (
+                          <img 
+                            src={featuredTrack.coverUrl} 
+                            alt={`${featuredTrack.title} cover`}
+                            className="h-full w-full rounded-xl object-cover"
+                          />
+                        ) : (
+                          <div className="h-full w-full rounded-xl bg-background/20 backdrop-blur-md border border-white/5" />
+                        )}
                       </div>
                     </div>
                   </div>
