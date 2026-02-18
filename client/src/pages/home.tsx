@@ -758,7 +758,7 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
             className={cn(
               "h-10 w-10 shrink-0 rounded-2xl border border-white/10 overflow-hidden sm:h-12 sm:w-12",
               !artist.avatarUrl && "bg-gradient-to-br",
-              !artist.avatarUrl && artist.accent,
+              !artist.avatarUrl && (artist.accent || "from-emerald-400/30 via-transparent to-cyan-400/25"),
             )}
             aria-hidden="true"
           >
@@ -768,19 +768,19 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
           </div>
           <div className="min-w-0">
             <div className="truncate text-sm font-semibold" data-testid={`text-artist-name-${artist.slug}`}>
-              {artist.name}
+              {artist.name || artist.slug}
             </div>
             <div className="truncate text-xs text-muted-foreground" data-testid={`text-artist-tagline-${artist.slug}`}>
-              {artist.tagline}
+              {artist.tagline || "Indie artist"}
             </div>
           </div>
         </div>
         <div className="ml-2 shrink-0 text-right">
           <div className="text-xs text-muted-foreground" data-testid={`text-artist-followers-${artist.slug}`}>
-            {formatCount(artist.followers)} followers
+            {formatCount(artist.followers || 0)} followers
           </div>
           <div className="text-xs text-muted-foreground/80" data-testid={`text-artist-listeners-${artist.slug}`}>
-            {formatCount(artist.monthlyListeners)} monthly
+            {formatCount(artist.monthlyListeners || 0)} monthly
           </div>
         </div>
       </a>
@@ -823,8 +823,39 @@ export default function Home() {
     }
     async function fetchArtists() {
       try {
-        const data = await apiRequestJson<ArtistRowData[]>("GET", API_ENDPOINTS.artists.list);
-        setArtists(data);
+        const data = await apiRequestJson<User[]>("GET", API_ENDPOINTS.artists.list);
+
+        // Transform User data into ArtistRowData with proper defaults
+        const artistsWithStats = await Promise.all(
+          data.map(async (user) => {
+            // Fetch stats for each artist
+            let stats = { totalFollowers: 0, monthlyListeners: 0 };
+            try {
+              stats = await apiRequestJson<any>("GET", API_ENDPOINTS.users.stats(user.id));
+            } catch (e) {
+              console.error(`Failed to fetch stats for ${user.username}:`, e);
+            }
+
+            return {
+              slug: user.username,
+              name: user.displayName || user.username,
+              tagline: (user as any).tagline || user.bio || "Indie artist on MuseWave",
+              followers: stats.totalFollowers || 0,
+              monthlyListeners: stats.monthlyListeners || 0,
+              accent: (user as any).accent || "from-emerald-400/30 via-transparent to-cyan-400/25",
+              avatarUrl: user.avatarUrl,
+            } as ArtistRowData;
+          })
+        );
+
+        // Sort by followers + monthly listeners (engagement score)
+        artistsWithStats.sort((a, b) => {
+          const scoreA = a.followers + a.monthlyListeners;
+          const scoreB = b.followers + b.monthlyListeners;
+          return scoreB - scoreA;
+        });
+
+        setArtists(artistsWithStats);
       } catch (e) {
         console.error("Failed to fetch artists:", e);
       } finally {
