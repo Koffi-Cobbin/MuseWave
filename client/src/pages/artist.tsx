@@ -397,46 +397,70 @@ export default function ArtistPage() {
   const handleUpdateCredentials = async () => {
     if (!artist) return;
 
-    // Build only the fields that were actually changed
-    const hasAvatar = !!newAvatarFile;
-    const jsonUpdates: Record<string, string> = {};
-    if (newUsername.trim())     jsonUpdates.username     = newUsername.trim();
-    if (newPassword.trim())     jsonUpdates.password     = newPassword.trim();
-    if (newEmail.trim())        jsonUpdates.email        = newEmail.trim();
-    if (newDisplayName.trim())  jsonUpdates.display_name = newDisplayName.trim();
-    if (newBio.trim())          jsonUpdates.bio          = newBio.trim();
+    // Build payload with only the fields the user actually changed.
+    // Use apiRequestJson (application/json) — the backend rejects multipart.
+    // apiRequestJson auto-converts camelCase → snake_case, so use camelCase keys.
+    const updates: Record<string, string> = {};
+    if (newUsername.trim())    updates.username    = newUsername.trim();
+    if (newPassword.trim())    updates.password    = newPassword.trim();
+    if (newEmail.trim())       updates.email       = newEmail.trim();
+    if (newDisplayName.trim()) updates.displayName = newDisplayName.trim();
+    if (newBio.trim())         updates.bio         = newBio.trim();
+    // Avatar: only include if user picked a new file (sent as base64 data URL)
+    // or explicitly pasted a new URL — never send the empty-string default.
+    if (newAvatarFile) {
+      updates.avatarUrl = await new Promise<string>((res, rej) => {
+        const reader = new FileReader();
+        reader.onload = () => res(reader.result as string);
+        reader.onerror = rej;
+        reader.readAsDataURL(newAvatarFile);
+      });
+    } else if (newAvatarUrl.trim()) {
+      updates.avatarUrl = newAvatarUrl.trim();
+    }
 
-    if (!hasAvatar && Object.keys(jsonUpdates).length === 0) {
+    if (Object.keys(updates).length === 0) {
       toast({ title: "Nothing to update", description: "Make a change first." });
       return;
     }
 
     try {
-      let updatedUser: any;
+      // Use raw fetch so we can inspect the full error body from Django.
+      // apiRequestJson swallows the detail — we need to see every field.
+      const { API_BASE_URL } = await import("@/lib/apiConfig");
+      const { toSnakeCaseObject, toCamelCaseObject } = await import("@/lib/caseTransform");
 
-      if (hasAvatar) {
-        // Use multipart/form-data when a new avatar file is selected so the
-        // backend receives an actual file rather than a raw base64 string.
-        const formData = new FormData();
-        formData.append("avatar", newAvatarFile!);
-        Object.entries(jsonUpdates).forEach(([k, v]) => formData.append(k, v));
+      const accessToken = localStorage.getItem("accessToken") ?? "";
+      const snakePayload = toSnakeCaseObject(updates);
 
-        const { apiRequestFormData } = await import("@/lib/queryClient");
-        updatedUser = await apiRequestFormData(
-          "PATCH",
-          // Django update endpoint includes the /update/ suffix
-          `/api/users/${artist.id}/update/`,
-          formData,
-        );
-      } else {
-        // Plain JSON update — apiRequestJson handles camelCase→snake_case
-        // but we've already built snake_case keys ourselves here to be explicit.
-        updatedUser = await apiRequestJson(
-          "PATCH",
-          `/api/users/${artist.id}/update/`,
-          jsonUpdates,
-        );
+      console.log("[updateCredentials] sending payload:", JSON.stringify(snakePayload, null, 2));
+
+      const response = await fetch(
+        `${API_BASE_URL}${API_ENDPOINTS.users.update(artist.id)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify(snakePayload),
+        },
+      );
+
+      const responseBody = await response.json().catch(() => ({}));
+      console.log("[updateCredentials] response status:", response.status, "body:", responseBody);
+
+      if (!response.ok) {
+        // Flatten all validation error messages into one readable string
+        const detail = Object.entries(responseBody)
+          .map(([field, msgs]) =>
+            `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`,
+          )
+          .join(" | ");
+        throw new Error(detail || `${response.status} ${response.statusText}`);
       }
+
+      const updatedUser = toCamelCaseObject(responseBody);
 
       // Merge returned data back into local state (response is camelCased by apiRequestJson)
       setArtist((prev) => (prev ? { ...prev, ...updatedUser } : null));
