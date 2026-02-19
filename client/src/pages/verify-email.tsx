@@ -14,7 +14,7 @@ export default function VerifyEmail() {
   useEffect(() => {
     const verify = async () => {
       try {
-        const response = await apiRequestJson("POST", `/api/verify-email/${uidb64}/${token}/`);
+        const response = await apiRequestJson("POST", `/api/users/verify-email/${uidb64}/${token}/`);
         setStatus("success");
         setMessage("Your email has been successfully verified.");
       } catch (error) {
