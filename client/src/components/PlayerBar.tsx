@@ -200,7 +200,13 @@ function PlayerBar() {
     <>
       <audio ref={audioRef} src={active?.audioUrl} preload="metadata" />
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/8 bg-background/70 backdrop-blur-xl">
+      {/*
+        ── FIX: On mobile the bottom nav sits at bottom-0 z-40.
+           The player bar must render *above* it, so we shift it up by the
+           nav height (~57px) and use a lower z-index so the nav stays on top.
+           On lg+ the bottom nav is hidden, so we restore bottom-0 and z-40.
+      */}
+      <div className="fixed inset-x-0 bottom-[57px] z-30 border-t border-white/8 bg-background/70 backdrop-blur-xl lg:bottom-0 lg:z-40">
         <div className="mx-auto max-w-6xl px-3 py-2 sm:px-4 sm:py-3">
           <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-3">
 
