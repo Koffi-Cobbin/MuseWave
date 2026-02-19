@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2 } from "lucide-react";
+import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2, X, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +19,10 @@ import { usePlayer } from "@/contexts/player-context";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, API_BASE_URL, downloadTrack } from "@/lib/apiConfig";
+import { motion, AnimatePresence } from "framer-motion";
+
+// Bottom nav height + safe area. Keep in sync with BottomNav.
+const BOTTOM_NAV_H = 57; // px — approximate nav height on mobile
 
 function PlayerBar() {
   const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
@@ -26,16 +30,15 @@ function PlayerBar() {
   const { toast } = useToast();
 
   const [supportOpen, setSupportOpen] = useState(false);
-  const [volumeOpen, setVolumeOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
-
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [volume, setVolume] = useState(1);
+
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   // Volume sync
   useEffect(() => {
@@ -67,7 +70,7 @@ function PlayerBar() {
     setIsLiked(false);
   }, [active?.id]);
 
-  // Fetch like status when track or user changes
+  // Fetch like status
   useEffect(() => {
     if (!active || !user) return;
     fetch(`${API_BASE_URL}${API_ENDPOINTS.likes.check(active.id, user.id)}`, {
@@ -85,7 +88,7 @@ function PlayerBar() {
     setIsPlaying(true);
   }, [autoPlay, active]);
 
-  // Single source of truth: sync audio element with isPlaying
+  // Sync audio element with isPlaying
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !active) return;
@@ -110,63 +113,56 @@ function PlayerBar() {
   };
 
   const formatTime = (time: number) => {
+    if (!time || isNaN(time)) return "0:00";
     const min = Math.floor(time / 60);
     const sec = Math.floor(time % 60);
     return `${min}:${sec.toString().padStart(2, "0")}`;
   };
 
-  const onClear = () => setActive(null);
+  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  // Like toggle
   const handleLike = async () => {
     if (!active) return;
     if (!isAuthenticated || !user) {
-      toast({
-        title: "Log in to like tracks",
-        description: "Create an account to save your favourite tracks.",
-        variant: "destructive",
-      });
+      toast({ title: "Log in to like tracks", variant: "destructive" });
       return;
     }
     setIsLiking(true);
     const wasLiked = isLiked;
-    setIsLiked(!wasLiked); // optimistic update
+    setIsLiked(!wasLiked);
     try {
       const endpoint = `${API_BASE_URL}${API_ENDPOINTS.likes.create(active.id)}`;
-      const method = wasLiked ? "DELETE" : "POST";
       const res = await fetch(endpoint, {
-        method,
+        method: wasLiked ? "DELETE" : "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("accessToken") ?? ""}`,
         },
         body: JSON.stringify({ userId: user.id }),
       });
-      if (!res.ok) throw new Error("Like request failed");
+      if (!res.ok) throw new Error();
     } catch {
-      setIsLiked(wasLiked); // revert on failure
-      toast({ title: "Something went wrong", description: "Could not update like.", variant: "destructive" });
+      setIsLiked(wasLiked);
+      toast({ title: "Something went wrong", variant: "destructive" });
     } finally {
       setIsLiking(false);
     }
   };
 
-  // Download
   const handleDownload = async () => {
     if (!active) return;
     setMenuOpen(false);
     setIsDownloading(true);
     try {
       await downloadTrack(active.id, `${active.artist} - ${active.title}.${active.audioFormat || "mp3"}`);
-      toast({ title: "Download started", description: `${active.title} is downloading.` });
+      toast({ title: "Download started" });
     } catch {
-      toast({ title: "Download failed", description: "Unable to download this track.", variant: "destructive" });
+      toast({ title: "Download failed", variant: "destructive" });
     } finally {
       setIsDownloading(false);
     }
   };
 
-  // Share
   const handleShare = async () => {
     setMenuOpen(false);
     const url = active ? `${window.location.origin}/artist/${active.artistSlug}` : window.location.href;
@@ -177,20 +173,19 @@ function PlayerBar() {
     } else {
       try {
         await navigator.clipboard.writeText(url);
-        toast({ title: "Link copied!", description: "Share link copied to clipboard." });
+        toast({ title: "Link copied!" });
       } catch {
-        toast({ title: "Share failed", description: "Unable to copy link.", variant: "destructive" });
+        toast({ title: "Share failed", variant: "destructive" });
       }
     }
   };
 
-  // Copy link
   const handleCopyLink = async () => {
     setMenuOpen(false);
     const url = active ? `${window.location.origin}/artist/${active.artistSlug}` : window.location.href;
     try {
       await navigator.clipboard.writeText(url);
-      toast({ title: "Link copied!", description: "Link copied to clipboard." });
+      toast({ title: "Link copied!" });
     } catch {
       toast({ title: "Copy failed", variant: "destructive" });
     }
@@ -200,104 +195,114 @@ function PlayerBar() {
     <>
       <audio ref={audioRef} src={active?.audioUrl} preload="metadata" />
 
-      {/*
-        ── FIX: On mobile the bottom nav sits at bottom-0 z-40.
-           The player bar must render *above* it, so we shift it up by the
-           nav height (~57px) and use a lower z-index so the nav stays on top.
-           On lg+ the bottom nav is hidden, so we restore bottom-0 and z-40.
-      */}
-      <div className="fixed inset-x-0 bottom-[57px] z-30 border-t border-white/8 bg-background/70 backdrop-blur-xl lg:bottom-0 lg:z-40">
-        <div className="mx-auto max-w-6xl px-3 py-2 sm:px-4 sm:py-3">
-          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-
-            {/* Row 1: Track info */}
-            <div className="flex min-w-0 items-center gap-3">
+      <AnimatePresence>
+        {active && (
+          <motion.div
+            key="playerbar"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 20, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 35 }}
+            className={cn(
+              // Mobile: sits above the bottom nav (57px) with a small margin
+              // Desktop (lg+): bottom-0 sits at screen bottom
+              "fixed inset-x-0 z-30 lg:z-40",
+              "bottom-[calc(57px+env(safe-area-inset-bottom))] lg:bottom-0"
+            )}
+          >
+            {/* Progress bar — hairline at the very top of the player */}
+            <div className="relative h-[2px] w-full bg-white/10">
               <div
-                className={cn(
-                  "h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
-                  !active?.coverUrl && "bg-gradient-to-br",
-                  active?.coverUrl ? "" : active?.coverGradient || "from-white/10 via-white/0 to-white/10",
-                )}
-                aria-hidden="true"
-              >
-                {active?.coverUrl ? (
-                  <img src={active.coverUrl} alt={`${active.title} cover`} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="absolute inset-0 opacity-50 blur-[10px]" />
-                )}
-              </div>
-
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold" data-testid="text-player-title">
-                  {active ? active.title : "Nothing playing"}
-                </div>
-                <div className="truncate text-xs text-muted-foreground" data-testid="text-player-artist">
-                  {active ? active.artist : "Pick a track to preview"}
-                </div>
-              </div>
-
-              {/* Like button — mobile (row 1) */}
-              {active && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="shrink-0 px-2 sm:hidden"
-                  onClick={handleLike}
-                  disabled={isLiking}
-                  data-testid="button-player-like-mobile"
-                >
-                  <Heart
-                    className={cn(
-                      "h-4 w-4 transition-colors",
-                      isLiked ? "fill-rose-500 text-rose-500" : "text-muted-foreground",
-                    )}
-                  />
-                </Button>
-              )}
+                className="absolute inset-y-0 left-0 bg-primary/80 transition-all duration-150"
+                style={{ width: `${progress}%` }}
+              />
+              {/* Invisible seek overlay */}
+              <input
+                type="range"
+                min="0"
+                max={duration || 0}
+                value={currentTime}
+                onChange={handleSeek}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                data-testid="input-player-seek"
+              />
             </div>
 
-            {/* Row 2: Controls */}
-            {active && (
-              <div className="flex items-center justify-between gap-2">
+            {/* Main bar */}
+            <div className="border-t border-white/8 bg-background/85 backdrop-blur-2xl">
+              <div className="mx-auto flex max-w-6xl items-center gap-3 px-3 py-2.5 sm:px-4">
 
-                {/* Play/pause + seek */}
-                <div className="flex flex-1 min-w-0 items-center gap-2">
+                {/* Album art */}
+                <div
+                  className={cn(
+                    "relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
+                    !active.coverUrl && "bg-gradient-to-br",
+                    active.coverUrl ? "" : active.coverGradient || "from-white/10 via-white/0 to-white/10",
+                  )}
+                >
+                  {active.coverUrl ? (
+                    <img src={active.coverUrl} alt={`${active.title} cover`} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 opacity-50 blur-[10px]" />
+                  )}
+                </div>
+
+                {/* Track info */}
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-semibold leading-tight" data-testid="text-player-title">
+                    {active.title}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground leading-tight" data-testid="text-player-artist">
+                    {active.artist}
+                  </div>
+                </div>
+
+                {/* Time — hidden on xs */}
+                <span className="hidden shrink-0 tabular-nums text-xs text-muted-foreground sm:block">
+                  {formatTime(currentTime)} / {formatTime(duration)}
+                </span>
+
+                {/* Controls */}
+                <div className="flex shrink-0 items-center gap-0.5">
+
+                  {/* Play / Pause */}
                   <Button
                     size="icon"
                     variant="ghost"
                     onClick={togglePlay}
-                    className="shrink-0"
+                    className="h-9 w-9"
                     data-testid="button-player-play-pause"
                   >
-                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    {isPlaying
+                      ? <Pause className="h-4 w-4" />
+                      : <Play className="h-4 w-4 translate-x-px" />}
                   </Button>
 
-                  <div className="flex flex-1 min-w-0 items-center gap-1">
-                    <span className="shrink-0 text-xs text-muted-foreground">{formatTime(currentTime)}</span>
-                    <input
-                      type="range"
-                      min="0"
-                      max={duration || 0}
-                      value={currentTime}
-                      onChange={handleSeek}
-                      className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded-lg bg-white/20"
-                      data-testid="input-player-seek"
+                  {/* Like */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={handleLike}
+                    disabled={isLiking}
+                    data-testid="button-player-like"
+                  >
+                    <Heart
+                      className={cn(
+                        "h-4 w-4 transition-colors",
+                        isLiked ? "fill-rose-500 text-rose-500" : "text-muted-foreground",
+                      )}
                     />
-                    <span className="shrink-0 text-xs text-muted-foreground">{formatTime(duration)}</span>
-                  </div>
-                </div>
+                  </Button>
 
-                {/* Actions */}
-                <div className="flex shrink-0 items-center gap-1">
-
-                  {/* Volume — desktop */}
-                  <div className="hidden items-center gap-1 sm:flex">
+                  {/* Volume slider — desktop only */}
+                  <div className="hidden items-center gap-2 sm:flex">
                     <span className="text-xs text-muted-foreground">🔊</span>
                     <input
                       type="range"
                       min="0"
                       max="1"
-                      step="0.1"
+                      step="0.05"
                       value={volume}
                       onChange={(e) => setVolume(parseFloat(e.target.value))}
                       className="h-1 w-16 cursor-pointer appearance-none rounded-lg bg-white/20"
@@ -305,57 +310,11 @@ function PlayerBar() {
                     />
                   </div>
 
-                  {/* Volume — mobile popover */}
-                  <div className="sm:hidden">
-                    <Popover open={volumeOpen} onOpenChange={setVolumeOpen}>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-6 w-6 p-1" data-testid="button-player-volume">
-                          <span className="text-xs">🔊</span>
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-48 p-3" side="top" align="center">
-                        <div className="space-y-2">
-                          <div className="text-center text-xs font-medium">Volume</div>
-                          <input
-                            type="range"
-                            min="0"
-                            max="1"
-                            step="0.1"
-                            value={volume}
-                            onChange={(e) => setVolume(parseFloat(e.target.value))}
-                            className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-white/20"
-                            data-testid="input-player-volume-mobile"
-                          />
-                          <div className="text-center text-xs text-muted-foreground">
-                            {Math.round(volume * 100)}%
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-
-                  {/* Like — desktop */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="hidden px-2 sm:inline-flex"
-                    onClick={handleLike}
-                    disabled={isLiking}
-                    data-testid="button-player-like"
-                  >
-                    <Heart
-                      className={cn(
-                        "h-3.5 w-3.5 transition-colors",
-                        isLiked ? "fill-rose-500 text-rose-500" : "text-muted-foreground",
-                      )}
-                    />
-                  </Button>
-
                   {/* Support (Crown) */}
                   <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
                     <DialogTrigger asChild>
-                      <Button variant="ghost" size="sm" disabled={!active} data-testid="button-player-support">
-                        <Crown className="h-3.5 w-3.5" />
+                      <Button variant="ghost" size="icon" className="h-9 w-9 hidden sm:inline-flex" data-testid="button-player-support">
+                        <Crown className="h-3.5 w-3.5 text-muted-foreground" />
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -381,10 +340,10 @@ function PlayerBar() {
                     </DialogContent>
                   </Dialog>
 
-                  {/* Ellipsis menu — download + share + copy link */}
+                  {/* Overflow menu */}
                   <Popover open={menuOpen} onOpenChange={setMenuOpen}>
                     <PopoverTrigger asChild>
-                      <Button variant="ghost" size="sm" className="px-2" data-testid="button-player-menu">
+                      <Button variant="ghost" size="icon" className="h-9 w-9" data-testid="button-player-menu">
                         <MoreVertical className="h-3.5 w-3.5" />
                       </Button>
                     </PopoverTrigger>
@@ -414,15 +373,24 @@ function PlayerBar() {
                         <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
                         Copy link
                       </button>
+                      <div className="my-1 border-t border-white/8" />
+                      <button
+                        onClick={() => { setMenuOpen(false); setActive(null); }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8 text-muted-foreground"
+                        data-testid="button-player-close"
+                      >
+                        <X className="h-4 w-4 shrink-0" />
+                        Close player
+                      </button>
                     </PopoverContent>
                   </Popover>
 
                 </div>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

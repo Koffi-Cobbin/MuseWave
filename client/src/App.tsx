@@ -6,6 +6,7 @@ import { queryClient } from "./lib/queryClient";
 import { AuthProvider } from "@/contexts/auth-context";
 import { PlayerProvider } from "@/contexts/player-context";
 import PlayerBar from "@/components/PlayerBar";
+import BottomNav from "@/components/BottomNav";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Upload from "./pages/upload";
@@ -36,6 +37,8 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <Router />
+            {/* Global overlays — rendered above all pages */}
+            <BottomNav />
             <PlayerBar />
           </TooltipProvider>
         </PlayerProvider>
