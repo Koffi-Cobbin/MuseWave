@@ -1,25 +1,25 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
-  ArrowLeft,
   Compass,
   Flame,
   Home as HomeIcon,
-  Mail,
   Music2,
   Pause,
   Play,
   Search,
   Sparkles,
   UploadCloud,
-  LogIn,
   LogOut,
   User as UserIcon,
   Eye,
   EyeOff,
   CheckCircle2,
+  Mail,
+  ArrowLeft,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -73,14 +73,14 @@ function secondsToTime(duration: number) {
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2" data-testid="brand-musewave">
+    <div className="flex items-center gap-2.5" data-testid="brand-musewave">
       <div
-        className="h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br from-emerald-400/90 via-emerald-400/20 to-fuchsia-500/80 shadow-[0_12px_40px_-24px_rgba(16,185,129,.9)]"
+        className="h-8 w-8 shrink-0 rounded-xl bg-gradient-to-br from-emerald-400/90 via-emerald-400/20 to-fuchsia-500/80 shadow-[0_8px_24px_-8px_rgba(16,185,129,.8)]"
         aria-hidden="true"
       />
       <div className="min-w-0 leading-tight">
-        <div className="truncate text-[15px] font-semibold tracking-tight">MuseWave</div>
-        <div className="truncate text-xs text-muted-foreground">music for the next fave</div>
+        <div className="truncate text-sm font-semibold tracking-tight">MuseWave</div>
+        <div className="truncate text-[10px] text-muted-foreground">music for the next fave</div>
       </div>
     </div>
   );
@@ -91,426 +91,193 @@ function Logo() {
 type DialogView = "login" | "signup" | "forgot" | "sent";
 
 function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
-  const [view, setView] = useState<DialogView>("login");
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<DialogView>("login");
+  const [showPw, setShowPw] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  // Login state
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
-
-  // Signup state
-  const [signupUsername, setSignupUsername] = useState("");
-  const [signupEmail, setSignupEmail] = useState("");
-  const [signupDisplayName, setSignupDisplayName] = useState("");
-  const [signupPassword, setSignupPassword] = useState("");
-  const [signupConfirm, setSignupConfirm] = useState("");
-  const [showSignupPassword, setShowSignupPassword] = useState(false);
-  const [isSigningUp, setIsSigningUp] = useState(false);
-
-  // Forgot password state
-  const [resetEmail, setResetEmail] = useState("");
-  const [isSendingReset, setIsSendingReset] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const { login } = useAuth();
   const { toast } = useToast();
 
-  // Reset all state when the dialog closes
-  const handleOpenChange = (next: boolean) => {
-    setOpen(next);
-    if (!next) {
-      setTimeout(() => {
-        setView("login");
-        setUsername(""); setPassword(""); setShowPassword(false);
-        setSignupUsername(""); setSignupEmail(""); setSignupDisplayName("");
-        setSignupPassword(""); setSignupConfirm(""); setShowSignupPassword(false);
-        setResetEmail("");
-      }, 200);
-    }
+  const reset = () => {
+    setIdentifier("");
+    setPassword("");
+    setDisplayName("");
+    setEmail("");
+    setConfirmPassword("");
+    setForgotEmail("");
+    setError("");
+    setView("login");
   };
 
-  // ── Login ──────────────────────────────────────────────────────────────────
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoggingIn(true);
+  const handleLogin = async () => {
+    if (!identifier || !password) return setError("Fill in all fields.");
+    setLoading(true);
+    setError("");
     try {
-      await login(username, password);
-      toast({ title: "Welcome back!", description: "You've successfully logged in." });
-      handleOpenChange(false);
+      const res = await apiRequestJson<{ user: User; token?: string }>("POST", API_ENDPOINTS.LOGIN, {
+        username: identifier,
+        password,
+      });
+      login(res.user, res.token);
+      toast({ title: "Welcome back!", description: `Logged in as ${res.user.displayName || res.user.username}.` });
+      setOpen(false);
       onSuccess?.();
-    } catch (error) {
-      toast({
-        title: "Login failed",
-        description: error instanceof Error ? error.message : "Invalid credentials.",
-        variant: "destructive",
-      });
+    } catch {
+      setError("Invalid username or password.");
     } finally {
-      setIsLoggingIn(false);
+      setLoading(false);
     }
   };
 
-  // ── Signup ─────────────────────────────────────────────────────────────────
-  const handleSignup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (signupPassword !== signupConfirm) {
-      toast({ title: "Passwords don't match", description: "Please make sure both passwords are the same.", variant: "destructive" });
-      return;
-    }
-    if (signupPassword.length < 8) {
-      toast({ title: "Password too short", description: "Password must be at least 8 characters.", variant: "destructive" });
-      return;
-    }
-    setIsSigningUp(true);
+  const handleSignup = async () => {
+    if (!displayName || !email || !password || !confirmPassword) return setError("Fill in all fields.");
+    if (password !== confirmPassword) return setError("Passwords don't match.");
+    setLoading(true);
+    setError("");
     try {
-      const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.create}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          username: signupUsername.trim().toLowerCase(),
-          email: signupEmail.trim(),
-          password: signupPassword,
-          display_name: signupDisplayName.trim() || signupUsername.trim(),
-        }),
+      const res = await apiRequestJson<{ user: User; token?: string }>("POST", API_ENDPOINTS.SIGNUP, {
+        username: email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, ""),
+        displayName,
+        email,
+        password,
       });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || data.detail || data.username?.[0] || data.email?.[0] || "Signup failed. Please try again.");
-      }
-      // Auto-login after successful signup
-      await login(signupUsername.trim().toLowerCase(), signupPassword);
+      login(res.user, res.token);
       toast({ title: "Account created!", description: "Welcome to MuseWave." });
-      handleOpenChange(false);
+      setOpen(false);
       onSuccess?.();
-    } catch (error) {
-      toast({
-        title: "Signup failed",
-        description: error instanceof Error ? error.message : "Please try again.",
-        variant: "destructive",
-      });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Signup failed.");
     } finally {
-      setIsSigningUp(false);
+      setLoading(false);
     }
   };
 
-  // ── Forgot password ────────────────────────────────────────────────────────
-  const handleForgotPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSendingReset(true);
+  const handleForgot = async () => {
+    if (!forgotEmail) return setError("Enter your email.");
+    setLoading(true);
+    setError("");
     try {
-      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.resetPassword}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: resetEmail.trim() }),
-      });
-
-      // Backend returns 200/201 on success, and may return 400 for invalid email
-      // We show the same message regardless for security (don't reveal if email exists)
-      if (response.ok || response.status === 400) {
-        setView("sent");
-      } else {
-        // Only throw error for unexpected status codes (500, etc)
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error || 
-          errorData.detail || 
-          "Failed to send reset email. Please try again."
-        );
-      }
-    } catch (error) {
-      toast({
-        title: "Something went wrong",
-        description: error instanceof Error ? error.message : "Please try again later.",
-        variant: "destructive",
-      });
+      await apiRequestJson("POST", API_ENDPOINTS.FORGOT_PASSWORD, { email: forgotEmail });
+      setView("sent");
+    } catch {
+      setError("Could not send reset email.");
     } finally {
-      setIsSendingReset(false);
+      setLoading(false);
     }
   };
-
-
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
       <DialogTrigger asChild>
-        <Button variant="ghost" className="w-full justify-start" data-testid="button-open-login">
-          <LogIn className="mr-2 h-4 w-4" />
+        <Button size="sm" className="glow shrink-0" data-testid="button-open-login">
           Log in
         </Button>
       </DialogTrigger>
+      <DialogContent className="glass noise max-w-sm border-white/10">
+        <DialogHeader>
+          <DialogTitle className="text-base">
+            {view === "login" ? "Welcome back" : view === "signup" ? "Create account" : view === "forgot" ? "Reset password" : "Check your email"}
+          </DialogTitle>
+          <DialogDescription className="text-xs">
+            {view === "login" ? "Sign in to your MuseWave account." : view === "signup" ? "Join the indie music community." : view === "forgot" ? "Enter your email and we'll send a reset link." : ""}
+          </DialogDescription>
+        </DialogHeader>
 
-      <DialogContent className="left-1/2 w-[calc(100%-1.5rem)] -translate-x-1/2 sm:w-full sm:max-w-[400px]">
-        {/* ── Login view ── */}
         {view === "login" && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Log in to MuseWave</DialogTitle>
-              <DialogDescription>Enter your credentials to access your account.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleLogin} className="mt-4 grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="username">Username or email</Label>
-                <Input
-                  id="username"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="your-username"
-                  autoComplete="username"
-                  required
-                  data-testid="input-username"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    className="pr-10"
-                    required
-                    data-testid="input-password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                    onClick={() => setShowPassword((v) => !v)}
-                    data-testid="button-toggle-password"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <Button type="submit" disabled={isLoggingIn} data-testid="button-submit-login">
-                  {isLoggingIn ? (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4 animate-spin" />
-                      Logging in...
-                    </>
-                  ) : (
-                    <>
-                      <LogIn className="mr-2 h-4 w-4" />
-                      Log in
-                    </>
-                  )}
-                </Button>
-                {/* Forgot password + Sign up on the same line */}
-                <div className="flex items-center justify-between">
-                  <button
-                    type="button"
-                    onClick={() => setView("forgot")}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                    data-testid="button-forgot-password"
-                  >
-                    Forgot password?
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setView("signup")}
-                    className="text-xs font-medium text-primary hover:text-primary/80 transition-colors"
-                    data-testid="button-go-to-signup"
-                  >
-                    Sign up
-                  </button>
-                </div>
-              </div>
-            </form>
-          </>
-        )}
-
-        {/* ── Signup view ── */}
-        {view === "signup" && (
-          <>
-            <DialogHeader>
-              <DialogTitle>Create an account</DialogTitle>
-              <DialogDescription>Join MuseWave and start sharing your music.</DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSignup} className="mt-4 grid gap-3">
-              <div className="grid gap-2">
-                <Label htmlFor="signup-displayname">Display name</Label>
-                <Input
-                  id="signup-displayname"
-                  value={signupDisplayName}
-                  onChange={(e) => setSignupDisplayName(e.target.value)}
-                  placeholder="Your Name"
-                  autoComplete="name"
-                  data-testid="input-signup-displayname"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="signup-username">Username <span className="text-rose-500">*</span></Label>
-                <Input
-                  id="signup-username"
-                  value={signupUsername}
-                  onChange={(e) => setSignupUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))}
-                  placeholder="your-username"
-                  autoComplete="username"
-                  required
-                  data-testid="input-signup-username"
-                />
-                <p className="text-xs text-muted-foreground">Lowercase letters, numbers, hyphens and underscores only.</p>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="signup-email">Email <span className="text-rose-500">*</span></Label>
-                <Input
-                  id="signup-email"
-                  type="email"
-                  value={signupEmail}
-                  onChange={(e) => setSignupEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  required
-                  data-testid="input-signup-email"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="signup-password">Password <span className="text-rose-500">*</span></Label>
-                <div className="relative">
-                  <Input
-                    id="signup-password"
-                    type={showSignupPassword ? "text" : "password"}
-                    value={signupPassword}
-                    onChange={(e) => setSignupPassword(e.target.value)}
-                    placeholder="Min. 8 characters"
-                    autoComplete="new-password"
-                    className="pr-10"
-                    required
-                    data-testid="input-signup-password"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-                    onClick={() => setShowSignupPassword((v) => !v)}
-                    data-testid="button-toggle-signup-password"
-                  >
-                    {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="signup-confirm">Confirm password <span className="text-rose-500">*</span></Label>
-                <Input
-                  id="signup-confirm"
-                  type="password"
-                  value={signupConfirm}
-                  onChange={(e) => setSignupConfirm(e.target.value)}
-                  placeholder="••••••••"
-                  autoComplete="new-password"
-                  required
-                  data-testid="input-signup-confirm"
-                />
-              </div>
-              <div className="flex flex-col gap-2 pt-1">
-                <Button type="submit" disabled={isSigningUp} data-testid="button-submit-signup">
-                  {isSigningUp ? (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4 animate-spin" />
-                      Creating account...
-                    </>
-                  ) : (
-                    "Create account"
-                  )}
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => setView("login")}
-                  className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  data-testid="button-back-to-login-from-signup"
-                >
-                  <ArrowLeft className="h-3 w-3" />
-                  Already have an account? Log in
+          <div className="mt-3 grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="identifier" className="text-xs">Username or email</Label>
+              <Input id="identifier" value={identifier} onChange={(e) => setIdentifier(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} data-testid="input-identifier" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="password" className="text-xs">Password</Label>
+              <div className="relative">
+                <Input id="password" type={showPw ? "text" : "password"} className="pr-9" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} data-testid="input-password" />
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPw((p) => !p)}>
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-            </form>
-          </>
+            </div>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            <Button onClick={handleLogin} disabled={loading} className="glow" data-testid="button-login-submit">{loading ? "Logging in…" : "Log in"}</Button>
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <button type="button" onClick={() => { setView("signup"); setError(""); }} data-testid="button-switch-to-signup">Create account</button>
+              <button type="button" onClick={() => { setView("forgot"); setError(""); }} data-testid="button-forgot-password">Forgot password?</button>
+            </div>
+          </div>
         )}
 
-        {/* ── Forgot password view ── */}
+        {view === "signup" && (
+          <div className="mt-3 grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="displayName" className="text-xs">Display name</Label>
+              <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} data-testid="input-display-name" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="email" className="text-xs">Email</Label>
+              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} data-testid="input-email" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="new-password" className="text-xs">Password</Label>
+              <div className="relative">
+                <Input id="new-password" type={showPw ? "text" : "password"} className="pr-9" value={password} onChange={(e) => setPassword(e.target.value)} data-testid="input-signup-password" />
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPw((p) => !p)}>
+                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="confirm-password" className="text-xs">Confirm password</Label>
+              <div className="relative">
+                <Input id="confirm-password" type={showConfirm ? "text" : "password"} className="pr-9" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} data-testid="input-confirm-password" />
+                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowConfirm((p) => !p)}>
+                  {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </div>
+            {error && <p className="text-xs text-red-400">{error}</p>}
+            <Button onClick={handleSignup} disabled={loading} className="glow" data-testid="button-signup-submit">{loading ? "Creating account…" : "Create account"}</Button>
+            <button type="button" className="text-xs text-muted-foreground text-center" onClick={() => { setView("login"); setError(""); }} data-testid="button-switch-to-login">Already have an account? Log in</button>
+          </div>
+        )}
+
         {view === "forgot" && (
           <>
-            <DialogHeader>
-              <DialogTitle>Reset your password</DialogTitle>
-              <DialogDescription>
-                Enter the email address linked to your account and we'll send you a reset link.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleForgotPassword} className="mt-4 grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="reset-email">Email address</Label>
-                <Input
-                  id="reset-email"
-                  type="email"
-                  value={resetEmail}
-                  onChange={(e) => setResetEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  autoComplete="email"
-                  required
-                  data-testid="input-reset-email"
-                />
+            <div className="mt-3 grid gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="forgot-email" className="text-xs">Email</Label>
+                <Input id="forgot-email" type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} data-testid="input-forgot-email" />
               </div>
-              <div className="flex flex-col gap-2">
-                <Button type="submit" disabled={isSendingReset} data-testid="button-send-reset">
-                  {isSendingReset ? (
-                    <>
-                      <Sparkles className="mr-2 h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="mr-2 h-4 w-4" />
-                      Send reset link
-                    </>
-                  )}
-                </Button>
-                <button
-                  type="button"
-                  onClick={() => setView("login")}
-                  className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  data-testid="button-back-to-login"
-                >
-                  <ArrowLeft className="h-3 w-3" />
-                  Back to log in
-                </button>
-              </div>
-            </form>
+              {error && <p className="text-xs text-red-400">{error}</p>}
+              <Button onClick={handleForgot} disabled={loading} className="glow" data-testid="button-send-reset">{loading ? "Sending…" : "Send reset link"}</Button>
+              <button type="button" onClick={() => setView("login")} className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground" data-testid="button-back-to-login">
+                <ArrowLeft className="h-3 w-3" /> Back to log in
+              </button>
+            </div>
           </>
         )}
 
-        {/* ── Sent confirmation view ── */}
         {view === "sent" && (
           <>
-            <DialogHeader>
-              <DialogTitle>Check your inbox</DialogTitle>
-              <DialogDescription>
-                If an account exists for <span className="font-medium text-foreground">{resetEmail}</span>, you'll receive a password reset link shortly.
-              </DialogDescription>
-            </DialogHeader>
             <div className="mt-4 grid gap-4">
               <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-4">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Reset link sent. Check your spam folder if it doesn't arrive within a few minutes.
-                </p>
+                <p className="text-sm text-muted-foreground">Reset link sent. Check your spam folder if it doesn't arrive within a few minutes.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setView("login")}
-                className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                data-testid="button-back-to-login-from-sent"
-              >
-                <ArrowLeft className="h-3 w-3" />
-                Back to log in
+              <button type="button" onClick={() => setView("login")} className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground" data-testid="button-back-to-login-from-sent">
+                <ArrowLeft className="h-3 w-3" /> Back to log in
               </button>
             </div>
           </>
@@ -520,7 +287,67 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
   );
 }
 
-// ─── Sidebar Nav ─────────────────────────────────────────────────────────────
+// ─── Bottom Nav (Mobile) ──────────────────────────────────────────────────────
+
+function BottomNav({ onAccountPress }: { onAccountPress: () => void }) {
+  const [location] = useLocation();
+  const { isAuthenticated } = useAuth();
+
+  const items = [
+    { href: "/", label: "Home", icon: HomeIcon, testId: "link-nav-home" },
+    { href: "/discover", label: "Discover", icon: Compass, testId: "link-nav-discover" },
+    { href: "/upload", label: "Upload", icon: UploadCloud, testId: "link-nav-upload" },
+  ];
+
+  return (
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-40 lg:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      {/* Blur backdrop */}
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-xl border-t border-white/10" />
+      <div className="relative flex items-center justify-around px-2 py-2">
+        {items.map((it) => {
+          const active = it.href === "/" ? location === "/" : location.startsWith(it.href);
+          const Icon = it.icon;
+          return (
+            <Link key={it.href} href={it.href}>
+              <a
+                data-testid={it.testId}
+                className={cn(
+                  "flex flex-col items-center gap-0.5 rounded-xl px-3 py-2 transition-all",
+                  active ? "text-foreground" : "text-muted-foreground"
+                )}
+              >
+                <div className={cn(
+                  "flex h-8 w-8 items-center justify-center rounded-xl transition-all",
+                  active && "bg-primary/15"
+                )}>
+                  <Icon className={cn("h-4 w-4 transition-all", active && "text-primary")} />
+                </div>
+                <span className="text-[10px] font-medium">{it.label}</span>
+              </a>
+            </Link>
+          );
+        })}
+        {/* Account button */}
+        <button
+          type="button"
+          onClick={onAccountPress}
+          data-testid="button-toggle-account"
+          className="flex flex-col items-center gap-0.5 rounded-xl px-3 py-2 text-muted-foreground transition-all"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl">
+            <UserIcon className="h-4 w-4" />
+          </div>
+          <span className="text-[10px] font-medium">{isAuthenticated ? "Account" : "Log in"}</span>
+        </button>
+      </div>
+    </nav>
+  );
+}
+
+// ─── Desktop Sidebar ──────────────────────────────────────────────────────────
 
 function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
   const [location] = useLocation();
@@ -544,14 +371,8 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
       <div className="flex items-center justify-between lg:block">
         <Logo />
         {onMobileClose && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            onClick={onMobileClose}
-            data-testid="button-close-nav"
-          >
-            <Sparkles className="h-5 w-5 rotate-45" />
+          <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMobileClose} data-testid="button-close-nav">
+            <X className="h-4 w-4" />
           </Button>
         )}
       </div>
@@ -560,10 +381,7 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
 
       <nav className="grid gap-1">
         {items.map((it) => {
-          const active =
-            it.href === "/"
-              ? location === "/"
-              : !it.href.includes("#") && location.startsWith(it.href);
+          const active = it.href === "/" ? location === "/" : !it.href.includes("#") && location.startsWith(it.href);
           const Icon = it.icon;
           return (
             <Link key={it.label} href={it.href}>
@@ -594,12 +412,8 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
                 <UserIcon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold" data-testid="text-user-name">
-                  {user.displayName || user.username}
-                </div>
-                <div className="truncate text-xs text-muted-foreground" data-testid="text-user-email">
-                  {user.email}
-                </div>
+                <div className="truncate text-sm font-semibold" data-testid="text-user-name">{user.displayName || user.username}</div>
+                <div className="truncate text-xs text-muted-foreground" data-testid="text-user-email">{user.email}</div>
               </div>
             </div>
           </div>
@@ -607,12 +421,7 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
       )}
 
       {isAuthenticated ? (
-        <Button
-          variant="ghost"
-          className="w-full justify-start"
-          onClick={handleLogout}
-          data-testid="button-logout"
-        >
+        <Button variant="ghost" className="w-full justify-start" onClick={handleLogout} data-testid="button-logout">
           <LogOut className="mr-2 h-4 w-4" />
           Log out
         </Button>
@@ -623,35 +432,70 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
   );
 }
 
-// ─── TopBar ──────────────────────────────────────────────────────────────────
+// ─── Account Sheet (Mobile) ───────────────────────────────────────────────────
 
-function TopBar({ query, onQueryChange }: { query: string; onQueryChange: (v: string) => void }) {
+function AccountSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { user, logout, isAuthenticated } = useAuth();
+  const { toast } = useToast();
+
+  const handleLogout = () => {
+    logout();
+    toast({ title: "Logged out" });
+    onClose();
+  };
+
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-      <div className="min-w-0">
-        <h1
-          className="text-balance text-base font-semibold tracking-tight sm:text-xl lg:text-2xl xl:text-3xl"
-          data-testid="text-title"
-        >
-          Discover indie music, fast.
-        </h1>
-        <p className="mt-0.5 text-xs text-muted-foreground sm:mt-1 sm:text-sm" data-testid="text-subtitle">
-          A platform for indie artists to upload music and grow an audience.
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <div className="relative w-full sm:w-[260px] lg:w-[320px]">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            placeholder="Search tracks, artists…"
-            className="pl-9 text-sm"
-            data-testid="input-search"
+    <AnimatePresence>
+      {open && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-background/60 backdrop-blur-sm lg:hidden"
+            onClick={onClose}
           />
-        </div>
-      </div>
-    </div>
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
+            className="fixed bottom-0 left-0 right-0 z-50 lg:hidden"
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
+            <div className="glass noise rounded-t-3xl border-t border-white/10 p-5">
+              {/* Handle */}
+              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-white/20" />
+
+              {isAuthenticated && user ? (
+                <div className="grid gap-4">
+                  <Link href={`/artist/${user.username}`}>
+                    <a onClick={onClose} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-3">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-emerald-400/30 to-fuchsia-500/20">
+                        <UserIcon className="h-6 w-6" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold">{user.displayName || user.username}</div>
+                        <div className="truncate text-sm text-muted-foreground">{user.email}</div>
+                      </div>
+                    </a>
+                  </Link>
+                  <Button variant="secondary" className="w-full border-white/10 bg-white/5" onClick={handleLogout} data-testid="button-logout">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log out
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  <p className="text-center text-sm text-muted-foreground">Log in to upload tracks and follow artists.</p>
+                  <LoginDialog onSuccess={onClose} />
+                </div>
+              )}
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -664,14 +508,18 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
   return (
     <motion.div
       layout
-      whileHover={{ y: -3 }}
-      className={cn("group glass glow noise rounded-2xl p-3 transition", isActive && "ring-1 ring-primary/60")}
+      whileHover={{ y: -2 }}
+      className={cn(
+        "group glass glow noise rounded-2xl p-3 transition-all",
+        isActive && "ring-1 ring-primary/60 bg-primary/5"
+      )}
       data-testid={`card-track-${track.id}`}
     >
-      <div className="flex gap-3">
+      <div className="flex items-center gap-3">
+        {/* Cover */}
         <div
           className={cn(
-            "relative h-12 w-12 sm:h-14 sm:w-14 shrink-0 overflow-hidden rounded-xl border border-white/10",
+            "relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/10",
             !track.coverUrl && "bg-gradient-to-br",
             track.coverUrl ? "" : track.coverGradient,
           )}
@@ -684,62 +532,44 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
           )}
         </div>
 
+        {/* Info */}
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold" data-testid={`text-track-title-${track.id}`}>
-                {track.title}
-              </div>
-              <Link href={`/artist/${track.artistSlug}`}>
-                <a
-                  className="mt-0.5 inline-flex max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                  data-testid={`link-track-artist-${track.id}`}
-                >
-                  <Music2 className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{track.artist}</span>
-                </a>
-              </Link>
-            </div>
-            <div className="shrink-0">
-              {isActive ? (
-                <Button
-                  size="icon"
-                  className="h-8 w-8 rounded-xl sm:h-9 sm:w-9"
-                  onClick={() => onPlay(track)}
-                  data-testid={`button-play-${track.id}`}
-                >
-                  {isActiveAndPlaying ? (
-                    <Pause className="h-4 w-4 fill-current" />
-                  ) : (
-                    <Play className="h-4 w-4 fill-current" />
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  size="icon"
-                  className="h-8 w-8 rounded-xl sm:h-9 sm:w-9"
-                  onClick={() => onPlay(track)}
-                  data-testid={`button-play-${track.id}`}
-                >
-                  <Play className="h-4 w-4 fill-current" />
-                </Button>
-              )}
-            </div>
+          <div className="truncate text-sm font-semibold" data-testid={`text-track-title-${track.id}`}>
+            {track.title}
           </div>
+          <Link href={`/artist/${track.artistSlug}`}>
+            <a className="mt-0.5 inline-flex max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground" data-testid={`link-track-artist-${track.id}`}>
+              <Music2 className="h-3 w-3 shrink-0" />
+              <span className="truncate">{track.artist}</span>
+            </a>
+          </Link>
+        </div>
 
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant="secondary" className="border-white/10 bg-white/5 text-xs">{track.genre}</Badge>
-              {track.mood && (
-                <Badge variant="outline" className="border-white/12 bg-transparent text-xs">{track.mood}</Badge>
-              )}
-            </div>
-            <span className="text-xs text-muted-foreground whitespace-nowrap" data-testid={`text-track-meta-${track.id}`}>
-              {secondsToTime(track.audioDuration)} · {formatCount(track.plays)}
-            </span>
-          </div>
+        {/* Meta + Play */}
+        <div className="flex shrink-0 items-center gap-2">
+          {track.duration ? (
+            <span className="hidden text-xs text-muted-foreground sm:block">{secondsToTime(track.duration)}</span>
+          ) : null}
+          <Button
+            size="icon"
+            variant={isActive ? "default" : "secondary"}
+            className={cn("h-8 w-8 rounded-xl border-white/10 bg-white/5", isActive && "bg-primary glow")}
+            onClick={() => onPlay(track)}
+            data-testid={`button-play-${track.id}`}
+          >
+            {isActiveAndPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 translate-x-px" />}
+          </Button>
         </div>
       </div>
+
+      {/* Genre tag */}
+      {track.genre && (
+        <div className="mt-2 pl-14">
+          <Badge variant="secondary" className="border-white/10 bg-white/5 text-[10px] font-normal">
+            {track.genre}
+          </Badge>
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -750,38 +580,35 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
   return (
     <Link href={`/artist/${artist.slug}`}>
       <a
-        className="group glass glow noise flex items-center justify-between rounded-2xl p-3 transition hover:translate-y-[-2px]"
-        data-testid={`row-artist-${artist.slug}`}
+        className="group flex items-center gap-3 rounded-xl border border-transparent p-2 transition hover:border-white/10 hover:bg-white/4"
+        data-testid={`link-artist-${artist.slug}`}
       >
-        <div className="flex min-w-0 items-center gap-3">
-          <div
-            className={cn(
-              "h-10 w-10 shrink-0 rounded-2xl border border-white/10 overflow-hidden sm:h-12 sm:w-12",
-              !artist.avatarUrl && "bg-gradient-to-br",
-              !artist.avatarUrl && (artist.accent || "from-emerald-400/30 via-transparent to-cyan-400/25"),
-            )}
-            aria-hidden="true"
-          >
-            {artist.avatarUrl ? (
-              <img src={artist.avatarUrl} alt={`${artist.name} profile`} className="h-full w-full object-cover" />
-            ) : null}
+        <div
+          className={cn(
+            "flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10",
+            !artist.avatarUrl && "bg-gradient-to-br",
+            artist.accent || "from-emerald-400/30 to-fuchsia-500/20",
+          )}
+        >
+          {artist.avatarUrl ? (
+            <img src={artist.avatarUrl} alt={`${artist.name} profile`} className="h-full w-full object-cover" />
+          ) : (
+            <span className="text-sm font-bold">{(artist.name || artist.slug).charAt(0).toUpperCase()}</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold" data-testid={`text-artist-name-${artist.slug}`}>
+            {artist.name || artist.slug}
           </div>
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold" data-testid={`text-artist-name-${artist.slug}`}>
-              {artist.name || artist.slug}
-            </div>
-            <div className="truncate text-xs text-muted-foreground" data-testid={`text-artist-tagline-${artist.slug}`}>
-              {artist.tagline || "Indie artist"}
-            </div>
+          <div className="truncate text-xs text-muted-foreground" data-testid={`text-artist-tagline-${artist.slug}`}>
+            {artist.tagline || "Indie artist"}
           </div>
         </div>
-        <div className="ml-2 shrink-0 text-right">
+        <div className="shrink-0 text-right">
           <div className="text-xs text-muted-foreground" data-testid={`text-artist-followers-${artist.slug}`}>
-            {formatCount(artist.followers || 0)} followers
+            {formatCount(artist.followers || 0)}
           </div>
-          <div className="text-xs text-muted-foreground/80" data-testid={`text-artist-listeners-${artist.slug}`}>
-            {formatCount(artist.monthlyListeners || 0)} monthly
-          </div>
+          <div className="text-[10px] text-muted-foreground/60">followers</div>
         </div>
       </a>
     </Link>
@@ -797,13 +624,11 @@ export default function Home() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [artists, setArtists] = useState<ArtistRowData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
 
-  // Featured track - most recently published track
   const featuredTrack = useMemo(() => {
     if (tracks.length === 0) return null;
-    // Sort by publishedAt or createdAt, descending
     const sorted = [...tracks].sort((a, b) => {
       const dateA = new Date(a.publishedAt ?? a.createdAt ?? 0).getTime();
       const dateB = new Date(b.publishedAt ?? b.createdAt ?? 0).getTime();
@@ -813,64 +638,32 @@ export default function Home() {
   }, [tracks]);
 
   useEffect(() => {
-    async function fetchTracks() {
+    let mounted = true;
+    const load = async () => {
       try {
-        const data = await apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, { published: true });
-        setTracks(data);
-      } catch (e) {
-        console.error("Failed to fetch tracks:", e);
-      }
-    }
-    async function fetchArtists() {
-      try {
-        const data = await apiRequestJson<User[]>("GET", API_ENDPOINTS.artists.list);
-
-        // Transform User data into ArtistRowData with proper defaults
-        const artistsWithStats = await Promise.all(
-          data.map(async (user) => {
-            // Fetch stats for each artist
-            let stats = { totalFollowers: 0, monthlyListeners: 0 };
-            try {
-              stats = await apiRequestJson<any>("GET", API_ENDPOINTS.users.stats(user.id));
-            } catch (e) {
-              console.error(`Failed to fetch stats for ${user.username}:`, e);
-            }
-
-            return {
-              slug: user.username,
-              name: user.displayName || user.username,
-              tagline: (user as any).tagline || user.bio || "Indie artist on MuseWave",
-              followers: stats.totalFollowers || 0,
-              monthlyListeners: stats.monthlyListeners || 0,
-              accent: (user as any).accent || "from-emerald-400/30 via-transparent to-cyan-400/25",
-              avatarUrl: user.avatarUrl,
-            } as ArtistRowData;
-          })
-        );
-
-        // Sort by followers + monthly listeners (engagement score)
-        artistsWithStats.sort((a, b) => {
-          const scoreA = a.followers + a.monthlyListeners;
-          const scoreB = b.followers + b.monthlyListeners;
-          return scoreB - scoreA;
-        });
-
-        setArtists(artistsWithStats);
-      } catch (e) {
-        console.error("Failed to fetch artists:", e);
+        const [tracksData, artistsData] = await Promise.all([
+          apiRequestJson<Track[]>("GET", API_ENDPOINTS.TRACKS),
+          apiRequestJson<ArtistRowData[]>("GET", API_ENDPOINTS.ARTISTS).catch(() => []),
+        ]);
+        if (mounted) {
+          setTracks(tracksData);
+          setArtists(artistsData);
+        }
+      } catch {
+        // silent
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
-    }
-    fetchTracks();
-    fetchArtists();
+    };
+    load();
+    return () => { mounted = false; };
   }, []);
 
   const filteredTracks = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return tracks;
     return tracks.filter((t) =>
-      `${t.title} ${t.artist} ${t.genre} ${t.mood ?? ""}`.toLowerCase().includes(q),
+      `${t.title} ${t.artist} ${t.genre ?? ""}`.toLowerCase().includes(q),
     );
   }, [query, tracks]);
 
@@ -880,234 +673,252 @@ export default function Home() {
     return artists.filter((a) => `${a.name} ${a.tagline}`.toLowerCase().includes(q));
   }, [query, artists]);
 
-  // Home shows only a preview; full list lives on /discover
   const previewTracks = filteredTracks.slice(0, HOME_TRACK_LIMIT);
   const hasMore = filteredTracks.length > HOME_TRACK_LIMIT;
 
+  const handlePlay = (t: Track) => {
+    if (active?.id === t.id) {
+      setIsPlaying(!isPlaying);
+    } else {
+      setAutoPlay(true);
+      setActive(t);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
-      <div className="mx-auto max-w-6xl overflow-x-hidden px-2 py-3 sm:px-3 sm:py-4 lg:px-4 lg:py-6 xl:py-8">
-        <div className="grid gap-4 sm:gap-6 lg:grid-cols-12">
 
-          {/* Mobile nav FAB */}
-          <div className="fixed bottom-24 right-4 z-50 lg:hidden">
-            <Button
-              size="icon"
-              className="h-12 w-12 rounded-2xl shadow-lg shadow-primary/20"
-              onClick={() => setIsSidebarOpen(true)}
-              data-testid="button-toggle-nav"
-            >
-              <HomeIcon className="h-6 w-6" />
-            </Button>
-          </div>
+      {/* ── Mobile Account Sheet ── */}
+      <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} />
 
-          {/* Mobile sidebar overlay */}
-          {isSidebarOpen && (
-            <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm lg:hidden">
-              <motion.div
-                initial={{ x: "-100%" }}
-                animate={{ x: 0 }}
-                className="h-full w-4/5 max-w-[calc(100vw-3rem)] p-3 sm:max-w-xs sm:p-4"
-              >
-                <SidebarNav onMobileClose={() => setIsSidebarOpen(false)} />
-              </motion.div>
-              <div className="absolute inset-0 -z-10" onClick={() => setIsSidebarOpen(false)} />
-            </div>
-          )}
+      {/* ── Mobile Bottom Nav ── */}
+      <BottomNav onAccountPress={() => setAccountOpen(true)} />
 
-          {/* Desktop sidebar */}
+      <div className="mx-auto w-full max-w-6xl overflow-x-hidden px-3 py-3 sm:px-4 sm:py-4 lg:px-4 lg:py-6 xl:py-8">
+        <div className="grid gap-4 lg:grid-cols-12 lg:gap-6">
+
+          {/* ── Desktop Sidebar ── */}
           <aside className="hidden lg:block lg:col-span-3">
             <div className="sticky top-6">
               <SidebarNav />
             </div>
           </aside>
 
-          {/* Main */}
-          <main className="lg:col-span-9">
-            <TopBar query={query} onQueryChange={setQuery} />
+          {/* ── Main Content ── */}
+          <main className="min-w-0 lg:col-span-9">
 
-            <div className="mt-4 grid gap-3 sm:mt-6 sm:gap-4 lg:gap-6">
+            {/* ── Mobile Top Bar ── */}
+            <div className="mb-4 lg:hidden">
+              <Logo />
+            </div>
 
-              {/* Hero - Featured Track */}
-              {!query && featuredTrack && (
-                <section
-                  className="glass glow noise overflow-hidden rounded-2xl border border-white/10 sm:rounded-3xl"
-                  aria-label="Hero"
+            {/* ── Search + Title ── */}
+            <div className="mb-4 flex flex-col gap-2 sm:mb-5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+              <div className="min-w-0">
+                <h1
+                  className="text-balance text-base font-semibold tracking-tight sm:text-xl lg:text-2xl"
+                  data-testid="text-title"
                 >
-                  <div className="grid gap-3 p-3 sm:grid-cols-12 sm:gap-4 sm:items-center sm:p-4 lg:p-5 xl:p-6">
-                    <div className="sm:col-span-7">
-                      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                        <Badge className="border-white/10 bg-white/5 text-xs" variant="secondary" data-testid="badge-new">
-                          <Sparkles className="mr-1 h-3 w-3" />
-                          New
-                        </Badge>
-                        <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                          Featured release
-                        </span>
-                      </div>
-                      <h2 className="mt-2 text-balance text-xl font-bold tracking-tight sm:mt-3 sm:text-3xl lg:text-4xl">
-                        {featuredTrack.title}
-                      </h2>
-                      <p className="mt-2 text-xs text-muted-foreground sm:mt-3 sm:text-sm lg:text-base">
-                        {featuredTrack.description || `The latest from ${featuredTrack.artist}. ${featuredTrack.genre} · ${featuredTrack.mood || 'New Release'}`}
-                      </p>
-                      <div className="mt-3 flex flex-col gap-2 sm:mt-5 sm:flex-row sm:flex-wrap sm:gap-3">
-                        <Button 
-                          className="h-9 w-full px-4 sm:h-11 sm:w-auto sm:px-6 sm:text-base" 
-                          data-testid="button-play-featured"
-                          onClick={() => {
-                            if (active?.id === featuredTrack.id) {
-                              setIsPlaying(!isPlaying);
-                            } else {
-                              setAutoPlay(true);
-                              setActive(featuredTrack);
-                            }
-                          }}
-                        >
-                          <Play className="mr-2 h-4 w-4 sm:h-5 sm:w-5 fill-current" />
-                          Listen Now
-                        </Button>
-                        <Link href={`/artist/${featuredTrack.artistSlug}`}>
-                          <Button
-                            variant="secondary"
-                            className="h-9 w-full border-white/10 bg-white/5 px-4 sm:h-11 sm:w-auto sm:px-6 sm:text-base"
-                            data-testid="button-view-featured"
-                          >
-                            View Artist
-                          </Button>
-                        </Link>
-                      </div>
-                    </div>
-                    <div className="hidden sm:col-span-5 sm:block">
-                      <div 
-                        className={cn(
-                          "aspect-square rounded-2xl p-1 shadow-2xl shadow-emerald-500/10",
-                          featuredTrack.coverUrl 
-                            ? "bg-white/5" 
-                            : `bg-gradient-to-br ${featuredTrack.coverGradient || 'from-emerald-400/30 via-fuchsia-500/20 to-cyan-400/40'}`
-                        )}
+                  Discover indie music, fast.
+                </h1>
+                <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm" data-testid="text-subtitle">
+                  A home for indie artists to share music and grow an audience.
+                </p>
+              </div>
+              <div className="relative w-full sm:w-56 lg:w-72">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search tracks, artists…"
+                  className="h-9 pl-8 text-sm"
+                  data-testid="input-search"
+                />
+              </div>
+            </div>
+
+            {/* ── Hero — Featured Track ── */}
+            {!query && featuredTrack && (
+              <motion.section
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4 }}
+                className="glass glow noise mb-4 overflow-hidden rounded-2xl border border-white/10 sm:mb-5"
+                aria-label="Hero"
+              >
+                <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4 lg:p-5">
+                  {/* Cover art */}
+                  <div
+                    className={cn(
+                      "relative h-28 w-full overflow-hidden rounded-xl border border-white/10 sm:h-24 sm:w-24 sm:shrink-0",
+                      !featuredTrack.coverUrl && "bg-gradient-to-br",
+                      featuredTrack.coverUrl ? "" : featuredTrack.coverGradient,
+                    )}
+                  >
+                    {featuredTrack.coverUrl && (
+                      <img src={featuredTrack.coverUrl} alt={`${featuredTrack.title} cover`} className="h-full w-full object-cover" />
+                    )}
+                    {/* Overlay play on cover (mobile) */}
+                    <div className="absolute inset-0 flex items-center justify-center sm:hidden">
+                      <Button
+                        size="icon"
+                        className="h-10 w-10 rounded-full bg-background/50 backdrop-blur-md hover:bg-background/70"
+                        onClick={() => handlePlay(featuredTrack)}
+                        data-testid="button-hero-play"
                       >
-                        {featuredTrack.coverUrl ? (
-                          <img 
-                            src={featuredTrack.coverUrl} 
-                            alt={`${featuredTrack.title} cover`}
-                            className="h-full w-full rounded-xl object-cover"
-                          />
+                        {active?.id === featuredTrack.id && isPlaying ? (
+                          <Pause className="h-4 w-4" />
                         ) : (
-                          <div className="h-full w-full rounded-xl bg-background/20 backdrop-blur-md border border-white/5" />
+                          <Play className="h-4 w-4 translate-x-px" />
                         )}
-                      </div>
+                      </Button>
                     </div>
                   </div>
-                </section>
-              )}
 
-              {/* Discover preview + community */}
-              <div className="grid gap-6 lg:grid-cols-12">
-
-                {/* Discover preview – 4 tracks */}
-                <div className="lg:col-span-8">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Compass className="h-4 w-4 shrink-0 text-emerald-400" />
-                      <h2 className="truncate text-base font-semibold sm:text-lg" data-testid="text-discover-title">
-                        {query ? `Results for "${query}"` : "Discover now"}
-                      </h2>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Badge variant="secondary" className="border-white/10 bg-white/5" data-testid="badge-track-count">
-                        {filteredTracks.length} tracks
+                  {/* Info */}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Badge className="border-white/10 bg-white/5 text-[10px]" variant="secondary" data-testid="badge-new">
+                        <Sparkles className="mr-1 h-2.5 w-2.5" />
+                        New
                       </Badge>
-                      <Link href="/discover">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 gap-1 px-2 text-xs text-muted-foreground hover:text-foreground"
-                          data-testid="link-see-all-tracks"
-                        >
-                          See all
-                          <ArrowRight className="h-3 w-3" />
-                        </Button>
+                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Featured release</span>
+                    </div>
+                    <h2 className="mt-1.5 text-base font-bold tracking-tight sm:text-xl" data-testid="text-featured-title">
+                      {featuredTrack.title}
+                    </h2>
+                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground sm:text-sm" data-testid="text-featured-description">
+                      {featuredTrack.description || `The latest from ${featuredTrack.artist}.`}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {/* Desktop play button */}
+                      <Button
+                        size="sm"
+                        className="glow hidden h-8 sm:flex"
+                        onClick={() => handlePlay(featuredTrack)}
+                        data-testid="button-hero-play-desktop"
+                      >
+                        {active?.id === featuredTrack.id && isPlaying ? (
+                          <><Pause className="mr-1.5 h-3.5 w-3.5" /> Pause</>
+                        ) : (
+                          <><Play className="mr-1.5 h-3.5 w-3.5 translate-x-px" /> Play</>
+                        )}
+                      </Button>
+                      <Link href={`/artist/${featuredTrack.artistSlug}`}>
+                        <a className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" data-testid="link-featured-artist">
+                          <Music2 className="h-3.5 w-3.5" />
+                          {featuredTrack.artist}
+                        </a>
                       </Link>
                     </div>
                   </div>
-
-                  <div id="discover" className="mt-4 grid gap-3 scroll-mt-20">
-                    {loading ? (
-                      Array.from({ length: HOME_TRACK_LIMIT }).map((_, i) => (
-                        <div key={i} className="h-24 w-full animate-pulse rounded-2xl bg-white/5" />
-                      ))
-                    ) : previewTracks.length > 0 ? (
-                      <>
-                        {previewTracks.map((track) => (
-                          <TrackCard
-                            key={track.id}
-                            track={track}
-                            onPlay={(t) => {
-                              if (active?.id === t.id) {
-                                // Same track — toggle play/pause via shared state
-                                setIsPlaying(!isPlaying);
-                              } else {
-                                // New track — switch and autoplay
-                                setAutoPlay(true);
-                                setActive(t);
-                              }
-                            }}
-                            isActive={active?.id === track.id}
-                          />
-                        ))}
-                        {/* CTA card to Discover page */}
-                        {hasMore && (
-                          <Link href={query ? `/discover?q=${encodeURIComponent(query)}` : "/discover"}>
-                            <div
-                              className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/3 p-4 text-sm text-muted-foreground transition hover:border-white/25 hover:bg-white/5 hover:text-foreground"
-                              data-testid="link-browse-all-tracks"
-                            >
-                              <Compass className="h-4 w-4" />
-                              Browse all {filteredTracks.length} tracks on Discover
-                              <ArrowRight className="h-4 w-4" />
-                            </div>
-                          </Link>
-                        )}
-                      </>
-                    ) : (
-                      <div className="glass rounded-2xl p-8 text-center text-muted-foreground">
-                        No tracks found matching your search.
-                      </div>
-                    )}
-                  </div>
                 </div>
+              </motion.section>
+            )}
 
-                {/* Trending community */}
-                <div className="lg:col-span-4">
+            {/* ── Main Grid: Tracks + Trending ── */}
+            <div className="grid gap-4 sm:gap-5 lg:grid-cols-8">
+
+              {/* Tracks */}
+              <div className="lg:col-span-5">
+                <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Flame className="h-4 w-4 shrink-0 text-fuchsia-500" />
-                    <h2 className="truncate text-base font-semibold sm:text-lg" data-testid="text-trending-title">
-                      {query ? "Matching Artists" : "Trending"}
+                    <Music2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                    <h2 className="text-sm font-semibold sm:text-base" data-testid="text-tracks-title">
+                      {query ? "Matching Tracks" : "Latest Tracks"}
                     </h2>
                   </div>
-                  <div id="community" className="mt-4 grid gap-3 scroll-mt-20">
-                    {loading ? (
-                      Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="h-20 w-full animate-pulse rounded-2xl bg-white/5" />
-                      ))
-                    ) : filteredArtists.length > 0 ? (
-                      filteredArtists.slice(0, 6).map((artist) => (
-                        <ArtistRow key={artist.slug} artist={artist} />
-                      ))
-                    ) : (
-                      <div className="glass rounded-2xl p-6 text-center text-xs text-muted-foreground">
-                        No artists match your search.
-                      </div>
-                    )}
-                  </div>
+                  {!query && (
+                    <Link href="/discover">
+                      <a className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors" data-testid="link-see-all-tracks">
+                        See all <ArrowRight className="h-3 w-3" />
+                      </a>
+                    </Link>
+                  )}
+                </div>
+
+                <div className="grid gap-2">
+                  {loading ? (
+                    Array.from({ length: HOME_TRACK_LIMIT }).map((_, i) => (
+                      <div key={i} className="h-16 w-full animate-pulse rounded-2xl bg-white/5" />
+                    ))
+                  ) : previewTracks.length > 0 ? (
+                    <>
+                      {previewTracks.map((track) => (
+                        <TrackCard
+                          key={track.id}
+                          track={track}
+                          onPlay={handlePlay}
+                          isActive={active?.id === track.id}
+                        />
+                      ))}
+                      {hasMore && (
+                        <Link href={query ? `/discover?q=${encodeURIComponent(query)}` : "/discover"}>
+                          <div
+                            className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/3 p-3 text-xs text-muted-foreground transition hover:border-white/25 hover:bg-white/5 hover:text-foreground"
+                            data-testid="link-browse-all-tracks"
+                          >
+                            <Compass className="h-3.5 w-3.5" />
+                            Browse all {filteredTracks.length} tracks on Discover
+                            <ArrowRight className="h-3.5 w-3.5" />
+                          </div>
+                        </Link>
+                      )}
+                    </>
+                  ) : (
+                    <div className="glass rounded-2xl p-6 text-center text-sm text-muted-foreground">
+                      No tracks found matching your search.
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Trending Artists */}
+              <div className="lg:col-span-3">
+                <div className="mb-3 flex items-center gap-2">
+                  <Flame className="h-4 w-4 shrink-0 text-fuchsia-500" />
+                  <h2 className="text-sm font-semibold sm:text-base" data-testid="text-trending-title">
+                    {query ? "Matching Artists" : "Trending"}
+                  </h2>
+                </div>
+                <div className="glass glow noise rounded-2xl border border-white/10 p-2">
+                  {loading ? (
+                    Array.from({ length: 4 }).map((_, i) => (
+                      <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-white/5 mb-1" />
+                    ))
+                  ) : filteredArtists.length > 0 ? (
+                    filteredArtists.slice(0, 6).map((artist) => (
+                      <ArtistRow key={artist.slug} artist={artist} />
+                    ))
+                  ) : (
+                    <div className="p-4 text-center text-xs text-muted-foreground">No artists found.</div>
+                  )}
+                </div>
+
+                {/* Upload CTA */}
+                {!query && (
+                  <Link href="/upload">
+                    <div
+                      className="mt-3 flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 p-3 transition hover:border-emerald-400/35 hover:bg-emerald-400/8"
+                      data-testid="link-upload-cta"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15">
+                        <UploadCloud className="h-4 w-4 text-emerald-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-emerald-400">Share your music</div>
+                        <div className="text-[10px] text-muted-foreground">Upload a track in minutes</div>
+                      </div>
+                    </div>
+                  </Link>
+                )}
+              </div>
             </div>
+
+            {/* Spacer for player bar + bottom nav */}
+            <div className="h-28 lg:h-24" aria-hidden="true" />
           </main>
         </div>
-
-        <div className="h-24" aria-hidden="true" />
       </div>
     </div>
   );
