@@ -30,6 +30,12 @@ import {
   Calendar,
   Headphones,
   BarChart3,
+  ShieldCheck,
+  ShieldAlert,
+  RefreshCw,
+  Loader2,
+  BadgeCheck,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -48,7 +54,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
 import { useToast } from "@/hooks/use-toast";
-import { API_ENDPOINTS } from "@/lib/apiConfig";
+import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import type { Track, User } from "../../../shared/schema";
 import { Label } from "@/components/ui/label";
@@ -94,12 +100,11 @@ function time(duration: number) {
   return `${min}:${`${sec}`.padStart(2, "0")}`;
 }
 
-/** Creates a local object URL preview for an image file. */
 function createLocalPreview(file: File): string {
   return URL.createObjectURL(file);
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Stat Pill ────────────────────────────────────────────────────────────────
 
 function StatPill({
   icon: Icon,
@@ -111,112 +116,355 @@ function StatPill({
   value: string | number;
 }) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-      <Icon className="h-3.5 w-3.5 text-primary shrink-0" />
-      <div>
-        <div className="text-xs text-muted-foreground leading-none">{label}</div>
-        <div className="text-sm font-semibold leading-tight mt-0.5">{value}</div>
-      </div>
+    <div className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 backdrop-blur-sm">
+      <Icon className="h-3 w-3 shrink-0 text-primary/80" />
+      <span className="text-xs font-semibold tabular-nums">{value}</span>
+      <span className="text-[10px] text-white/40">{label}</span>
     </div>
   );
 }
 
-function AlbumCard({
-  album,
-  onPlayAll,
-  onExpand,
-}: {
-  album: Album;
-  onPlayAll: (album: Album) => void;
-  onExpand: (album: Album) => void;
-}) {
-  const releaseYear = album.releaseDate
-    ? new Date(album.releaseDate).getFullYear()
-    : album.createdAt
-    ? new Date(album.createdAt).getFullYear()
-    : null;
+// ─── Resend Verification Banner ───────────────────────────────────────────────
+
+function ResendVerificationBanner({ artist }: { artist: Artist }) {
+  const { toast } = useToast();
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const handleResend = async () => {
+    if (sending || cooldown > 0) return;
+    setSending(true);
+    try {
+      await apiRequestJson("POST", `/api/users/${artist.id}/resend-verification/`);
+      setSent(true);
+      setCooldown(60);
+      toast({
+        title: "Verification email sent!",
+        description: `We've sent a new verification link to ${artist.email}.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Couldn't send email",
+        description: err instanceof Error ? err.message : "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <motion.div
-      layout
-      initial={{ opacity: 0, y: 16 }}
+      initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group glass glow noise rounded-2xl border border-white/10 p-4 transition hover:border-white/20"
+      className="mb-5 flex items-start gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/8 px-4 py-3"
     >
-      {/* Cover */}
-      <div className="relative aspect-square overflow-hidden rounded-xl border border-white/10 mb-3">
-        {album.coverUrl ? (
-          <img
-            src={album.coverUrl}
-            alt={album.title}
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-          />
+      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-amber-200">Email not verified</p>
+        <p className="mt-0.5 text-xs text-amber-300/60">
+          Verify your email to unlock full artist features.
+          {artist.email && (
+            <> Sent to <span className="font-medium text-amber-300">{artist.email}</span>.</>
+          )}
+        </p>
+      </div>
+      <Button
+        type="button"
+        size="sm"
+        variant="ghost"
+        onClick={handleResend}
+        disabled={sending || cooldown > 0}
+        className="shrink-0 border border-amber-400/25 bg-amber-400/10 text-amber-300 hover:bg-amber-400/20 hover:text-amber-200 disabled:opacity-50"
+        data-testid="button-resend-verification"
+      >
+        {sending ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : sent && cooldown > 0 ? (
+          <><Check className="mr-1.5 h-3.5 w-3.5" />Sent ({cooldown}s)</>
         ) : (
-          <div
-            className={cn(
-              "h-full w-full bg-gradient-to-br flex items-center justify-center",
-              album.coverGradient || "from-emerald-400/30 to-fuchsia-500/20",
-            )}
-          >
-            <Disc className="h-10 w-10 text-white/30" />
-          </div>
+          <><RefreshCw className="mr-1.5 h-3.5 w-3.5" />Resend</>
         )}
-        {/* Play overlay */}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition group-hover:opacity-100">
-          <Button
-            size="icon"
-            className="h-12 w-12 rounded-full shadow-xl"
-            onClick={() => onPlayAll(album)}
-          >
-            <Play className="h-5 w-5 fill-current" />
-          </Button>
-        </div>
-      </div>
-
-      {/* Info */}
-      <div className="space-y-1">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">{album.title}</div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              {releaseYear && (
-                <span className="text-xs text-muted-foreground">{releaseYear}</span>
-              )}
-              {releaseYear && album.genre && (
-                <span className="text-xs text-muted-foreground">·</span>
-              )}
-              {album.genre && (
-                <span className="text-xs text-muted-foreground">{album.genre}</span>
-              )}
-            </div>
-          </div>
-          <Badge
-            variant="secondary"
-            className="border-white/10 bg-white/5 text-xs shrink-0"
-          >
-            {album.trackCount ?? album.tracks?.length ?? 0} tracks
-          </Badge>
-        </div>
-
-        {album.description && (
-          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-            {album.description}
-          </p>
-        )}
-
-        <Button
-          variant="ghost"
-          size="sm"
-          className="mt-2 w-full justify-between border border-white/10 bg-white/5 hover:bg-white/10 text-xs"
-          onClick={() => onExpand(album)}
-        >
-          View tracks
-          <ChevronRight className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+      </Button>
     </motion.div>
   );
 }
+
+// ─── Hero Section ─────────────────────────────────────────────────────────────
+
+function ArtistHero({
+  artist,
+  tracks,
+  albums,
+  followCount,
+  following,
+  setFollowing,
+  isOwner,
+  supportOpen,
+  setSupportOpen,
+  isAlbumCreateOpen,
+  setIsAlbumCreateOpen,
+  showCredentials,
+  setShowCredentials,
+  isEditingCredentials,
+  setIsEditingCredentials,
+  displayName,
+}: {
+  artist: Artist;
+  tracks: Track[];
+  albums: Album[];
+  followCount: number;
+  following: boolean;
+  setFollowing: (v: boolean) => void;
+  isOwner: boolean;
+  supportOpen: boolean;
+  setSupportOpen: (v: boolean) => void;
+  isAlbumCreateOpen: boolean;
+  setIsAlbumCreateOpen: (v: boolean) => void;
+  showCredentials: boolean;
+  setShowCredentials: (v: boolean) => void;
+  isEditingCredentials: boolean;
+  setIsEditingCredentials: (v: boolean) => void;
+  displayName: string;
+}) {
+  const { toast } = useToast();
+
+  // Derive a vivid gradient from artist accent or default
+  const accentGradient = artist.accent || "from-emerald-500/40 via-cyan-500/20 to-fuchsia-500/30";
+
+  return (
+    <motion.section
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.6 }}
+      className="relative mb-8 overflow-hidden rounded-3xl border border-white/10"
+      style={{ minHeight: 300 }}
+    >
+      {/* ── Layered background ── */}
+      {/* Base gradient */}
+      <div className={cn("absolute inset-0 bg-gradient-to-br", accentGradient)} />
+      {/* Dark scrim for readability */}
+      <div className="absolute inset-0 bg-black/55" />
+      {/* Noise texture */}
+      <div
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
+        }}
+      />
+      {/* Glow orbs */}
+      <div className="pointer-events-none absolute -top-20 -left-20 h-72 w-72 rounded-full bg-primary/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-16 -right-16 h-60 w-60 rounded-full bg-fuchsia-500/15 blur-3xl" />
+
+      {/* Cover art full bleed (if available) */}
+      {artist.avatarUrl && (
+        <div className="absolute inset-0">
+          <img
+            src={artist.avatarUrl}
+            alt=""
+            className="h-full w-full object-cover opacity-15 blur-xl scale-110"
+            aria-hidden="true"
+          />
+        </div>
+      )}
+
+      {/* ── Content ── */}
+      <div className="relative px-5 pb-6 pt-7 sm:px-8 sm:pb-8 sm:pt-10">
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-end">
+
+          {/* Avatar */}
+          <motion.div
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.1, type: "spring", stiffness: 220, damping: 20 }}
+            className="relative shrink-0 self-start sm:self-auto"
+          >
+            <div
+              className={cn(
+                "h-28 w-28 overflow-hidden rounded-2xl border-2 border-white/20 shadow-2xl sm:h-36 sm:w-36",
+                !artist.avatarUrl && "bg-gradient-to-br",
+                artist.avatarUrl ? "" : accentGradient,
+              )}
+            >
+              {artist.avatarUrl ? (
+                <img
+                  src={artist.avatarUrl}
+                  alt={`${displayName} avatar`}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <span className="text-5xl font-black text-white/80 select-none">
+                    {displayName.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
+            {/* Verified badge */}
+            {artist.verified && (
+              <div className="absolute -bottom-1.5 -right-1.5 flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-primary shadow-lg">
+                <BadgeCheck className="h-4 w-4 text-white" />
+              </div>
+            )}
+          </motion.div>
+
+          {/* Info column */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.18, duration: 0.4 }}
+            className="min-w-0 flex-1"
+          >
+            {/* Label */}
+            <div className="mb-1.5 flex items-center gap-2">
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary/80">
+                Artist
+              </span>
+              {artist.verified && (
+                <span className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                  <BadgeCheck className="h-3 w-3" /> Verified
+                </span>
+              )}
+            </div>
+
+            {/* Name */}
+            <h1 className="text-3xl font-black tracking-tight sm:text-5xl">
+              {displayName}
+            </h1>
+
+            {/* Tagline */}
+            {artist.tagline && (
+              <p className="mt-1.5 text-sm text-white/55 sm:text-base">{artist.tagline}</p>
+            )}
+
+            {/* Stats row */}
+            <div className="mt-4 flex flex-wrap gap-2">
+              <StatPill icon={Users} label="followers" value={formatCount(followCount)} />
+              <StatPill icon={Headphones} label="monthly" value={formatCount(artist.monthlyListeners)} />
+              <StatPill icon={Music2} label="tracks" value={tracks.length} />
+              {albums.length > 0 && (
+                <StatPill icon={Disc} label="albums" value={albums.length} />
+              )}
+            </div>
+          </motion.div>
+
+          {/* Action buttons */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.35 }}
+            className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end"
+          >
+            <Button
+              type="button"
+              variant={following ? "secondary" : "default"}
+              className={cn(
+                "border-white/15 backdrop-blur-sm",
+                following ? "bg-white/10 hover:bg-white/15" : "glow",
+              )}
+              onClick={() => setFollowing(!following)}
+              data-testid="button-follow"
+            >
+              {following ? (
+                <><Check className="mr-2 h-4 w-4" />Following</>
+              ) : (
+                <><Heart className="mr-2 h-4 w-4" />Follow</>
+              )}
+            </Button>
+
+            <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="border-white/15 bg-white/10 backdrop-blur-sm hover:bg-white/15"
+                >
+                  <Crown className="mr-2 h-4 w-4 text-amber-400" />
+                  Support
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-black/95 border-white/10 backdrop-blur-xl">
+                <DialogHeader>
+                  <DialogTitle>Support {displayName}</DialogTitle>
+                  <DialogDescription>Support features coming soon!</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="glass glow noise rounded-2xl p-4 text-center">
+                    <Crown className="mx-auto h-8 w-8 text-amber-400 mb-2" />
+                    <div className="text-sm font-medium">Tip Jar</div>
+                    <div className="text-xs text-muted-foreground mt-1">Direct support for {displayName}</div>
+                  </div>
+                  <div className="text-xs text-muted-foreground text-center">
+                    Support functionality is currently in development. Check back soon!
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="border border-white/10 bg-white/5 hover:bg-white/10"
+              onClick={() => {
+                navigator.clipboard.writeText(window.location.href);
+                toast({ title: "Link copied!", description: "Artist page link copied to clipboard." });
+              }}
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
+          </motion.div>
+        </div>
+
+        {/* Owner quick actions */}
+        {isOwner && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.35 }}
+            className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-4"
+          >
+            <Dialog open={isAlbumCreateOpen} onOpenChange={setIsAlbumCreateOpen}>
+              <DialogTrigger asChild>
+                <Button type="button" size="sm" className="glow">
+                  <Disc className="mr-2 h-3.5 w-3.5" />Create Album
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl bg-black/95 border-white/10 backdrop-blur-xl">
+                <DialogHeader>
+                  <DialogTitle>Create New Album</DialogTitle>
+                  <DialogDescription>Group your tracks into an album.</DialogDescription>
+                </DialogHeader>
+                <AlbumCreate onSuccess={() => setIsAlbumCreateOpen(false)} />
+              </DialogContent>
+            </Dialog>
+
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="border-white/10 bg-white/5"
+              onClick={() => setShowCredentials(!showCredentials)}
+              data-testid="button-manage-profile"
+            >
+              <Settings className="mr-2 h-3.5 w-3.5" />
+              {showCredentials && !isEditingCredentials ? "Hide" : isEditingCredentials ? "Cancel" : "Edit Profile"}
+            </Button>
+          </motion.div>
+        )}
+      </div>
+    </motion.section>
+  );
+}
+
+// ─── Album Detail Sheet ───────────────────────────────────────────────────────
 
 function AlbumDetailSheet({
   album,
@@ -228,7 +476,7 @@ function AlbumDetailSheet({
   album: Album | null;
   open: boolean;
   onClose: () => void;
-  onPlayTrack: (track: Track) => void;
+  onPlayTrack: (t: Track) => void;
   activeTrackId: string | null;
 }) {
   if (!album) return null;
@@ -237,114 +485,111 @@ function AlbumDetailSheet({
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          onClick={onClose}
-        >
+        <>
           <motion.div
-            initial={{ opacity: 0, y: 40, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 40, scale: 0.97 }}
-            transition={{ type: "spring", damping: 24, stiffness: 300 }}
-            className="w-full max-w-lg glass glow noise rounded-3xl border border-white/10 p-5 max-h-[80vh] overflow-y-auto"
-            onClick={(e) => e.stopPropagation()}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ opacity: 0, y: "100%" }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: "100%" }}
+            transition={{ type: "spring", damping: 32, stiffness: 280 }}
+            className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-hidden rounded-t-3xl border-t border-white/10 bg-background shadow-2xl"
           >
-            {/* Header */}
-            <div className="flex items-start gap-4 mb-4">
-              <div
-                className={cn(
-                  "h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-white/10",
-                  !album.coverUrl && "bg-gradient-to-br",
-                  album.coverUrl ? "" : album.coverGradient || "from-emerald-400/30 to-fuchsia-500/20",
-                )}
-              >
-                {album.coverUrl ? (
-                  <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Disc className="h-8 w-8 text-white/30" />
-                  </div>
-                )}
+            <div className="flex max-h-[85dvh] flex-col">
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="h-1 w-10 rounded-full bg-white/20" />
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-lg font-semibold">{album.title}</div>
-                {album.genre && (
-                  <Badge variant="secondary" className="mt-1 border-white/10 bg-white/5 text-xs">
-                    {album.genre}
-                  </Badge>
-                )}
-                {album.description && (
-                  <p className="mt-2 text-xs text-muted-foreground">{album.description}</p>
-                )}
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 shrink-0"
-                onClick={onClose}
-              >
-                ✕
-              </Button>
-            </div>
 
-            <Separator className="mb-4 opacity-40" />
-
-            {/* Track list */}
-            {tracks.length === 0 ? (
-              <div className="text-center py-8 text-sm text-muted-foreground">
-                No tracks in this album yet.
-              </div>
-            ) : (
-              <div className="grid gap-2">
-                {tracks.map((t, i) => (
-                  <div
-                    key={t.id}
-                    className={cn(
-                      "flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/5 cursor-pointer",
-                      activeTrackId === t.id && "bg-primary/10 ring-1 ring-primary/30",
-                    )}
-                    onClick={() => onPlayTrack(t)}
-                  >
-                    <div className="text-xs text-muted-foreground w-5 text-center shrink-0">
-                      {activeTrackId === t.id ? (
-                        <Radio className="h-3.5 w-3.5 text-primary animate-pulse" />
-                      ) : (
-                        i + 1
-                      )}
+              {/* Header */}
+              <div className="flex items-center gap-4 px-5 pb-3 pt-2">
+                <div
+                  className={cn(
+                    "h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10",
+                    !album.coverUrl && "bg-gradient-to-br",
+                    album.coverUrl ? "" : album.coverGradient,
+                  )}
+                >
+                  {album.coverUrl ? (
+                    <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                      <Disc className="h-6 w-6 text-white/30" />
                     </div>
-                    <div
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-semibold">{album.title}</div>
+                  <div className="text-xs text-muted-foreground">{tracks.length} tracks</div>
+                </div>
+                <Button type="button" variant="ghost" size="icon" onClick={onClose}>
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <Separator className="opacity-30" />
+
+              {/* Track list */}
+              <div className="flex-1 overflow-y-auto px-3 py-2">
+                {tracks.length === 0 ? (
+                  <div className="py-8 text-center text-xs text-muted-foreground">No tracks in this album yet.</div>
+                ) : (
+                  tracks.map((t, i) => (
+                    <button
+                      type="button"
+                      key={t.id}
+                      onClick={() => onPlayTrack(t)}
                       className={cn(
-                        "h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-white/10",
-                        !t.coverUrl && "bg-gradient-to-br",
-                        t.coverUrl ? "" : t.coverGradient,
+                        "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/5",
+                        activeTrackId === t.id && "bg-white/5",
                       )}
                     >
-                      {t.coverUrl ? (
-                        <img src={t.coverUrl} alt={t.title} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Music2 className="h-3.5 w-3.5 text-white/30" />
+                      <div className={cn(
+                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs text-muted-foreground",
+                        activeTrackId === t.id && "text-primary",
+                      )}>
+                        {activeTrackId === t.id ? (
+                          <Radio className="h-3.5 w-3.5 text-primary animate-pulse" />
+                        ) : (
+                          i + 1
+                        )}
+                      </div>
+                      <div
+                        className={cn(
+                          "h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-white/10",
+                          !t.coverUrl && "bg-gradient-to-br",
+                          t.coverUrl ? "" : t.coverGradient,
+                        )}
+                      >
+                        {t.coverUrl ? (
+                          <img src={t.coverUrl} alt={t.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Music2 className="h-3.5 w-3.5 text-white/30" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">{t.title}</div>
+                        <div className="text-xs text-muted-foreground">{t.genre}</div>
+                      </div>
+                      {t.audioDuration && (
+                        <div className="text-xs text-muted-foreground shrink-0">
+                          {time(t.audioDuration)}
                         </div>
                       )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{t.title}</div>
-                      <div className="text-xs text-muted-foreground">{t.genre}</div>
-                    </div>
-                    {t.audioDuration && (
-                      <div className="text-xs text-muted-foreground shrink-0">
-                        {time(t.audioDuration)}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                    </button>
+                  ))
+                )}
               </div>
-            )}
+            </div>
           </motion.div>
-        </motion.div>
+        </>
       )}
     </AnimatePresence>
   );
@@ -361,6 +606,7 @@ export default function ArtistPage() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
+  const [followCount, setFollowCount] = useState(0);
   const [supportOpen, setSupportOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("tracks");
   const [activeAlbum, setActiveAlbum] = useState<Album | null>(null);
@@ -396,18 +642,12 @@ export default function ArtistPage() {
 
   const handleUpdateCredentials = async () => {
     if (!artist) return;
-
-    // Build payload with only the fields the user actually changed.
-    // Use apiRequestJson (application/json) — the backend rejects multipart.
-    // apiRequestJson auto-converts camelCase → snake_case, so use camelCase keys.
     const updates: Record<string, string> = {};
     if (newUsername.trim())    updates.username    = newUsername.trim();
     if (newPassword.trim())    updates.password    = newPassword.trim();
     if (newEmail.trim())       updates.email       = newEmail.trim();
     if (newDisplayName.trim()) updates.displayName = newDisplayName.trim();
     if (newBio.trim())         updates.bio         = newBio.trim();
-    // Avatar: only include if user picked a new file (sent as base64 data URL)
-    // or explicitly pasted a new URL — never send the empty-string default.
     if (newAvatarFile) {
       updates.avatarUrl = await new Promise<string>((res, rej) => {
         const reader = new FileReader();
@@ -418,51 +658,30 @@ export default function ArtistPage() {
     } else if (newAvatarUrl.trim()) {
       updates.avatarUrl = newAvatarUrl.trim();
     }
-
     if (Object.keys(updates).length === 0) {
       toast({ title: "Nothing to update", description: "Make a change first." });
       return;
     }
-
     try {
-      // Use raw fetch so we can inspect the full error body from Django.
-      // apiRequestJson swallows the detail — we need to see every field.
-      const { API_BASE_URL } = await import("@/lib/apiConfig");
       const { toSnakeCaseObject, toCamelCaseObject } = await import("@/lib/caseTransform");
-
       const accessToken = localStorage.getItem("accessToken") ?? "";
       const snakePayload = toSnakeCaseObject(updates);
-
-      console.log("[updateCredentials] sending payload:", JSON.stringify(snakePayload, null, 2));
-
-      const response = await fetch(
-        `${API_BASE_URL}${API_ENDPOINTS.users.update(artist.id)}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-          body: JSON.stringify(snakePayload),
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.update(artist.id)}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-      );
-
+        body: JSON.stringify(snakePayload),
+      });
       const responseBody = await response.json().catch(() => ({}));
-      console.log("[updateCredentials] response status:", response.status, "body:", responseBody);
-
       if (!response.ok) {
-        // Flatten all validation error messages into one readable string
         const detail = Object.entries(responseBody)
-          .map(([field, msgs]) =>
-            `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`,
-          )
+          .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`)
           .join(" | ");
         throw new Error(detail || `${response.status} ${response.statusText}`);
       }
-
       const updatedUser = toCamelCaseObject(responseBody);
-
-      // Merge returned data back into local state (response is camelCased by apiRequestJson)
       setArtist((prev) => (prev ? { ...prev, ...updatedUser } : null));
       setIsEditingCredentials(false);
       setNewUsername(""); setNewPassword(""); setNewEmail("");
@@ -471,11 +690,7 @@ export default function ArtistPage() {
       toast({ title: "Profile updated!", description: "Your changes have been saved." });
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Something went wrong.";
-      toast({
-        variant: "destructive",
-        title: "Update failed",
-        description: msg,
-      });
+      toast({ variant: "destructive", title: "Update failed", description: msg });
     }
   };
 
@@ -484,14 +699,15 @@ export default function ArtistPage() {
     async function fetchData() {
       try {
         const userData = await apiRequestJson("GET", API_ENDPOINTS.users.byUsername(slug));
-        const statsData = await apiRequestJson(
-          "GET",
-          API_ENDPOINTS.users.stats(userData.id),
-        ).catch(() => ({ totalFollowers: 0, monthlyListeners: 0 }));
+        const statsData = await apiRequestJson("GET", API_ENDPOINTS.users.stats(userData.id))
+          .catch(() => ({ totalFollowers: 0, monthlyListeners: 0 }));
+
+        const followerCount = statsData.totalFollowers || 0;
+        setFollowCount(followerCount);
 
         setArtist({
           ...userData,
-          followers: statsData.totalFollowers || 0,
+          followers: followerCount,
           monthlyListeners: statsData.monthlyListeners || 0,
           tagline: userData.tagline || "Fresh sounds, new era energy",
           accent: userData.accent || "from-emerald-400/28 via-transparent to-cyan-400/22",
@@ -507,7 +723,6 @@ export default function ArtistPage() {
 
         setTracks(tracksData);
 
-        // Enrich albums with full track data if available
         const enriched = await Promise.all(
           albumsData.map(async (album) => {
             try {
@@ -528,7 +743,6 @@ export default function ArtistPage() {
     fetchData();
   }, [slug]);
 
-  // Sync active player track id
   useEffect(() => {
     setActiveId(active?.id ?? null);
   }, [active]);
@@ -546,42 +760,21 @@ export default function ArtistPage() {
 
   const handlePlayAlbum = (album: Album) => {
     const albumTracks = album.tracks ?? [];
-    if (albumTracks.length > 0) {
-      setAutoPlay(true);
-      setActive(albumTracks[0]);
-      toast({
-        title: `Playing: ${album.title}`,
-        description: `${albumTracks.length} tracks queued`,
-      });
-    }
+    if (albumTracks.length > 0) handlePlayTrack(albumTracks[0]);
   };
 
-  const handleExpandAlbum = async (album: Album) => {
-    setActiveAlbum(album);
-    setAlbumDetailOpen(true);
-    // Fetch full album detail if tracks not yet loaded
-    if (!album.tracks) {
-      try {
-        const detail = await apiRequestJson<Album>("GET", API_ENDPOINTS.albums.byId(album.id));
-        const merged = { ...album, ...detail };
-        setActiveAlbum(merged);
-        setAlbums((prev) => prev.map((a) => (a.id === album.id ? merged : a)));
-      } catch {
-        /* ignore */
-      }
-    }
-  };
+  const displayName = artist?.displayName || artist?.username || slug;
 
-  const followCount = artist ? artist.followers + (following ? 1 : 0) : 0;
-
-  // ── Loading ──────────────────────────────────────────────────────────────────
-
+  // ── Loading skeleton ──
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-12 w-12 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
-          <div className="text-sm text-muted-foreground animate-pulse">Loading artist profile…</div>
+      <div className="min-h-screen bg-[radial-gradient(1200px_420px_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(1100px_520px_at_80%_10%,rgba(168,85,247,0.14),transparent_62%)]">
+        <div className="mx-auto max-w-5xl px-4 py-8">
+          <div className="mb-8 h-8 w-24 animate-pulse rounded-xl bg-white/5" />
+          <div className="h-72 animate-pulse rounded-3xl bg-white/5" />
+          <div className="mt-6 space-y-3">
+            {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-2xl bg-white/5" />)}
+          </div>
         </div>
       </div>
     );
@@ -589,14 +782,14 @@ export default function ArtistPage() {
 
   if (!artist) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4">
-        <div className="text-xl font-semibold">Artist not found</div>
-        <Link href="/"><Button>Back to Home</Button></Link>
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg font-semibold">Artist not found</p>
+          <Link href="/"><Button type="button" variant="ghost" className="mt-3">Back to home</Button></Link>
+        </div>
       </div>
     );
   }
-
-  // ── Tabs config ──────────────────────────────────────────────────────────────
 
   const tabs: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
     { key: "tracks", label: "Tracks", icon: Music2, count: tracks.length },
@@ -604,476 +797,338 @@ export default function ArtistPage() {
     { key: "about", label: "About", icon: UserIcon },
   ];
 
-  const displayName = artist.displayName || artist.username;
-
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_420px_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(1100px_520px_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(900px_400px_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
       <div className="mx-auto max-w-5xl px-4 py-6 lg:py-8">
 
         {/* ── Top nav ── */}
-        <header className="flex items-center justify-between mb-8">
+        <header className="mb-6 flex items-center justify-between">
           <Link href="/">
-            <Button variant="secondary" className="border-white/10 bg-white/5" data-testid="button-back">
+            <Button type="button" variant="secondary" className="border-white/10 bg-white/5" data-testid="button-back">
               <ArrowLeft className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Back</span>
             </Button>
           </Link>
-          <div className="flex items-center gap-2">
-            {isOwner && (
-              <Button
-                variant="secondary"
-                className="border-white/10 bg-white/5"
-                data-testid="button-notifications"
-              >
-                <Bell className="h-4 w-4 sm:mr-2" />
-                <span className="hidden sm:inline">Alerts</span>
-              </Button>
-            )}
-            <Button
-              variant="secondary"
-              className="border-white/10 bg-white/5"
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                toast({ title: "Link copied!", description: "Artist page link copied to clipboard." });
-              }}
-            >
-              <Share2 className="h-4 w-4 sm:mr-2" />
-              <span className="hidden sm:inline">Share</span>
+          {isOwner && (
+            <Button type="button" variant="secondary" className="border-white/10 bg-white/5" data-testid="button-notifications">
+              <Bell className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Alerts</span>
             </Button>
-          </div>
+          )}
         </header>
 
+        {/* ── Verification banner (owner only, unverified) ── */}
+        {isOwner && !artist.verified && (
+          <ResendVerificationBanner artist={artist} />
+        )}
+
         {/* ── Hero ── */}
-        <motion.section
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="relative overflow-hidden rounded-3xl border border-white/10 mb-6"
-        >
-          {/* Background gradient */}
-          <div className={cn("absolute inset-0 bg-gradient-to-br opacity-60", artist.accent)} />
-          <div className="absolute inset-0 bg-black/40" />
+        <ArtistHero
+          artist={artist}
+          tracks={tracks}
+          albums={albums}
+          followCount={followCount}
+          following={following}
+          setFollowing={setFollowing}
+          isOwner={isOwner}
+          supportOpen={supportOpen}
+          setSupportOpen={setSupportOpen}
+          isAlbumCreateOpen={isAlbumCreateOpen}
+          setIsAlbumCreateOpen={setIsAlbumCreateOpen}
+          showCredentials={showCredentials}
+          setShowCredentials={setShowCredentials}
+          isEditingCredentials={isEditingCredentials}
+          setIsEditingCredentials={setIsEditingCredentials}
+          displayName={displayName}
+        />
 
-          <div className="relative p-6 sm:p-8">
-            <div className="flex flex-col sm:flex-row sm:items-end gap-5">
-              {/* Avatar */}
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ delay: 0.15, type: "spring", stiffness: 200 }}
-                className={cn(
-                  "h-24 w-24 sm:h-32 sm:w-32 shrink-0 overflow-hidden rounded-3xl border-2 border-white/20 shadow-2xl",
-                  !artist.avatarUrl && "bg-gradient-to-br",
-                  artist.avatarUrl ? "" : artist.accent || "from-emerald-400/30 to-fuchsia-500/20",
-                )}
-              >
-                {artist.avatarUrl ? (
-                  <img
-                    src={artist.avatarUrl}
-                    alt={`${displayName} avatar`}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <span className="text-4xl font-bold text-white">
-                      {displayName.charAt(0).toUpperCase()}
-                    </span>
-                  </div>
-                )}
-              </motion.div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <div className="text-xs text-primary/90 font-medium uppercase tracking-widest mb-1">
-                  Artist
-                </div>
-                <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-                  {displayName}
-                </h1>
-                {artist.tagline && (
-                  <p className="mt-1 text-sm text-white/60">{artist.tagline}</p>
-                )}
-
-                {/* Stat pills */}
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <StatPill icon={Users} label="Followers" value={formatCount(followCount)} />
-                  <StatPill icon={Headphones} label="Monthly" value={formatCount(artist.monthlyListeners)} />
-                  <StatPill icon={Music2} label="Tracks" value={tracks.length} />
-                  {albums.length > 0 && (
-                    <StatPill icon={Disc} label="Albums" value={albums.length} />
-                  )}
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex flex-wrap gap-2 sm:flex-col sm:items-end">
-                <Button
-                  variant={following ? "secondary" : "default"}
-                  className={cn(
-                    "border-white/10",
-                    following ? "bg-white/10" : "glow",
-                  )}
-                  onClick={() => setFollowing(!following)}
-                  data-testid="button-follow"
-                >
-                  {following ? (
-                    <><Check className="mr-2 h-4 w-4" /> Following</>
-                  ) : (
-                    <><Heart className="mr-2 h-4 w-4" /> Follow</>
-                  )}
-                </Button>
-
-                <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="secondary" className="border-white/10 bg-white/10">
-                      <Crown className="mr-2 h-4 w-4" />
-                      Support
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="bg-black/95 border-white/10 backdrop-blur-xl">
-                    <DialogHeader>
-                      <DialogTitle>Support {displayName}</DialogTitle>
-                      <DialogDescription>Support features coming soon!</DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                      <div className="glass glow noise rounded-2xl p-4 text-center">
-                        <Crown className="mx-auto h-8 w-8 text-primary mb-2" />
-                        <div className="text-sm font-medium">Tip Jar</div>
-                        <div className="text-xs text-muted-foreground mt-1">
-                          Direct support for {displayName}
-                        </div>
-                      </div>
-                      <div className="text-xs text-muted-foreground text-center">
-                        Support functionality is currently in development. Check back soon!
-                      </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </div>
-
-            {/* Owner quick actions */}
-            {isOwner && (
-              <div className="mt-5 flex flex-wrap gap-2 pt-4 border-t border-white/10">
-                <Dialog open={isAlbumCreateOpen} onOpenChange={setIsAlbumCreateOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="default" size="sm" className="glow">
-                      <Disc className="mr-2 h-4 w-4" />
-                      Create Album
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl bg-black/95 border-white/10 backdrop-blur-xl">
-                    <DialogHeader>
-                      <DialogTitle>Create New Album</DialogTitle>
-                      <DialogDescription>Group your tracks into an album.</DialogDescription>
-                    </DialogHeader>
-                    <AlbumCreate
-                      onSuccess={() => {
-                        setIsAlbumCreateOpen(false);
-                        // Refresh albums
-                        if (artist) {
-                          apiRequestJson<Album[]>(
-                            "GET",
-                            API_ENDPOINTS.albums.byUser(artist.id),
-                          )
-                            .then(setAlbums)
-                            .catch(() => {});
+        {/* ── Edit Profile panel (owner only) ── */}
+        <AnimatePresence>
+          {showCredentials && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-6 overflow-hidden"
+            >
+              <div className="glass glow noise rounded-2xl border border-white/10 p-5">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold">Edit Profile</h2>
+                  <div className="flex gap-2">
+                    {isEditingCredentials && (
+                      <Button type="button" size="sm" onClick={handleUpdateCredentials} className="glow">
+                        Save Changes
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (isEditingCredentials) {
+                          setIsEditingCredentials(false);
+                        } else {
+                          setIsEditingCredentials(true);
                         }
                       }}
-                    />
-                  </DialogContent>
-                </Dialog>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-white/10 bg-white/5"
-                  onClick={() => {
-                    document
-                      .getElementById("credentials-section")
-                      ?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                >
-                  <Settings className="mr-2 h-4 w-4" />
-                  Credentials & Settings
-                </Button>
-
-                <Link href="/upload">
-                  <Button variant="outline" size="sm" className="border-white/10 bg-white/5">
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Upload Track
-                  </Button>
-                </Link>
-              </div>
-            )}
-          </div>
-        </motion.section>
-
-        {/* ── Sticky Tabs ── */}
-        <div
-          ref={tabsRef}
-          className="sticky top-0 z-30 mb-6 glass border-b border-white/10 -mx-4 px-4 backdrop-blur-xl"
-        >
-          <div className="flex gap-1 pt-2 overflow-x-auto scrollbar-none">
-            {tabs.map(({ key, label, icon: Icon, count }) => (
-              <button
-                key={key}
-                onClick={() => setActiveTab(key)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2.5 sm:px-4 text-sm font-medium rounded-t-xl border-b-2 transition-all whitespace-nowrap shrink-0",
-                  activeTab === key
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {label}
-                {count !== undefined && count > 0 && (
-                  <span
-                    className={cn(
-                      "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
-                      activeTab === key
-                        ? "bg-primary/20 text-primary"
-                        : "bg-white/8 text-muted-foreground",
-                    )}
-                  >
-                    {count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ── Tab Content ── */}
-        <AnimatePresence mode="wait">
-
-          {/* TRACKS TAB */}
-          {activeTab === "tracks" && (
-            <motion.section
-              key="tracks"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22 }}
-            >
-              {tracks.length === 0 ? (
-                <div className="glass rounded-2xl p-12 text-center text-muted-foreground">
-                  <Music2 className="mx-auto h-10 w-10 mb-3 opacity-30" />
-                  <div className="text-sm">No tracks published yet.</div>
-                  {isOwner && (
-                    <Link href="/upload">
-                      <Button size="sm" className="mt-4">
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Upload your first track
-                      </Button>
-                    </Link>
-                  )}
+                    >
+                      {isEditingCredentials ? "Cancel" : <><Settings className="mr-2 h-3.5 w-3.5" />Edit</>}
+                    </Button>
+                  </div>
                 </div>
-              ) : (
-                <div className="grid gap-3">
-                  {tracks.map((t, i) => {
-                    const isActive = active?.id === t.id;
-                    const isCurrentlyPlaying = isActive && isPlaying;
-                    return (
-                      <motion.div
-                        layout
-                        key={t.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.04 }}
-                        className={cn(
-                          "group glass glow noise rounded-2xl p-3 transition",
-                          isActive && "ring-1 ring-primary/60",
-                        )}
-                        data-testid={`card-artist-track-${t.id}`}
-                      >
-                        <div className="flex items-center gap-3">
-                          {/* Track number / play indicator */}
-                          <div className="w-5 text-center shrink-0">
-                            {isActive ? (
-                              <Radio className="h-3.5 w-3.5 text-primary animate-pulse mx-auto" />
-                            ) : (
-                              <span className="text-xs text-muted-foreground">{i + 1}</span>
-                            )}
-                          </div>
 
-                          {/* Cover */}
-                          <div
-                            className={cn(
-                              "h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10",
-                              !t.coverUrl && "bg-gradient-to-br",
-                              t.coverUrl ? "" : t.coverGradient,
-                            )}
-                            aria-hidden="true"
-                          >
-                            {t.coverUrl ? (
-                              <img src={t.coverUrl} alt={t.title} className="h-full w-full object-cover" />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {isEditingCredentials && (
+                    <>
+                      <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                        <div className="text-xs text-muted-foreground mb-2">Profile Bio</div>
+                        <Textarea
+                          value={newBio}
+                          onChange={(e) => setNewBio(e.target.value)}
+                          placeholder="Tell us about yourself..."
+                          className="bg-transparent border border-white/10 text-sm focus:outline-none w-full min-h-[80px] rounded-xl p-3 resize-none"
+                        />
+                      </div>
+                      <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                        <div className="text-xs text-muted-foreground mb-2">Profile Picture</div>
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            "h-14 w-14 shrink-0 overflow-hidden rounded-2xl border border-white/10",
+                            !avatarPreview && !artist.avatarUrl && "bg-gradient-to-br",
+                            avatarPreview || artist.avatarUrl ? "" : artist.accent || "from-emerald-400/30 to-fuchsia-500/20",
+                          )}>
+                            {avatarPreview ? (
+                              <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
+                            ) : artist.avatarUrl ? (
+                              <img src={artist.avatarUrl} alt="Current avatar" className="h-full w-full object-cover" />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center">
-                                <Music2 className="h-4 w-4 text-white/30" />
+                                <span className="text-xl font-bold text-white">{displayName.charAt(0).toUpperCase()}</span>
                               </div>
                             )}
                           </div>
-
-                          {/* Info */}
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-medium">{t.title}</div>
-                            <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                              {t.genre && (
-                                <Badge
-                                  variant="secondary"
-                                  className="border-white/10 bg-white/5 text-[10px] px-1.5 py-0"
-                                >
-                                  {t.genre}
-                                </Badge>
-                              )}
-                              {t.mood && (
-                                <span className="text-xs text-muted-foreground">{t.mood}</span>
-                              )}
-                              {t.audioDuration && (
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Clock className="h-3 w-3" />
-                                  {time(t.audioDuration)}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Actions */}
-                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-100">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 rounded-lg hover:bg-white/10"
-                              onClick={() => {
-                                const url = `${window.location.origin}/track/${t.id}`;
-                                navigator.clipboard.writeText(url);
-                                copyToClipboard(url, "Track link");
+                          <div className="flex-1">
+                            <Label htmlFor="avatar-upload" className="cursor-pointer">
+                              <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition">Choose image…</div>
+                            </Label>
+                            <Input
+                              id="avatar-upload"
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) { setNewAvatarFile(file); setAvatarPreview(createLocalPreview(file)); }
                               }}
-                            >
-                              {copied === "Track link" ? (
-                                <Check className="h-4 w-4 text-primary" />
-                              ) : (
-                                <Copy className="h-4 w-4" />
-                              )}
-                            </Button>
-
-                            {isActive ? (
-                              <Button
-                                size="icon"
-                                className="h-9 w-9 rounded-xl"
-                                onClick={() => setIsPlaying(!isPlaying)}
-                                data-testid={`button-artist-play-${t.id}`}
-                              >
-                                {isCurrentlyPlaying ? (
-                                  <Pause className="h-4 w-4 fill-current" />
-                                ) : (
-                                  <Play className="h-4 w-4 fill-current" />
-                                )}
-                              </Button>
-                            ) : (
-                              <motion.div
-                                animate={
-                                  justPlayedId === t.id
-                                    ? { scale: 1.2, rotate: 360 }
-                                    : { scale: 1, rotate: 0 }
-                                }
-                                transition={{ duration: 0.5 }}
-                              >
-                                <Button
-                                  size="icon"
-                                  className="h-9 w-9 rounded-xl"
-                                  onClick={() => handlePlayTrack(t)}
-                                  data-testid={`button-artist-play-${t.id}`}
-                                >
-                                  <Play className="h-4 w-4 fill-current" />
-                                </Button>
-                              </motion.div>
-                            )}
+                            />
                           </div>
                         </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Username */}
+                  <div className="glass rounded-2xl p-3 sm:p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs text-muted-foreground mb-1">Username</div>
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 -mt-1" onClick={() => copyToClipboard(artist.username, "Username")}>
+                        {copied === "Username" ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                    {isEditingCredentials ? (
+                      <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)} placeholder={artist.username} className="bg-transparent border-white/10 text-sm mt-1" />
+                    ) : (
+                      <div className="text-sm font-medium">{artist.username}</div>
+                    )}
+                  </div>
+
+                  {/* Email */}
+                  {(artist.email || isEditingCredentials) && (
+                    <div className="glass rounded-2xl p-3 sm:p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs text-muted-foreground mb-1">Email</div>
+                        {artist.email && (
+                          <Button type="button" variant="ghost" size="icon" className="h-6 w-6 -mt-1" onClick={() => copyToClipboard(artist.email!, "Email")}>
+                            {copied === "Email" ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                          </Button>
+                        )}
+                      </div>
+                      {isEditingCredentials ? (
+                        <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder={artist.email || "your@email.com"} className="bg-transparent border-white/10 text-sm mt-1" />
+                      ) : (
+                        <div className="text-sm font-medium">{artist.email || "—"}</div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Password */}
+                  {isEditingCredentials && (
+                    <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                      <div className="text-xs text-muted-foreground mb-1">New Password</div>
+                      <div className="flex gap-2 mt-1">
+                        <Input
+                          type={showPassword ? "text" : "password"}
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="Leave blank to keep current"
+                          className="bg-transparent border-white/10 text-sm"
+                        />
+                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 border border-white/10 bg-white/5 shrink-0" onClick={() => setShowPassword(!showPassword)}>
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Tabs ── */}
+        <div ref={tabsRef} className="mb-4 flex gap-1 rounded-2xl border border-white/8 bg-white/3 p-1">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                type="button"
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={cn(
+                  "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-all",
+                  isActive
+                    ? "bg-white/10 text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+                data-testid={`tab-${tab.key}`}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {tab.label}
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] tabular-nums", isActive ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground")}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Tab content ── */}
+        <AnimatePresence mode="wait">
+
+          {/* Tracks */}
+          {activeTab === "tracks" && (
+            <motion.div key="tracks" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+              {tracks.length === 0 ? (
+                <div className="py-16 text-center">
+                  <Music2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No tracks yet.</p>
+                  {isOwner && (
+                    <Link href="/upload"><Button type="button" className="glow mt-4"><Sparkles className="mr-2 h-4 w-4" />Upload your first track</Button></Link>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {tracks.map((t, idx) => {
+                    const isActive = activeId === t.id;
+                    const isNowPlaying = isActive && isPlaying;
+                    return (
+                      <motion.div
+                        key={t.id}
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.04 }}
+                        className={cn(
+                          "group flex items-center gap-3 rounded-2xl border p-3 transition-all",
+                          isActive ? "border-primary/25 bg-primary/8" : "border-white/5 bg-white/2 hover:border-white/10 hover:bg-white/5",
+                        )}
+                      >
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center text-xs text-muted-foreground">
+                          {isNowPlaying ? <Radio className="h-3.5 w-3.5 text-primary animate-pulse" /> : idx + 1}
+                        </div>
+                        <div className={cn("h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10", !t.coverUrl && "bg-gradient-to-br", t.coverUrl ? "" : t.coverGradient)}>
+                          {t.coverUrl ? <img src={t.coverUrl} alt={t.title} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><Music2 className="h-4 w-4 text-white/30" /></div>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold">{t.title}</div>
+                          <div className="flex items-center gap-2">
+                            {t.genre && <span className="text-xs text-muted-foreground">{t.genre}</span>}
+                            {t.mood && <span className="text-xs text-muted-foreground/50">· {t.mood}</span>}
+                          </div>
+                        </div>
+                        {t.audioDuration && <div className="shrink-0 text-xs text-muted-foreground">{time(t.audioDuration)}</div>}
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant={isActive ? "default" : "secondary"}
+                          className={cn("h-8 w-8 shrink-0 rounded-xl border-white/10 bg-white/5", isActive && "bg-primary glow")}
+                          onClick={() => handlePlayTrack(t)}
+                          data-testid={`button-play-${t.id}`}
+                        >
+                          {isNowPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 translate-x-px" />}
+                        </Button>
                       </motion.div>
                     );
                   })}
                 </div>
               )}
-            </motion.section>
+            </motion.div>
           )}
 
-          {/* ALBUMS TAB */}
+          {/* Albums */}
           {activeTab === "albums" && (
-            <motion.section
-              key="albums"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22 }}
-            >
+            <motion.div key="albums" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
               {albums.length === 0 ? (
-                <div className="glass rounded-2xl p-12 text-center text-muted-foreground">
-                  <Disc className="mx-auto h-10 w-10 mb-3 opacity-30" />
-                  <div className="text-sm">No albums yet.</div>
-                  {isOwner && (
-                    <Button
-                      size="sm"
-                      className="mt-4"
-                      onClick={() => setIsAlbumCreateOpen(true)}
-                    >
-                      <Disc className="mr-2 h-4 w-4" />
-                      Create your first album
-                    </Button>
-                  )}
+                <div className="py-16 text-center">
+                  <Disc className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No albums yet.</p>
                 </div>
               ) : (
-                <>
-                  {isOwner && (
-                    <div className="mb-4 flex justify-end">
-                      <Button
-                        size="sm"
-                        className="glow"
-                        onClick={() => setIsAlbumCreateOpen(true)}
-                      >
-                        <Disc className="mr-2 h-4 w-4" />
-                        New Album
-                      </Button>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {albums.map((album) => (
-                      <AlbumCard
-                        key={album.id}
-                        album={album}
-                        onPlayAll={handlePlayAlbum}
-                        onExpand={handleExpandAlbum}
-                      />
-                    ))}
-                  </div>
-                </>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {albums.map((album, idx) => (
+                    <motion.div
+                      key={album.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.06 }}
+                      className="group cursor-pointer rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
+                      onClick={() => { setActiveAlbum(album); setAlbumDetailOpen(true); }}
+                    >
+                      <div className={cn("mb-3 h-36 w-full overflow-hidden rounded-xl border border-white/10", !album.coverUrl && "bg-gradient-to-br", album.coverUrl ? "" : album.coverGradient)}>
+                        {album.coverUrl ? <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><Disc className="h-8 w-8 text-white/20" /></div>}
+                      </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate font-semibold">{album.title}</div>
+                          <div className="text-xs text-muted-foreground">{album.tracks?.length ?? album.trackCount ?? 0} tracks · {album.genre}</div>
+                        </div>
+                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition" onClick={(e) => { e.stopPropagation(); handlePlayAlbum(album); }}>
+                          <Play className="h-3.5 w-3.5 translate-x-px" />
+                        </Button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               )}
-            </motion.section>
+            </motion.div>
           )}
 
-          {/* ABOUT TAB */}
+          {/* About */}
           {activeTab === "about" && (
-            <motion.section
-              key="about"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.22 }}
-              className="grid gap-4 lg:grid-cols-2"
-            >
+            <motion.div key="about" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
+
               {/* Bio */}
-              <div className="glass glow noise rounded-2xl border border-white/10 p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <UserIcon className="h-4 w-4 text-primary" />
-                  <h2 className="text-sm font-semibold">Biography</h2>
+              {artist.bio && (
+                <div className="glass rounded-2xl border border-white/10 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <UserIcon className="h-4 w-4 text-primary" />
+                    <h2 className="text-sm font-semibold">About</h2>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed" data-testid="text-artist-bio">{artist.bio}</p>
                 </div>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {artist.bio || "MuseWave artist sharing their latest releases and demos."}
-                </p>
-              </div>
+              )}
 
               {/* Growth snapshot */}
               <div className="relative overflow-hidden rounded-2xl border border-white/10 p-5">
@@ -1082,17 +1137,9 @@ export default function ArtistPage() {
                 <div className="relative">
                   <div className="flex items-center gap-2 mb-3">
                     <BarChart3 className="h-4 w-4 text-foreground/90" />
-                    <h2 className="text-sm font-semibold" data-testid="text-growth-title">
-                      Growth snapshot
-                    </h2>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="ml-auto border-white/10 bg-white/5 h-7 text-xs"
-                      data-testid="button-growth-export"
-                    >
-                      <ExternalLink className="mr-1 h-3 w-3" />
-                      Export
+                    <h2 className="text-sm font-semibold" data-testid="text-growth-title">Growth snapshot</h2>
+                    <Button type="button" size="sm" variant="secondary" className="ml-auto border-white/10 bg-white/5 h-7 text-xs" data-testid="button-growth-export">
+                      <ExternalLink className="mr-1 h-3 w-3" />Export
                     </Button>
                   </div>
                   <div className="grid gap-2">
@@ -1102,11 +1149,7 @@ export default function ArtistPage() {
                       { label: "Monthly Growth", value: "+12%" },
                       { label: "Track Count", value: tracks.length },
                     ].map((r) => (
-                      <div
-                        key={r.label}
-                        className="flex items-center justify-between rounded-xl border border-white/10 bg-white/6 px-3 py-2"
-                        data-testid={`row-growth-${r.label.replace(/\s+/g, "-").toLowerCase()}`}
-                      >
+                      <div key={r.label} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/6 px-3 py-2" data-testid={`row-growth-${r.label.replace(/\s+/g, "-").toLowerCase()}`}>
                         <div className="text-sm text-foreground/90">{r.label}</div>
                         <div className="text-sm font-semibold">{r.value}</div>
                       </div>
@@ -1115,7 +1158,7 @@ export default function ArtistPage() {
                 </div>
               </div>
 
-              {/* Contact / links */}
+              {/* Contact */}
               {artist.email && (
                 <div className="glass rounded-2xl border border-white/10 p-5">
                   <div className="flex items-center gap-2 mb-3">
@@ -1124,243 +1167,16 @@ export default function ArtistPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">{artist.email}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6"
-                      onClick={() => copyToClipboard(artist.email!, "Email")}
-                    >
-                      {copied === "Email" ? (
-                        <Check className="h-3 w-3 text-primary" />
-                      ) : (
-                        <Copy className="h-3 w-3" />
-                      )}
+                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(artist.email!, "Email")}>
+                      {copied === "Email" ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
                     </Button>
                   </div>
                 </div>
               )}
-            </motion.section>
+            </motion.div>
           )}
+
         </AnimatePresence>
-
-        {/* ── Owner Credentials Section ── */}
-        {isOwner && (
-          <section
-            id="credentials-section"
-            className="mt-8 glass glow noise rounded-3xl border border-white/10 p-5 lg:p-6"
-            data-testid="section-account-credentials"
-          >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-base font-semibold">Account Credentials</h2>
-                <p className="mt-1 text-xs text-muted-foreground/80">
-                  Your login information for accessing MuseWave
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-8 border-white/10 bg-white/5"
-                  onClick={() => setShowCredentials(!showCredentials)}
-                  data-testid="button-toggle-credentials"
-                >
-                  {showCredentials ? (
-                    <><EyeOff className="mr-2 h-3.5 w-3.5" />Hide</>
-                  ) : (
-                    <><Eye className="mr-2 h-3.5 w-3.5" />Show</>
-                  )}
-                </Button>
-                {showCredentials && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 border-white/10 bg-white/5"
-                    onClick={() => setIsEditingCredentials(!isEditingCredentials)}
-                    data-testid="button-edit-credentials"
-                  >
-                    {isEditingCredentials ? "Cancel" : <><Settings className="mr-2 h-3.5 w-3.5" />Edit</>}
-                  </Button>
-                )}
-              </div>
-            </div>
-
-            <AnimatePresence>
-              {showCredentials && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="overflow-hidden"
-                >
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {isEditingCredentials && (
-                      <>
-                        <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                          <div className="text-xs text-muted-foreground mb-2">Profile Bio</div>
-                          <Textarea
-                            value={newBio}
-                            onChange={(e) => setNewBio(e.target.value)}
-                            placeholder="Tell us about yourself..."
-                            className="bg-transparent border border-white/10 text-sm focus:outline-none w-full min-h-[100px] rounded-xl p-3"
-                          />
-                        </div>
-                        <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                          <div className="text-xs text-muted-foreground mb-2">Profile Picture</div>
-                          <div className="flex items-center gap-3">
-                            <div
-                              className={cn(
-                                "h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10",
-                                !avatarPreview && !artist.avatarUrl && "bg-gradient-to-br",
-                                avatarPreview || artist.avatarUrl
-                                  ? ""
-                                  : artist.accent || "from-emerald-400/30 to-fuchsia-500/20",
-                              )}
-                            >
-                              {avatarPreview ? (
-                                <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
-                              ) : artist.avatarUrl ? (
-                                <img src={artist.avatarUrl} alt="Current avatar" className="h-full w-full object-cover" />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center">
-                                  <span className="text-xl font-bold text-white">
-                                    {displayName.charAt(0).toUpperCase()}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <Label htmlFor="avatar-upload" className="cursor-pointer">
-                                <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition">
-                                  Choose image…
-                                </div>
-                              </Label>
-                              <Input
-                                id="avatar-upload"
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file) {
-                                    setNewAvatarFile(file);
-                                    setAvatarPreview(createLocalPreview(file));
-                                  }
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Username */}
-                    <div className="glass rounded-2xl p-3 sm:p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="text-xs text-muted-foreground mb-1">Username</div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6 -mt-1"
-                          onClick={() => copyToClipboard(artist.username, "Username")}
-                        >
-                          {copied === "Username" ? (
-                            <Check className="h-3 w-3 text-primary" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                      {isEditingCredentials ? (
-                        <Input
-                          value={newUsername}
-                          onChange={(e) => setNewUsername(e.target.value)}
-                          placeholder={artist.username}
-                          className="bg-transparent border-white/10 text-sm mt-1"
-                        />
-                      ) : (
-                        <div className="text-sm font-medium">{artist.username}</div>
-                      )}
-                    </div>
-
-                    {/* Email */}
-                    {(artist.email || isEditingCredentials) && (
-                      <div className="glass rounded-2xl p-3 sm:p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="text-xs text-muted-foreground mb-1">Email</div>
-                          {artist.email && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 -mt-1"
-                              onClick={() => copyToClipboard(artist.email!, "Email")}
-                            >
-                              {copied === "Email" ? (
-                                <Check className="h-3 w-3 text-primary" />
-                              ) : (
-                                <Copy className="h-3 w-3" />
-                              )}
-                            </Button>
-                          )}
-                        </div>
-                        {isEditingCredentials ? (
-                          <Input
-                            type="email"
-                            value={newEmail}
-                            onChange={(e) => setNewEmail(e.target.value)}
-                            placeholder={artist.email || "your@email.com"}
-                            className="bg-transparent border-white/10 text-sm mt-1"
-                          />
-                        ) : (
-                          <div className="text-sm font-medium">{artist.email || "—"}</div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Password */}
-                    {isEditingCredentials && (
-                      <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                        <div className="text-xs text-muted-foreground mb-1">New Password</div>
-                        <div className="flex gap-2 mt-1">
-                          <Input
-                            type={showPassword ? "text" : "password"}
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            placeholder="Leave blank to keep current"
-                            className="bg-transparent border-white/10 text-sm"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9 border border-white/10 bg-white/5 shrink-0"
-                            onClick={() => setShowPassword(!showPassword)}
-                          >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {isEditingCredentials && (
-                      <div className="sm:col-span-2 flex gap-2 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setIsEditingCredentials(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button size="sm" onClick={handleUpdateCredentials}>
-                          Save Changes
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </section>
-        )}
 
         {/* Spacer for PlayerBar */}
         <div className="h-28" aria-hidden="true" />
