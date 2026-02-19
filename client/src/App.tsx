@@ -12,6 +12,7 @@ import Upload from "./pages/upload";
 import Artist from "./pages/artist";
 import Discover from "./pages/discover";
 import ResetPassword from "./pages/reset-password";
+import VerifyEmail from "./pages/verify-email";
 
 function Router() {
   return (
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/upload" component={Upload} />
       <Route path="/artist/:slug" component={Artist} />
       <Route path="/reset-password/:uid/:token" component={ResetPassword} />
+      <Route path="/verify-email/:uidb64/:token" component={VerifyEmail} />
       <Route component={NotFound} />
     </Switch>
   );
