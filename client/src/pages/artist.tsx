@@ -614,8 +614,8 @@ export default function ArtistPage() {
         <header className="flex items-center justify-between mb-8">
           <Link href="/">
             <Button variant="secondary" className="border-white/10 bg-white/5" data-testid="button-back">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back
+              <ArrowLeft className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Back</span>
             </Button>
           </Link>
           <div className="flex items-center gap-2">
@@ -625,8 +625,8 @@ export default function ArtistPage() {
                 className="border-white/10 bg-white/5"
                 data-testid="button-notifications"
               >
-                <Bell className="mr-2 h-4 w-4" />
-                Alerts
+                <Bell className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Alerts</span>
               </Button>
             )}
             <Button
@@ -637,8 +637,8 @@ export default function ArtistPage() {
                 toast({ title: "Link copied!", description: "Artist page link copied to clipboard." });
               }}
             >
-              <Share2 className="mr-2 h-4 w-4" />
-              Share
+              <Share2 className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Share</span>
             </Button>
           </div>
         </header>
@@ -814,13 +814,13 @@ export default function ArtistPage() {
           ref={tabsRef}
           className="sticky top-0 z-30 mb-6 glass border-b border-white/10 -mx-4 px-4 backdrop-blur-xl"
         >
-          <div className="flex gap-1 pt-2">
+          <div className="flex gap-1 pt-2 overflow-x-auto scrollbar-none">
             {tabs.map(({ key, label, icon: Icon, count }) => (
               <button
                 key={key}
                 onClick={() => setActiveTab(key)}
                 className={cn(
-                  "flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-t-xl border-b-2 transition-all",
+                  "flex items-center gap-1.5 px-3 py-2.5 sm:px-4 text-sm font-medium rounded-t-xl border-b-2 transition-all whitespace-nowrap shrink-0",
                   activeTab === key
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground",
