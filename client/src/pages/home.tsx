@@ -195,16 +195,16 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
       layout
       whileHover={{ y: -2 }}
       className={cn(
-        "group glass glow noise overflow-hidden rounded-2xl p-3 transition-all",
+        "group glass glow noise overflow-hidden rounded-2xl p-2.5 sm:p-3 transition-all",
         isActive && "ring-1 ring-primary/60 bg-primary/5"
       )}
       data-testid={`card-track-${track.id}`}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 sm:gap-3">
         {/* Cover */}
         <div
           className={cn(
-            "relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
+            "relative h-9 w-9 sm:h-10 sm:w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
             !track.coverUrl && "bg-gradient-to-br",
             track.coverUrl ? "" : track.coverGradient,
           )}
@@ -219,12 +219,12 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
 
         {/* Info */}
         <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="truncate text-sm font-semibold" data-testid={`text-track-title-${track.id}`}>
+          <div className="truncate text-sm font-semibold leading-tight" data-testid={`text-track-title-${track.id}`}>
             {track.title}
           </div>
           <Link href={`/artist/${track.artistSlug}`}>
-            <a className="mt-0.5 flex min-w-0 max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground" data-testid={`link-track-artist-${track.id}`}>
-              <Music2 className="h-3 w-3 shrink-0" />
+            <a className="mt-0.5 flex min-w-0 max-w-full items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground" data-testid={`link-track-artist-${track.id}`}>
+              <Music2 className="h-2.5 w-2.5 shrink-0" />
               <span className="truncate">{track.artist}</span>
             </a>
           </Link>
@@ -233,24 +233,24 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
         {/* Meta + Play */}
         <div className="flex shrink-0 items-center gap-1.5">
           {track.duration ? (
-            <span className="hidden text-xs text-muted-foreground sm:block">{secondsToTime(track.duration)}</span>
+            <span className="hidden text-[10px] text-muted-foreground sm:block">{secondsToTime(track.duration)}</span>
           ) : null}
           <Button
             size="icon"
             variant={isActive ? "default" : "secondary"}
-            className={cn("h-8 w-8 shrink-0 rounded-xl border-white/10 bg-white/5", isActive && "bg-primary glow")}
+            className={cn("h-7 w-7 sm:h-8 sm:w-8 shrink-0 rounded-xl border-white/10 bg-white/5", isActive && "bg-primary glow")}
             onClick={() => onPlay(track)}
             data-testid={`button-play-${track.id}`}
           >
-            {isActiveAndPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 translate-x-px" />}
+            {isActiveAndPlaying ? <Pause className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : <Play className="h-3 w-3 sm:h-3.5 sm:w-3.5 translate-x-px" />}
           </Button>
         </div>
       </div>
 
       {/* Genre tag */}
       {track.genre && (
-        <div className="mt-1.5 pl-12">
-          <Badge variant="secondary" className="border-white/10 bg-white/5 text-[10px] font-normal">
+        <div className="mt-1.5 pl-11 sm:pl-12">
+          <Badge variant="secondary" className="border-white/10 bg-white/5 px-1.5 py-0 text-[9px] sm:text-[10px] font-normal">
             {track.genre}
           </Badge>
         </div>
@@ -270,7 +270,7 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
       >
         <div
           className={cn(
-            "flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10",
+            "flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10",
             !artist.avatarUrl && "bg-gradient-to-br",
             artist.accent || "from-emerald-400/30 to-fuchsia-500/20",
           )}
@@ -278,22 +278,22 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
           {artist.avatarUrl ? (
             <img src={artist.avatarUrl} alt={`${artist.name} profile`} className="h-full w-full object-cover" />
           ) : (
-            <span className="text-sm font-bold">{(artist.name || artist.slug).charAt(0).toUpperCase()}</span>
+            <span className="text-xs sm:text-sm font-bold">{(artist.name || artist.slug).charAt(0).toUpperCase()}</span>
           )}
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="truncate text-sm font-semibold" data-testid={`text-artist-name-${artist.slug}`}>
+          <div className="truncate text-xs sm:text-sm font-semibold" data-testid={`text-artist-name-${artist.slug}`}>
             {artist.name || artist.slug}
           </div>
-          <div className="truncate text-xs text-muted-foreground" data-testid={`text-artist-tagline-${artist.slug}`}>
+          <div className="truncate text-[10px] sm:text-xs text-muted-foreground" data-testid={`text-artist-tagline-${artist.slug}`}>
             {artist.tagline || "Indie artist"}
           </div>
         </div>
         <div className="ml-auto shrink-0 text-right">
-          <div className="text-xs tabular-nums text-muted-foreground" data-testid={`text-artist-followers-${artist.slug}`}>
+          <div className="text-[10px] sm:text-xs tabular-nums text-muted-foreground" data-testid={`text-artist-followers-${artist.slug}`}>
             {formatCount(artist.followers || 0)}
           </div>
-          <div className="text-[10px] text-muted-foreground/60">followers</div>
+          <div className="text-[9px] sm:text-[10px] text-muted-foreground/60 leading-none">followers</div>
         </div>
       </a>
     </Link>
