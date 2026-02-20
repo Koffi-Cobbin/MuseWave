@@ -236,7 +236,7 @@
     content: "";
     pointer-events: none;
     position: absolute;
-    inset: -1px;
+    inset: 0;
     border-radius: inherit;
     opacity: 0.75;
     background:

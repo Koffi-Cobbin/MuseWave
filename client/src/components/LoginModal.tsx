@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, ArrowLeft, CheckCircle2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -85,16 +86,16 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
     if (password !== confirmPassword) return setError("Passwords don't match.");
     setLoading(true); setError("");
     try {
-      const res = await apiRequestJson<{ user: User; token?: string }>("POST", API_ENDPOINTS.SIGNUP, {
-        username: email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, ""),
-        displayName, email, password,
+      const data = await apiRequestJson<{ user: User }>(API_ENDPOINTS.AUTH.SIGNUP, {
+        method: "POST",
+        body: JSON.stringify({ displayName, email, password }),
       });
-      await login(email, password);
+      await login(data.user.email, password);
       toast({ title: "Account created!", description: "Welcome to MuseWave." });
       handleClose();
       onSuccess?.();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Signup failed.");
+      setError(e instanceof Error ? e.message : "Could not create account.");
     } finally {
       setLoading(false);
     }
@@ -104,10 +105,13 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
     if (!forgotEmail) return setError("Enter your email.");
     setLoading(true); setError("");
     try {
-      await apiRequestJson("POST", API_ENDPOINTS.FORGOT_PASSWORD, { email: forgotEmail });
+      await apiRequestJson(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, {
+        method: "POST",
+        body: JSON.stringify({ email: forgotEmail }),
+      });
       setView("sent");
-    } catch {
-      setError("Could not send reset email.");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -127,7 +131,7 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
     sent: "",
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {open && (
         <>
@@ -143,8 +147,8 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
             aria-hidden="true"
           />
 
-          {/* Modal — uses flex on the overlay div to center perfectly */}
-          <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none sm:items-center items-center">
+          {/* Modal — rendered via portal so it always sits above all page stacking contexts */}
+          <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none">
             <motion.div
               key="modal"
               initial={{ opacity: 0, scale: 0.95, y: 8 }}
@@ -181,7 +185,7 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
                 )}
               </div>
 
-              {/* ── Login ── */}
+              {/* ── Views ── */}
               <AnimatePresence mode="wait">
                 {view === "login" && (
                   <motion.div
@@ -251,6 +255,13 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
                     transition={{ duration: 0.15 }}
                     className="grid gap-3"
                   >
+                    <button
+                      type="button"
+                      onClick={() => { setView("login"); setError(""); }}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit"
+                    >
+                      <ArrowLeft className="h-3 w-3" /> Back to login
+                    </button>
                     <div className="grid gap-1.5">
                       <Label htmlFor="lm-displayName" className="text-xs">Display name</Label>
                       <Input id="lm-displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} data-testid="input-display-name" />
@@ -282,12 +293,12 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
                       {loading ? "Creating account…" : "Create account"}
                     </Button>
                     <button type="button" className="text-center text-xs text-muted-foreground hover:text-foreground transition-colors" onClick={() => { setView("login"); setError(""); }} data-testid="button-switch-to-login">
-                      Already have an account? Log in
+                      Already have an account? <span className="underline">Log in</span>
                     </button>
                   </motion.div>
                 )}
 
-                {/* ── Forgot ── */}
+                {/* ── Forgot password ── */}
                 {view === "forgot" && (
                   <motion.div
                     key="forgot"
@@ -297,17 +308,29 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
                     transition={{ duration: 0.15 }}
                     className="grid gap-3"
                   >
+                    <button
+                      type="button"
+                      onClick={() => { setView("login"); setError(""); }}
+                      className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors w-fit"
+                    >
+                      <ArrowLeft className="h-3 w-3" /> Back to login
+                    </button>
                     <div className="grid gap-1.5">
-                      <Label htmlFor="lm-forgot-email" className="text-xs">Email</Label>
-                      <Input id="lm-forgot-email" type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} data-testid="input-forgot-email" autoComplete="email" />
+                      <Label htmlFor="lm-forgot-email" className="text-xs">Email address</Label>
+                      <Input
+                        id="lm-forgot-email"
+                        type="email"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleForgot()}
+                        autoComplete="email"
+                        data-testid="input-forgot-email"
+                      />
                     </div>
                     {error && <p className="text-xs text-red-400">{error}</p>}
-                    <Button onClick={handleForgot} disabled={loading} className="glow mt-1 w-full" data-testid="button-send-reset">
+                    <Button onClick={handleForgot} disabled={loading} className="glow mt-1 w-full" data-testid="button-forgot-submit">
                       {loading ? "Sending…" : "Send reset link"}
                     </Button>
-                    <button type="button" onClick={() => { setView("login"); setError(""); }} className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors" data-testid="button-back-to-login">
-                      <ArrowLeft className="h-3 w-3" /> Back to log in
-                    </button>
                   </motion.div>
                 )}
 
@@ -317,19 +340,17 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
                     key="sent"
                     initial={{ opacity: 0, scale: 0.96 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.96 }}
-                    transition={{ duration: 0.15 }}
-                    className="grid gap-4"
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex flex-col items-center gap-3 py-4 text-center"
                   >
-                    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-4">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
-                        <CheckCircle2 className="h-5 w-5 text-primary" />
-                      </div>
-                      <p className="text-sm text-muted-foreground">Reset link sent. Check your spam folder if it doesn't arrive within a few minutes.</p>
-                    </div>
-                    <button type="button" onClick={() => { setView("login"); setError(""); }} className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors" data-testid="button-back-to-login-from-sent">
-                      <ArrowLeft className="h-3 w-3" /> Back to log in
-                    </button>
+                    <CheckCircle2 className="h-10 w-10 text-emerald-400" />
+                    <p className="text-sm text-muted-foreground">
+                      If an account exists for <span className="font-medium text-foreground">{forgotEmail}</span>, you'll receive a reset link shortly.
+                    </p>
+                    <Button variant="secondary" className="mt-2 w-full border-white/10 bg-white/5" onClick={handleClose} data-testid="button-close-sent">
+                      Done
+                    </Button>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -339,4 +360,10 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
       )}
     </AnimatePresence>
   );
+
+  // Render via portal into document.body to escape any ancestor stacking contexts
+  // (e.g. sticky sidebar with CSS transforms or z-index that would clip fixed children)
+  return typeof document !== "undefined"
+    ? createPortal(modalContent, document.body)
+    : null;
 }

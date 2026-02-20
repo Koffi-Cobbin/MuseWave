@@ -195,16 +195,16 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
       layout
       whileHover={{ y: -2 }}
       className={cn(
-        "group glass glow noise rounded-2xl p-3 transition-all",
+        "group glass glow noise overflow-hidden rounded-2xl p-3 transition-all",
         isActive && "ring-1 ring-primary/60 bg-primary/5"
       )}
       data-testid={`card-track-${track.id}`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* Cover */}
         <div
           className={cn(
-            "relative h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/10",
+            "relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
             !track.coverUrl && "bg-gradient-to-br",
             track.coverUrl ? "" : track.coverGradient,
           )}
@@ -218,12 +218,12 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
         </div>
 
         {/* Info */}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <div className="truncate text-sm font-semibold" data-testid={`text-track-title-${track.id}`}>
             {track.title}
           </div>
           <Link href={`/artist/${track.artistSlug}`}>
-            <a className="mt-0.5 inline-flex max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground" data-testid={`link-track-artist-${track.id}`}>
+            <a className="mt-0.5 flex min-w-0 max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground" data-testid={`link-track-artist-${track.id}`}>
               <Music2 className="h-3 w-3 shrink-0" />
               <span className="truncate">{track.artist}</span>
             </a>
@@ -231,14 +231,14 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
         </div>
 
         {/* Meta + Play */}
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           {track.duration ? (
             <span className="hidden text-xs text-muted-foreground sm:block">{secondsToTime(track.duration)}</span>
           ) : null}
           <Button
             size="icon"
             variant={isActive ? "default" : "secondary"}
-            className={cn("h-8 w-8 rounded-xl border-white/10 bg-white/5", isActive && "bg-primary glow")}
+            className={cn("h-8 w-8 shrink-0 rounded-xl border-white/10 bg-white/5", isActive && "bg-primary glow")}
             onClick={() => onPlay(track)}
             data-testid={`button-play-${track.id}`}
           >
@@ -249,7 +249,7 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
 
       {/* Genre tag */}
       {track.genre && (
-        <div className="mt-2 pl-14">
+        <div className="mt-1.5 pl-12">
           <Badge variant="secondary" className="border-white/10 bg-white/5 text-[10px] font-normal">
             {track.genre}
           </Badge>
@@ -265,7 +265,7 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
   return (
     <Link href={`/artist/${artist.slug}`}>
       <a
-        className="group flex items-center gap-3 rounded-xl border border-transparent p-2 transition hover:border-white/10 hover:bg-white/4"
+        className="group flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-xl border border-transparent p-2 transition hover:border-white/10 hover:bg-white/4"
         data-testid={`link-artist-${artist.slug}`}
       >
         <div
@@ -281,7 +281,7 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
             <span className="text-sm font-bold">{(artist.name || artist.slug).charAt(0).toUpperCase()}</span>
           )}
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <div className="truncate text-sm font-semibold" data-testid={`text-artist-name-${artist.slug}`}>
             {artist.name || artist.slug}
           </div>
@@ -289,8 +289,8 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
             {artist.tagline || "Indie artist"}
           </div>
         </div>
-        <div className="shrink-0 text-right">
-          <div className="text-xs text-muted-foreground" data-testid={`text-artist-followers-${artist.slug}`}>
+        <div className="ml-auto shrink-0 text-right">
+          <div className="text-xs tabular-nums text-muted-foreground" data-testid={`text-artist-followers-${artist.slug}`}>
             {formatCount(artist.followers || 0)}
           </div>
           <div className="text-[10px] text-muted-foreground/60">followers</div>
@@ -325,13 +325,23 @@ export default function Home() {
     let mounted = true;
     const load = async () => {
       try {
-        const [tracksData, artistsData] = await Promise.all([
-          apiRequestJson<Track[]>("GET", API_ENDPOINTS.TRACKS),
-          apiRequestJson<ArtistRowData[]>("GET", API_ENDPOINTS.ARTISTS).catch(() => []),
+        const [tracksData, rawArtists] = await Promise.all([
+          apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, { published: true }),
+          apiRequestJson<any[]>("GET", API_ENDPOINTS.artists.list).catch(() => []),
         ]);
         if (mounted) {
-          setTracks(tracksData);
-          setArtists(artistsData);
+          setTracks(Array.isArray(tracksData) ? tracksData : []);
+          // Normalize API user objects → ArtistRowData shape
+          const normalized: ArtistRowData[] = (Array.isArray(rawArtists) ? rawArtists : []).map((a) => ({
+            slug: a.username ?? a.slug ?? "",
+            name: a.displayName ?? a.display_name ?? a.name ?? a.username ?? "",
+            tagline: a.tagline ?? a.bio ?? "",
+            followers: a.totalFollowers ?? a.followers ?? 0,
+            monthlyListeners: a.monthlyListeners ?? 0,
+            accent: a.accent ?? "",
+            avatarUrl: a.avatarUrl ?? a.avatar_url ?? undefined,
+          }));
+          setArtists(normalized);
         }
       } catch {
         // silent
@@ -536,9 +546,9 @@ export default function Home() {
                             className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/3 p-3 text-xs text-muted-foreground transition hover:border-white/25 hover:bg-white/5 hover:text-foreground"
                             data-testid="link-browse-all-tracks"
                           >
-                            <Compass className="h-3.5 w-3.5" />
-                            Browse all {filteredTracks.length} tracks on Discover
-                            <ArrowRight className="h-3.5 w-3.5" />
+                            <Compass className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">Browse all {filteredTracks.length} tracks on Discover</span>
+                            <ArrowRight className="h-3.5 w-3.5 shrink-0" />
                           </div>
                         </Link>
                       )}
@@ -559,7 +569,7 @@ export default function Home() {
                     {query ? "Matching Artists" : "Trending"}
                   </h2>
                 </div>
-                <div className="glass glow noise rounded-2xl border border-white/10 p-2">
+                <div className="glass glow noise overflow-hidden rounded-2xl border border-white/10 p-2">
                   {loading ? (
                     Array.from({ length: 4 }).map((_, i) => (
                       <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-white/5 mb-1" />
@@ -577,15 +587,15 @@ export default function Home() {
                 {!query && (
                   <Link href="/upload">
                     <div
-                      className="mt-3 flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 p-3 transition hover:border-emerald-400/35 hover:bg-emerald-400/8"
+                      className="mt-3 flex min-w-0 cursor-pointer items-center gap-2.5 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 p-3 transition hover:border-emerald-400/35 hover:bg-emerald-400/8"
                       data-testid="link-upload-cta"
                     >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15">
                         <UploadCloud className="h-4 w-4 text-emerald-400" />
                       </div>
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold text-emerald-400">Share your music</div>
-                        <div className="text-[10px] text-muted-foreground">Upload a track in minutes</div>
+                      <div className="min-w-0 overflow-hidden">
+                        <div className="truncate text-xs font-semibold text-emerald-400">Share your music</div>
+                        <div className="truncate text-[10px] text-muted-foreground">Upload a track in minutes</div>
                       </div>
                     </div>
                   </Link>

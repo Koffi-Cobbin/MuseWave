@@ -153,7 +153,9 @@ function PlayerBar() {
   // Mobile starts collapsed (pill); auto-expands when a track loads
   const [expanded, setExpanded] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  // Separate open states so mobile and desktop menus don't interfere with each other
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -276,7 +278,8 @@ function PlayerBar() {
 
   const handleDownload = async () => {
     if (!active) return;
-    setMenuOpen(false);
+    setMobileMenuOpen(false);
+    setDesktopMenuOpen(false);
     setIsDownloading(true);
     try {
       await downloadTrack(active.id, `${active.artist} - ${active.title}.${active.audioFormat || "mp3"}`);
@@ -289,7 +292,8 @@ function PlayerBar() {
   };
 
   const handleShare = async () => {
-    setMenuOpen(false);
+    setMobileMenuOpen(false);
+    setDesktopMenuOpen(false);
     const url = active ? `${window.location.origin}/artist/${active.artistSlug}` : window.location.href;
     const title = active ? `${active.title} by ${active.artist}` : "MuseWave";
     const text = active ? `Check out "${active.title}" by ${active.artist} on MuseWave!` : "Discover indie music on MuseWave!";
@@ -302,24 +306,36 @@ function PlayerBar() {
   };
 
   const handleCopyLink = async () => {
-    setMenuOpen(false);
+    setMobileMenuOpen(false);
+    setDesktopMenuOpen(false);
     const url = active ? `${window.location.origin}/artist/${active.artistSlug}` : window.location.href;
     await navigator.clipboard.writeText(url).catch(() => {});
     toast({ title: "Link copied!", description: "Link copied to clipboard." });
   };
 
-  // Shared props for OverflowMenu instances
-  const overflowMenuProps = {
-    open: menuOpen,
-    onOpenChange: setMenuOpen,
+  // Shared action props (no open/onOpenChange — those differ per instance)
+  const sharedMenuProps = {
     isLiked,
     isLiking,
     isDownloading,
     onLike: handleLike,
-    onOpenSupport: () => { setSupportOpen(true); setMenuOpen(false); },
     onDownload: handleDownload,
     onShare: handleShare,
     onCopyLink: handleCopyLink,
+  };
+
+  const mobileMenuProps = {
+    ...sharedMenuProps,
+    open: mobileMenuOpen,
+    onOpenChange: setMobileMenuOpen,
+    onOpenSupport: () => { setSupportOpen(true); setMobileMenuOpen(false); },
+  };
+
+  const desktopMenuProps = {
+    ...sharedMenuProps,
+    open: desktopMenuOpen,
+    onOpenChange: setDesktopMenuOpen,
+    onOpenSupport: () => { setSupportOpen(true); setDesktopMenuOpen(false); },
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -349,7 +365,7 @@ function PlayerBar() {
                     exit={{ y: 12, opacity: 0, scale: 0.94 }}
                     transition={{ type: "spring", stiffness: 440, damping: 34 }}
                     className="fixed left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-white/15 bg-background/90 px-3 py-1.5 shadow-2xl backdrop-blur-xl"
-                    style={{ bottom: "calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 12px)" }}
+                    style={{ bottom: "calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 20px)" }}
                   >
                     {/* Tiny cover art */}
                     <div className={cn(
@@ -447,7 +463,7 @@ function PlayerBar() {
 
                         {/* Menu & Collapse Group */}
                         <div className="flex items-center gap-1">
-                          <OverflowMenu side="top" align="end" {...overflowMenuProps} />
+                          <OverflowMenu side="top" align="end" {...mobileMenuProps} />
 
                           <button
                             type="button"
@@ -551,7 +567,7 @@ function PlayerBar() {
                     }
                   />
 
-                  <OverflowMenu side="top" align="end" {...overflowMenuProps} />
+                  <OverflowMenu side="top" align="end" {...desktopMenuProps} />
                 </div>
               </div>
             </motion.div>
