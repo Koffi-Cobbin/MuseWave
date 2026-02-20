@@ -261,7 +261,7 @@ function PlayerBar() {
                     transition={{ type: "spring", stiffness: 440, damping: 34 }}
                     // Sit 8px above the bottom nav; account for device safe area
                     className="fixed left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-white/15 bg-background/90 px-3 py-1.5 shadow-2xl backdrop-blur-xl"
-                    style={{ bottom: "calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px))" }}
+                    style={{ bottom: "calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 12px)" }}
                   >
                     {/* Tiny cover art */}
                     <div className={cn(
@@ -316,7 +316,7 @@ function PlayerBar() {
                     exit={{ y: "100%", opacity: 0 }}
                     transition={{ type: "spring", stiffness: 380, damping: 36 }}
                     className="fixed inset-x-0 z-30 border-t border-white/10 bg-background/92 backdrop-blur-2xl"
-                    style={{ bottom: "calc(57px + env(safe-area-inset-bottom, 0px))" }}
+                    style={{ bottom: "calc(57px + env(safe-area-inset-bottom, 0px) + 12px)" }}
                   >
                     {/* Seekable hairline progress bar */}
                     <div className="relative h-[3px] w-full bg-white/10">
