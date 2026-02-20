@@ -144,14 +144,14 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
           />
 
           {/* Modal — uses flex on the overlay div to center perfectly */}
-          <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none">
+          <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none sm:items-center items-center">
             <motion.div
               key="modal"
               initial={{ opacity: 0, scale: 0.95, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 8 }}
               transition={{ type: "spring", stiffness: 400, damping: 32 }}
-              className="pointer-events-auto relative w-full max-w-sm rounded-2xl border border-white/10 bg-background/95 p-6 shadow-2xl backdrop-blur-2xl"
+              className="pointer-events-auto relative w-full max-w-sm rounded-2xl border border-white/10 bg-background/95 p-6 shadow-2xl backdrop-blur-2xl max-h-[90dvh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
               role="dialog"
               aria-modal="true"
