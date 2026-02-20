@@ -22,6 +22,129 @@ import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, API_BASE_URL, downloadTrack } from "@/lib/apiConfig";
 import { motion, AnimatePresence } from "framer-motion";
 
+// ── Extracted top-level sub-components ───────────────────────────────────────
+// IMPORTANT: These MUST be defined outside PlayerBar so React doesn't treat
+// them as new component types on every render (which would unmount/remount
+// them and instantly close the Popover/Dialog).
+
+interface SupportDialogProps {
+  trigger: React.ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+function SupportDialog({ trigger, open, onOpenChange }: SupportDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Crown className="h-5 w-5 text-primary" /> Support the Artist
+          </DialogTitle>
+          <DialogDescription>
+            Show your appreciation for the music you love. Support features coming soon!
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="glass glow noise rounded-2xl p-4 text-center">
+            <Crown className="mx-auto mb-2 h-8 w-8 text-primary" />
+            <div className="text-sm font-medium">Tip Jar</div>
+            <div className="mt-1 text-xs text-muted-foreground">Direct support for artists — coming soon</div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface OverflowMenuProps {
+  side?: "top" | "bottom";
+  align?: "end" | "start" | "center";
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isLiked: boolean;
+  isLiking: boolean;
+  isDownloading: boolean;
+  onLike: () => void;
+  onOpenSupport: () => void;
+  onDownload: () => void;
+  onShare: () => void;
+  onCopyLink: () => void;
+}
+
+function OverflowMenu({
+  side = "top",
+  align = "end",
+  open,
+  onOpenChange,
+  isLiked,
+  isLiking,
+  isDownloading,
+  onLike,
+  onOpenSupport,
+  onDownload,
+  onShare,
+  onCopyLink,
+}: OverflowMenuProps) {
+  return (
+    <Popover open={open} onOpenChange={onOpenChange}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="px-2" data-testid="button-player-menu">
+          <MoreVertical className="h-3.5 w-3.5" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-44 p-1" side={side} align={align} sideOffset={8}>
+        <button
+          onClick={onLike}
+          disabled={isLiking}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8 disabled:opacity-50"
+          data-testid="button-player-like-menu"
+        >
+          <Heart className={cn("h-4 w-4 shrink-0 transition-colors", isLiked ? "fill-rose-500 text-rose-500" : "text-muted-foreground")} />
+          {isLiked ? "Unlike" : "Like"}
+        </button>
+        <button
+          onClick={onOpenSupport}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8"
+          data-testid="button-player-support-menu"
+        >
+          <Crown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          Support Artist
+        </button>
+        <Separator className="my-1 opacity-50" />
+        <button
+          onClick={onDownload}
+          disabled={isDownloading}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8 disabled:opacity-50"
+          data-testid="button-player-download"
+        >
+          <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
+          {isDownloading ? "Downloading…" : "Download"}
+        </button>
+        <button
+          onClick={onShare}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8"
+          data-testid="button-player-share"
+        >
+          <Share2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+          Share
+        </button>
+        <button
+          onClick={onCopyLink}
+          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8"
+          data-testid="button-player-copy-link"
+        >
+          <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+          Copy link
+        </button>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 function PlayerBar() {
   const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
   const { user, isAuthenticated } = useAuth();
@@ -185,63 +308,19 @@ function PlayerBar() {
     toast({ title: "Link copied!", description: "Link copied to clipboard." });
   };
 
-  // ── Shared sub-components ─────────────────────────────────────────────────
-
-  const SupportDialog = ({ trigger }: { trigger: React.ReactNode }) => (
-    <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Crown className="h-5 w-5 text-primary" /> Support the Artist
-          </DialogTitle>
-          <DialogDescription>
-            Show your appreciation for the music you love. Support features coming soon!
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="glass glow noise rounded-2xl p-4 text-center">
-            <Crown className="mx-auto mb-2 h-8 w-8 text-primary" />
-            <div className="text-sm font-medium">Tip Jar</div>
-            <div className="mt-1 text-xs text-muted-foreground">Direct support for artists — coming soon</div>
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
-  const OverflowMenu = ({ side = "top" as "top" | "bottom", align = "end" as "end" | "start" | "center" }) => (
-    <Popover open={menuOpen} onOpenChange={setMenuOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm" className="px-2" data-testid="button-player-menu">
-          <MoreVertical className="h-3.5 w-3.5" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-44 p-1" side={side} align={align} sideOffset={8}>
-        <button onClick={handleLike} disabled={isLiking} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8 disabled:opacity-50" data-testid="button-player-like-menu">
-          <Heart className={cn("h-4 w-4 shrink-0 transition-colors", isLiked ? "fill-rose-500 text-rose-500" : "text-muted-foreground")} />
-          {isLiked ? "Unlike" : "Like"}
-        </button>
-        <button onClick={() => { setSupportOpen(true); setMenuOpen(false); }} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8" data-testid="button-player-support-menu">
-          <Crown className="h-4 w-4 shrink-0 text-muted-foreground" />
-          Support Artist
-        </button>
-        <Separator className="my-1 opacity-50" />
-        <button onClick={handleDownload} disabled={isDownloading} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8 disabled:opacity-50" data-testid="button-player-download">
-          <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
-          {isDownloading ? "Downloading…" : "Download"}
-        </button>
-        <button onClick={handleShare} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8" data-testid="button-player-share">
-          <Share2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-          Share
-        </button>
-        <button onClick={handleCopyLink} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8" data-testid="button-player-copy-link">
-          <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" />
-          Copy link
-        </button>
-      </PopoverContent>
-    </Popover>
-  );
+  // Shared props for OverflowMenu instances
+  const overflowMenuProps = {
+    open: menuOpen,
+    onOpenChange: setMenuOpen,
+    isLiked,
+    isLiking,
+    isDownloading,
+    onLike: handleLike,
+    onOpenSupport: () => { setSupportOpen(true); setMenuOpen(false); },
+    onDownload: handleDownload,
+    onShare: handleShare,
+    onCopyLink: handleCopyLink,
+  };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -269,7 +348,6 @@ function PlayerBar() {
                     animate={{ y: 0, opacity: 1, scale: 1 }}
                     exit={{ y: 12, opacity: 0, scale: 0.94 }}
                     transition={{ type: "spring", stiffness: 440, damping: 34 }}
-                    // Sit 8px above the bottom nav; account for device safe area
                     className="fixed left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-white/15 bg-background/90 px-3 py-1.5 shadow-2xl backdrop-blur-xl"
                     style={{ bottom: "calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 12px)" }}
                   >
@@ -284,22 +362,12 @@ function PlayerBar() {
                       )}
                     </div>
 
-                    {/* Animated progress ring + play icon */}
+                    {/* Play / Pause mini button */}
                     <div
-                      className="relative flex h-7 w-7 shrink-0 items-center justify-center"
-                      onClick={togglePlay}
+                      role="button"
+                      onClick={(e) => { e.stopPropagation(); togglePlay(e); }}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10"
                     >
-                      <svg className="absolute inset-0 -rotate-90" viewBox="0 0 28 28">
-                        <circle cx="14" cy="14" r="11" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
-                        <circle
-                          cx="14" cy="14" r="11" fill="none"
-                          stroke="rgb(52,211,153)" strokeWidth="2"
-                          strokeDasharray={`${2 * Math.PI * 11}`}
-                          strokeDashoffset={`${2 * Math.PI * 11 * (1 - progress / 100)}`}
-                          strokeLinecap="round"
-                          className="transition-all duration-200"
-                        />
-                      </svg>
                       {isPlaying
                         ? <Pause className="relative h-3 w-3 text-foreground" />
                         : <Play className="relative h-3 w-3 translate-x-px text-foreground" />
@@ -379,7 +447,7 @@ function PlayerBar() {
 
                         {/* Menu & Collapse Group */}
                         <div className="flex items-center gap-1">
-                          <OverflowMenu side="top" align="end" />
+                          <OverflowMenu side="top" align="end" {...overflowMenuProps} />
 
                           <button
                             type="button"
@@ -473,13 +541,17 @@ function PlayerBar() {
                     <Heart className={cn("h-3.5 w-3.5 transition-colors", isLiked ? "fill-rose-500 text-rose-500" : "text-muted-foreground")} />
                   </Button>
 
-                  <SupportDialog trigger={
-                    <Button variant="ghost" size="sm" data-testid="button-player-support-desktop">
-                      <Crown className="h-3.5 w-3.5" />
-                    </Button>
-                  } />
+                  <SupportDialog
+                    open={supportOpen}
+                    onOpenChange={setSupportOpen}
+                    trigger={
+                      <Button variant="ghost" size="sm" data-testid="button-player-support-desktop">
+                        <Crown className="h-3.5 w-3.5" />
+                      </Button>
+                    }
+                  />
 
-                  <OverflowMenu side="top" align="end" />
+                  <OverflowMenu side="top" align="end" {...overflowMenuProps} />
                 </div>
               </div>
             </motion.div>
