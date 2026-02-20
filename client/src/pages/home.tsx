@@ -183,7 +183,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
           Log in
         </Button>
       </DialogTrigger>
-      <DialogContent className="glass noise max-w-sm border-white/10">
+      <DialogContent className="glass noise max-w-sm border-white/10 max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base">
             {view === "login" ? "Welcome back" : view === "signup" ? "Create account" : view === "forgot" ? "Reset password" : "Check your email"}
@@ -194,7 +194,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
         </DialogHeader>
 
         {view === "login" && (
-          <div className="mt-3 grid gap-3">
+          <div className="mt-3 grid gap-3 pb-2">
             <div className="grid gap-1.5">
               <Label htmlFor="identifier" className="text-xs">Username or email</Label>
               <Input id="identifier" value={identifier} onChange={(e) => setIdentifier(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} data-testid="input-identifier" />
@@ -210,7 +210,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
             </div>
             {error && <p className="text-xs text-red-400">{error}</p>}
             <Button onClick={handleLogin} disabled={loading} className="glow" data-testid="button-login-submit">{loading ? "Logging in…" : "Log in"}</Button>
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
               <button type="button" onClick={() => { setView("signup"); setError(""); }} data-testid="button-switch-to-signup">Create account</button>
               <button type="button" onClick={() => { setView("forgot"); setError(""); }} data-testid="button-forgot-password">Forgot password?</button>
             </div>
@@ -218,7 +218,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
         )}
 
         {view === "signup" && (
-          <div className="mt-3 grid gap-3">
+          <div className="mt-3 grid gap-3 pb-2">
             <div className="grid gap-1.5">
               <Label htmlFor="displayName" className="text-xs">Display name</Label>
               <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} data-testid="input-display-name" />
@@ -239,7 +239,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
             <div className="grid gap-1.5">
               <Label htmlFor="confirm-password" className="text-xs">Confirm password</Label>
               <div className="relative">
-                <Input id="confirm-password" type={showConfirm ? "text" : "password"} className="pr-9" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} data-testid="input-confirm-password" />
+                <Input id="confirm-password" type={showConfirm ? "text" : "password"} className="pr-9" value={confirmPassword} onChange={(e) => setPassword(e.target.value)} data-testid="input-confirm-password" />
                 <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowConfirm((p) => !p)}>
                   {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -247,7 +247,7 @@ function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
             </div>
             {error && <p className="text-xs text-red-400">{error}</p>}
             <Button onClick={handleSignup} disabled={loading} className="glow" data-testid="button-signup-submit">{loading ? "Creating account…" : "Create account"}</Button>
-            <button type="button" className="text-xs text-muted-foreground text-center" onClick={() => { setView("login"); setError(""); }} data-testid="button-switch-to-login">Already have an account? Log in</button>
+            <button type="button" className="text-xs text-muted-foreground text-center mt-1" onClick={() => { setView("login"); setError(""); }} data-testid="button-switch-to-login">Already have an account? Log in</button>
           </div>
         )}
 
