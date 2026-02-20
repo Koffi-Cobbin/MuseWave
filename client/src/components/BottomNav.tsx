@@ -1,16 +1,24 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Home as HomeIcon, Compass, UploadCloud, User as UserIcon, LogOut, X } from "lucide-react";
+import { Home as HomeIcon, Compass, UploadCloud, User as UserIcon, LogOut } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { LoginModal } from "@/components/LoginModal";
 
 // ─── Account Sheet (Mobile) ───────────────────────────────────────────────────
 
-function AccountSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+function AccountSheet({
+  open,
+  onClose,
+  onOpenLogin,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onOpenLogin: () => void;
+}) {
   const { user, logout, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
@@ -54,11 +62,7 @@ function AccountSheet({ open, onClose }: { open: boolean; onClose: () => void })
                     </div>
                   </div>
                   <Link href={`/artist/${user.username}`}>
-                    <Button
-                      variant="secondary"
-                      className="w-full border-white/10 bg-white/5"
-                      onClick={onClose}
-                    >
+                    <Button variant="secondary" className="w-full border-white/10 bg-white/5" onClick={onClose}>
                       <UserIcon className="mr-2 h-4 w-4" /> View artist page
                     </Button>
                   </Link>
@@ -69,7 +73,13 @@ function AccountSheet({ open, onClose }: { open: boolean; onClose: () => void })
               ) : (
                 <div className="space-y-3 text-center">
                   <p className="text-sm text-muted-foreground">Sign in to access your account</p>
-                  <Button className="w-full" onClick={onClose}>
+                  <Button
+                    className="w-full glow"
+                    onClick={() => {
+                      onClose();
+                      onOpenLogin();
+                    }}
+                  >
                     Log in
                   </Button>
                 </div>
@@ -88,6 +98,7 @@ export default function BottomNav() {
   const [location] = useLocation();
   const { isAuthenticated } = useAuth();
   const [accountOpen, setAccountOpen] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
 
   const items = [
     { href: "/", label: "Home", icon: HomeIcon, testId: "link-nav-home" },
@@ -97,7 +108,12 @@ export default function BottomNav() {
 
   return (
     <>
-      <AccountSheet open={accountOpen} onClose={() => setAccountOpen(false)} />
+      <AccountSheet
+        open={accountOpen}
+        onClose={() => setAccountOpen(false)}
+        onOpenLogin={() => setLoginOpen(true)}
+      />
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
 
       <nav
         className="fixed bottom-0 left-0 right-0 z-40 lg:hidden"

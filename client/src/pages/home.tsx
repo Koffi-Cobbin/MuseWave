@@ -14,33 +14,20 @@ import {
   UploadCloud,
   LogOut,
   User as UserIcon,
-  Eye,
-  EyeOff,
-  CheckCircle2,
-  Mail,
-  ArrowLeft,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
 import { useToast } from "@/hooks/use-toast";
-import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
+import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
-import type { Track, User } from "../../../shared/schema";
+import { LoginModal } from "@/components/LoginModal";
+import type { Track } from "../../../shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,206 +74,30 @@ function Logo() {
 }
 
 // ─── Login Dialog ─────────────────────────────────────────────────────────────
-
-type DialogView = "login" | "signup" | "forgot" | "sent";
+// Simple button wrapper around LoginModal — no Radix Dialog involved.
+// LoginModal uses fixed inset-0 + flex centering, guaranteed to be
+// centered in the full viewport on both mobile and desktop.
 
 function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
   const [open, setOpen] = useState(false);
-  const [view, setView] = useState<DialogView>("login");
-  const [showPw, setShowPw] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-
-  const [identifier, setIdentifier] = useState("");
-  const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [forgotEmail, setForgotEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-
-  const { login } = useAuth();
-  const { toast } = useToast();
-
-  const reset = () => {
-    setIdentifier("");
-    setPassword("");
-    setDisplayName("");
-    setEmail("");
-    setConfirmPassword("");
-    setForgotEmail("");
-    setError("");
-    setView("login");
-  };
-
-  const handleLogin = async () => {
-    if (!identifier || !password) return setError("Fill in all fields.");
-    setLoading(true);
-    setError("");
-    try {
-      const res = await apiRequestJson<{ user: User; token?: string }>("POST", API_ENDPOINTS.LOGIN, {
-        username: identifier,
-        password,
-      });
-      login(res.user, res.token);
-      toast({ title: "Welcome back!", description: `Logged in as ${res.user.displayName || res.user.username}.` });
-      setOpen(false);
-      onSuccess?.();
-    } catch {
-      setError("Invalid username or password.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignup = async () => {
-    if (!displayName || !email || !password || !confirmPassword) return setError("Fill in all fields.");
-    if (password !== confirmPassword) return setError("Passwords don't match.");
-    setLoading(true);
-    setError("");
-    try {
-      const res = await apiRequestJson<{ user: User; token?: string }>("POST", API_ENDPOINTS.SIGNUP, {
-        username: email.split("@")[0].toLowerCase().replace(/[^a-z0-9]/g, ""),
-        displayName,
-        email,
-        password,
-      });
-      login(res.user, res.token);
-      toast({ title: "Account created!", description: "Welcome to MuseWave." });
-      setOpen(false);
-      onSuccess?.();
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Signup failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleForgot = async () => {
-    if (!forgotEmail) return setError("Enter your email.");
-    setLoading(true);
-    setError("");
-    try {
-      await apiRequestJson("POST", API_ENDPOINTS.FORGOT_PASSWORD, { email: forgotEmail });
-      setView("sent");
-    } catch {
-      setError("Could not send reset email.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) reset(); }}>
-      <DialogTrigger asChild>
-        <Button size="sm" className="glow shrink-0" data-testid="button-open-login">
-          Log in
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="glass noise max-w-sm border-white/10 max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-base">
-            {view === "login" ? "Welcome back" : view === "signup" ? "Create account" : view === "forgot" ? "Reset password" : "Check your email"}
-          </DialogTitle>
-          <DialogDescription className="text-xs">
-            {view === "login" ? "Sign in to your MuseWave account." : view === "signup" ? "Join the indie music community." : view === "forgot" ? "Enter your email and we'll send a reset link." : ""}
-          </DialogDescription>
-        </DialogHeader>
-
-        {view === "login" && (
-          <div className="mt-3 grid gap-3 pb-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="identifier" className="text-xs">Username or email</Label>
-              <Input id="identifier" value={identifier} onChange={(e) => setIdentifier(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} data-testid="input-identifier" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="password" className="text-xs">Password</Label>
-              <div className="relative">
-                <Input id="password" type={showPw ? "text" : "password"} className="pr-9" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && handleLogin()} data-testid="input-password" />
-                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPw((p) => !p)}>
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            {error && <p className="text-xs text-red-400">{error}</p>}
-            <Button onClick={handleLogin} disabled={loading} className="glow" data-testid="button-login-submit">{loading ? "Logging in…" : "Log in"}</Button>
-            <div className="flex justify-between text-xs text-muted-foreground mt-1">
-              <button type="button" onClick={() => { setView("signup"); setError(""); }} data-testid="button-switch-to-signup">Create account</button>
-              <button type="button" onClick={() => { setView("forgot"); setError(""); }} data-testid="button-forgot-password">Forgot password?</button>
-            </div>
-          </div>
-        )}
-
-        {view === "signup" && (
-          <div className="mt-3 grid gap-3 pb-2">
-            <div className="grid gap-1.5">
-              <Label htmlFor="displayName" className="text-xs">Display name</Label>
-              <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} data-testid="input-display-name" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="email" className="text-xs">Email</Label>
-              <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} data-testid="input-email" />
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="new-password" className="text-xs">Password</Label>
-              <div className="relative">
-                <Input id="new-password" type={showPw ? "text" : "password"} className="pr-9" value={password} onChange={(e) => setPassword(e.target.value)} data-testid="input-signup-password" />
-                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowPw((p) => !p)}>
-                  {showPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            <div className="grid gap-1.5">
-              <Label htmlFor="confirm-password" className="text-xs">Confirm password</Label>
-              <div className="relative">
-                <Input id="confirm-password" type={showConfirm ? "text" : "password"} className="pr-9" value={confirmPassword} onChange={(e) => setPassword(e.target.value)} data-testid="input-confirm-password" />
-                <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" onClick={() => setShowConfirm((p) => !p)}>
-                  {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-            {error && <p className="text-xs text-red-400">{error}</p>}
-            <Button onClick={handleSignup} disabled={loading} className="glow" data-testid="button-signup-submit">{loading ? "Creating account…" : "Create account"}</Button>
-            <button type="button" className="text-xs text-muted-foreground text-center mt-1" onClick={() => { setView("login"); setError(""); }} data-testid="button-switch-to-login">Already have an account? Log in</button>
-          </div>
-        )}
-
-        {view === "forgot" && (
-          <>
-            <div className="mt-3 grid gap-3">
-              <div className="grid gap-1.5">
-                <Label htmlFor="forgot-email" className="text-xs">Email</Label>
-                <Input id="forgot-email" type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} data-testid="input-forgot-email" />
-              </div>
-              {error && <p className="text-xs text-red-400">{error}</p>}
-              <Button onClick={handleForgot} disabled={loading} className="glow" data-testid="button-send-reset">{loading ? "Sending…" : "Send reset link"}</Button>
-              <button type="button" onClick={() => setView("login")} className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground" data-testid="button-back-to-login">
-                <ArrowLeft className="h-3 w-3" /> Back to log in
-              </button>
-            </div>
-          </>
-        )}
-
-        {view === "sent" && (
-          <>
-            <div className="mt-4 grid gap-4">
-              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/4 p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
-                  <CheckCircle2 className="h-5 w-5 text-primary" />
-                </div>
-                <p className="text-sm text-muted-foreground">Reset link sent. Check your spam folder if it doesn't arrive within a few minutes.</p>
-              </div>
-              <button type="button" onClick={() => setView("login")} className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground" data-testid="button-back-to-login-from-sent">
-                <ArrowLeft className="h-3 w-3" /> Back to log in
-              </button>
-            </div>
-          </>
-        )}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button
+        size="sm"
+        className="glow shrink-0"
+        data-testid="button-open-login"
+        onClick={() => setOpen(true)}
+      >
+        Log in
+      </Button>
+      <LoginModal
+        open={open}
+        onClose={() => setOpen(false)}
+        onSuccess={onSuccess}
+      />
+    </>
   );
 }
-
 
 // ─── Desktop Sidebar ──────────────────────────────────────────────────────────
 
@@ -372,7 +183,6 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
     </div>
   );
 }
-
 
 // ─── Track Card ──────────────────────────────────────────────────────────────
 
