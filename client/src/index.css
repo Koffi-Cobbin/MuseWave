@@ -63,6 +63,7 @@
 }
 
 :root {
+  --bottom-nav-h: 62px;
   --button-outline: rgba(255, 255, 255, 0.12);
   --badge-outline: rgba(255, 255, 255, 0.08);
   --opaque-button-border-intensity: 9;
