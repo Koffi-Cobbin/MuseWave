@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   Dialog,
   DialogContent,
