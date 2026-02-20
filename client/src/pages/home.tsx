@@ -382,7 +382,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
 
-      <div className="mx-auto w-full max-w-6xl overflow-x-hidden px-4 py-3 sm:px-4 sm:py-4 lg:px-4 lg:py-6 xl:py-8">
+      <div className="mx-auto w-full max-w-6xl px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-6 xl:py-8">
         <div className="grid gap-4 lg:grid-cols-12 lg:gap-6">
 
           {/* ── Desktop Sidebar ── */}
