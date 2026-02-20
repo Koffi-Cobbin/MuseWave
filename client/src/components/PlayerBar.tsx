@@ -217,6 +217,15 @@ function PlayerBar() {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-44 p-1" side={side} align={align} sideOffset={8}>
+        <button onClick={handleLike} disabled={isLiking} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8 disabled:opacity-50" data-testid="button-player-like-menu">
+          <Heart className={cn("h-4 w-4 shrink-0 transition-colors", isLiked ? "fill-rose-500 text-rose-500" : "text-muted-foreground")} />
+          {isLiked ? "Unlike" : "Like"}
+        </button>
+        <button onClick={() => { setSupportOpen(true); setMenuOpen(false); }} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8" data-testid="button-player-support-menu">
+          <Crown className="h-4 w-4 shrink-0 text-muted-foreground" />
+          Support Artist
+        </button>
+        <Separator className="my-1 opacity-50" />
         <button onClick={handleDownload} disabled={isDownloading} className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8 disabled:opacity-50" data-testid="button-player-download">
           <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
           {isDownloading ? "Downloading…" : "Download"}
@@ -333,64 +342,53 @@ function PlayerBar() {
                     </div>
 
                     <div className="px-3 pb-3 pt-2.5">
-                      {/* Row 1: cover · title/artist · collapse · play */}
+                      {/* Row 1: cover art with play button · info · menu · collapse */}
                       <div className="flex items-center gap-3">
                         <div className={cn(
-                          "h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
+                          "relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 group",
                           !active.coverUrl && "bg-gradient-to-br",
                           active.coverUrl ? "" : active.coverGradient || "from-emerald-500/40 to-fuchsia-500/30",
                         )}>
                           {active.coverUrl && (
                             <img src={active.coverUrl} alt="" className="h-full w-full object-cover" />
                           )}
+                          {/* Play / Pause Overlay */}
+                          <button
+                            onClick={togglePlay}
+                            className="absolute inset-0 flex items-center justify-center bg-black/40 text-white transition-opacity group-hover:bg-black/50"
+                            data-testid="button-player-play-pause-overlay"
+                          >
+                            {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="h-5 w-5 fill-current ml-0.5" />}
+                          </button>
                         </div>
 
                         <div className="min-w-0 flex-1">
                           <div className="truncate text-sm font-semibold" data-testid="text-player-title">
                             {active.title}
                           </div>
-                          <div className="truncate text-xs text-muted-foreground" data-testid="text-player-artist">
-                            {active.artist}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <div className="truncate text-xs text-muted-foreground max-w-[100px]" data-testid="text-player-artist">
+                              {active.artist}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+                              {formatTime(currentTime)} / {formatTime(duration)}
+                            </span>
                           </div>
                         </div>
 
-                        {/* Collapse */}
-                        <button
-                          type="button"
-                          onClick={() => setExpanded(false)}
-                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-muted-foreground transition hover:bg-white/14 hover:text-foreground"
-                          data-testid="button-player-collapse"
-                          aria-label="Collapse player"
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </button>
+                        {/* Menu & Collapse Group */}
+                        <div className="flex items-center gap-1">
+                          <OverflowMenu side="top" align="end" />
 
-                        {/* Play / Pause */}
-                        <Button size="icon" variant="ghost" onClick={togglePlay} className="shrink-0" data-testid="button-player-play-pause">
-                          {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                        </Button>
-                      </div>
-
-                      {/* Row 2: timestamps · actions */}
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {formatTime(currentTime)}
-                          <span className="mx-1 opacity-40">/</span>
-                          {formatTime(duration)}
-                        </span>
-
-                        <div className="flex items-center gap-0.5">
-                          <Button variant="ghost" size="sm" className="px-2" onClick={handleLike} disabled={isLiking} data-testid="button-player-like-mobile">
-                            <Heart className={cn("h-4 w-4 transition-colors", isLiked ? "fill-rose-500 text-rose-500" : "text-muted-foreground")} />
-                          </Button>
-
-                          <SupportDialog trigger={
-                            <Button variant="ghost" size="sm" className="px-2" data-testid="button-player-support">
-                              <Crown className="h-4 w-4" />
-                            </Button>
-                          } />
-
-                          <OverflowMenu />
+                          <button
+                            type="button"
+                            onClick={() => setExpanded(false)}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/8 text-muted-foreground transition hover:bg-white/14 hover:text-foreground"
+                            data-testid="button-player-collapse"
+                            aria-label="Collapse player"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
                     </div>
