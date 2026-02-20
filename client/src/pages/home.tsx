@@ -411,10 +411,10 @@ export default function Home() {
                   className="text-balance text-base font-semibold tracking-tight sm:text-xl lg:text-2xl"
                   data-testid="text-title"
                 >
-                  Discover indie music, fast.
+                  No gatekeepers. Just music.
                 </h1>
                 <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm" data-testid="text-subtitle">
-                  A home for indie artists to share music and grow an audience.
+                  Artists upload, listeners discover — that's the whole deal.
                 </p>
               </div>
               <div className="relative w-full sm:w-56 lg:w-72">
