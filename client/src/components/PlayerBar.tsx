@@ -399,13 +399,13 @@ function PlayerBar() {
                     {/* Seekable hairline progress bar */}
                     <div className="relative h-[3px] w-full bg-white/10">
                       <div
-                        className="absolute inset-y-0 left-0 bg-primary transition-all duration-200"
+                        className="absolute inset-y-0 left-0 bg-primary transition-all duration-200 pointer-events-none"
                         style={{ width: `${progress}%` }}
                       />
                       <input
                         type="range" min="0" max={duration || 0} value={currentTime}
                         onChange={handleSeek}
-                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[20px] w-full cursor-pointer opacity-0"
                         data-testid="input-player-seek"
                       />
                     </div>
@@ -480,13 +480,13 @@ function PlayerBar() {
               {/* Progress bar */}
               <div className="relative h-[2px] w-full bg-white/10">
                 <div
-                  className="absolute inset-y-0 left-0 bg-primary/80 transition-all duration-150"
+                  className="absolute inset-y-0 left-0 bg-primary/80 transition-all duration-150 pointer-events-none"
                   style={{ width: `${progress}%` }}
                 />
                 <input
                   type="range" min="0" max={duration || 0} value={currentTime}
                   onChange={handleSeek}
-                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                  className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[20px] w-full cursor-pointer opacity-0"
                   data-testid="input-player-seek-desktop"
                 />
               </div>
