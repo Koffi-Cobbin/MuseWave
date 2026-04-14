@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -324,6 +324,11 @@ export default function Upload() {
   const { toast } = useToast();
   const { user: authUser, login } = useAuth();
 
+  // Scroll to top whenever the step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
+
   const coverGradient = useMemo(() => gradientFromTitle(draft.title), [draft.title]);
 
   const artistSlug = useMemo(
@@ -369,6 +374,9 @@ export default function Upload() {
       } else {
         setUploadProgress("Creating artist profile…");
         const generatedPassword = `mw-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        // save the generated password temporarily in session storage to log in the user after email verification
+        sessionStorage.setItem("temp_password", generatedPassword);
+
         const newUser = await apiRequestJson<any>("POST", API_ENDPOINTS.users.create, {
           username: artistSlug,
           email: draft.email.trim(),
@@ -380,7 +388,7 @@ export default function Upload() {
         isNewUser = true;
         setUploadProgress("Setting up your account…");
         await sleep(800);
-        await login(artistSlug, generatedPassword).catch(() => {});
+        // await login(artistSlug, generatedPassword).catch(() => {});
       }
 
       setUploadProgress("Processing audio…");
@@ -420,7 +428,7 @@ export default function Upload() {
       toast({
         title: "Track published! 🎉",
         description: isNewUser
-          ? `"${draft.title}" is live! Check your artist page for credentials.`
+          ? `"${draft.title}" is live! Verify your email to access login credentials`
           : `"${draft.title}" is now live.`,
       });
 

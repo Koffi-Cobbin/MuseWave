@@ -74,9 +74,6 @@ function Logo() {
 }
 
 // ─── Login Dialog ─────────────────────────────────────────────────────────────
-// Simple button wrapper around LoginModal — no Radix Dialog involved.
-// LoginModal uses fixed inset-0 + flex centering, guaranteed to be
-// centered in the full viewport on both mobile and desktop.
 
 function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
   const [open, setOpen] = useState(false);
@@ -311,6 +308,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
 
+  // Scroll to top every time the Home page is mounted
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+
   const featuredTrack = useMemo(() => {
     if (tracks.length === 0) return null;
     const sorted = [...tracks].sort((a, b) => {
@@ -331,7 +333,6 @@ export default function Home() {
         ]);
         if (mounted) {
           setTracks(Array.isArray(tracksData) ? tracksData : []);
-          // Normalize API user objects → ArtistRowData shape
           const normalized: ArtistRowData[] = (Array.isArray(rawArtists) ? rawArtists : []).map((a) => ({
             slug: a.username ?? a.slug ?? "",
             name: a.displayName ?? a.display_name ?? a.name ?? a.username ?? "",
@@ -380,12 +381,8 @@ export default function Home() {
   };
 
   return (
-    // FIX 1: overflow-x-hidden on the outermost wrapper prevents the page
-    // from being wider than the viewport (caused by glow pseudo-elements
-    // and grid bleed on mobile).
     <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
 
-      {/* FIX 2: overflow-x-hidden on the inner container as a second clip boundary */}
       <div className="mx-auto w-full max-w-6xl overflow-x-hidden px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-6 xl:py-8">
         <div className="grid gap-4 lg:grid-cols-12 lg:gap-6">
 
@@ -509,11 +506,9 @@ export default function Home() {
             )}
 
             {/* ── Main Grid: Tracks + Trending ── */}
-            {/* FIX 3: min-w-0 on the grid container prevents it from overflowing its parent */}
             <div className="grid min-w-0 gap-4 sm:gap-5 lg:grid-cols-8">
 
               {/* Tracks */}
-              {/* FIX 4: min-w-0 on each grid column so content can't push the column wider than its track */}
               <div className="min-w-0 lg:col-span-5">
                 <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -568,7 +563,6 @@ export default function Home() {
               </div>
 
               {/* Trending Artists */}
-              {/* FIX 5: min-w-0 on the trending column */}
               <div className="min-w-0 lg:col-span-3">
                 <div className="mb-3 flex items-center gap-2">
                   <Flame className="h-4 w-4 shrink-0 text-fuchsia-500" />
@@ -593,7 +587,6 @@ export default function Home() {
                 {/* Upload CTA */}
                 {!query && (
                   <Link href="/upload">
-                    {/* FIX 6: overflow-hidden added so the flex row can't push past its container */}
                     <div
                       className="mt-3 flex min-w-0 overflow-hidden cursor-pointer items-center gap-2.5 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 p-3 transition hover:border-emerald-400/35 hover:bg-emerald-400/8"
                       data-testid="link-upload-cta"

@@ -4,6 +4,7 @@ import { apiRequestJson } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
 
 export default function VerifyEmail() {
   const { uidb64, token } = useParams<{ uidb64: string; token: string }>();
@@ -11,12 +12,24 @@ export default function VerifyEmail() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
 
+  const { user: authUser, login } = useAuth();
+
   useEffect(() => {
     const verify = async () => {
       try {
         const response = await apiRequestJson("GET", `/api/users/verify-email/${uidb64}/${token}/`);
+        const tempPassword = sessionStorage.getItem("temp_password");
+        console.log("Response from verification:", response);
+        console.log("Temporary password:", tempPassword);
+        // check for username in response
+        console.log("Username in response:", response.user?.username);
+
+        if (tempPassword) {
+          await login(response.user?.username, tempPassword).catch(() => {});
+          sessionStorage.removeItem("temp_password");
+        }
         setStatus("success");
-        setMessage("Your email has been successfully verified.");
+        setMessage("Email verification successful. Check your email for credentials.");
       } catch (error) {
         setStatus("error");
         setMessage(error instanceof Error ? error.message : "Verification failed. The link may be invalid or expired.");
@@ -26,7 +39,7 @@ export default function VerifyEmail() {
     if (uidb64 && token) {
       verify();
     }
-  }, [uidb64, token]);
+  }, [uidb64, token, login]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
