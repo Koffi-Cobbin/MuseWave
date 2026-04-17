@@ -14,13 +14,25 @@ export const API_ENDPOINTS = {
     update: (id: string) => `/api/users/${id}`,
     stats: (id: string) => `/api/users/${id}/stats`,
     delete: (id: string) => `/api/users/${id}`,
-    login: '/api/users/login',
-    logout: '/api/users/logout',
-    refreshToken: '/api/users/refresh',
+    login: '/api/users/login',    // Django URLconf shows no trailing slash
+    logout: '/api/users/logout',  // Django URLconf shows no trailing slash
+    refreshToken: '/api/users/refresh',  // Django URLconf shows no trailing slash
     verifyToken: '/api/users/verify-token',
     changePassword: '/api/users/password/change',
     resetPassword: '/api/users/password/reset',
     resetPasswordConfirm: '/api/users/password/reset/confirm',
+    // Email verification endpoints
+    verifyEmail: (uidb64: string, token: string) => `/api/users/verify-email/${uidb64}/${token}/`,
+    resendVerification: '/api/users/resend-verification',
+    verificationStatus: '/api/users/verification-status',
+    // Account management
+    likes: (userId: string) => `/api/users/${userId}/likes`,
+    plays: (userId: string) => `/api/users/${userId}/plays`,
+    albums: (userId: string) => `/api/users/${userId}/albums`,
+    followers: (userId: string) => `/api/users/${userId}/followers`,
+    following: (userId: string) => `/api/users/${userId}/following`,
+    follow: (userId: string) => `/api/users/${userId}/follow`,
+    followCheck: (userId: string, followerId: string) => `/api/users/${userId}/follow/${followerId}`,
   },
 
   // Tracks
@@ -36,7 +48,7 @@ export const API_ENDPOINTS = {
     streamUrl: (id: string) => `/api/tracks/${id}/stream-url/`,
     download: (id: string) => `/api/tracks/${id}/download/`,
   },
-
+  
   // Albums
   albums: {
     byUser: (userId: string) => `/api/users/${userId}/albums`,
@@ -44,6 +56,18 @@ export const API_ENDPOINTS = {
     create: '/api/albums',
     update: (id: string) => `/api/albums/${id}/update`,
     delete: (id: string) => `/api/albums/${id}/delete`,
+  },
+
+  // Playlists
+  playlists: {
+    list: '/api/playlists',
+    byId: (id: string) => `/api/playlists/${id}`,
+    create: '/api/playlists',
+    update: (id: string) => `/api/playlists/${id}`,
+    delete: (id: string) => `/api/playlists/${id}`,
+    addTrack: (id: string) => `/api/playlists/${id}/add-track`,
+    removeTrack: (id: string) => `/api/playlists/${id}/remove-track`,
+    reorder: (id: string) => `/api/playlists/${id}/reorder`,
   },
 
   // Likes

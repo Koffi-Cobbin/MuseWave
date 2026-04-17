@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { LoginModal } from "@/components/LoginModal";
+import { AddToPlaylistButton } from "@/components/playlists/AddToPlaylistButton";
 import type { Track } from "../../../shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -109,6 +110,10 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
     { href: "/upload", label: "Upload", icon: UploadCloud, testId: "link-nav-upload" },
   ];
 
+  const authenticatedItems = [
+    { href: "/playlists", label: "My Playlists", icon: Music2, testId: "link-nav-playlists" },
+  ];
+
   const handleLogout = () => {
     logout();
     toast({ title: "Logged out", description: "You've been successfully logged out." });
@@ -130,6 +135,26 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
 
       <nav className="grid gap-1">
         {items.map((it) => {
+          const active = it.href === "/" ? location === "/" : !it.href.includes("#") && location.startsWith(it.href);
+          const Icon = it.icon;
+          return (
+            <Link key={it.label} href={it.href}>
+              <a
+                data-testid={it.testId}
+                onClick={onMobileClose}
+                className={cn(
+                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                  "hover:bg-white/5 hover:border-white/10 border border-transparent",
+                  active && "bg-white/6 border-white/10",
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0 text-foreground/80 group-hover:text-foreground" />
+                <span className="font-medium">{it.label}</span>
+              </a>
+            </Link>
+          );
+        })}
+        {isAuthenticated && authenticatedItems.map((it) => {
           const active = it.href === "/" ? location === "/" : !it.href.includes("#") && location.startsWith(it.href);
           const Icon = it.icon;
           return (
@@ -232,6 +257,7 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
           {track.audioDuration ? (
             <span className="hidden text-[10px] text-muted-foreground sm:block">{secondsToTime(track.audioDuration)}</span>
           ) : null}
+          <AddToPlaylistButton trackId={track.id} size="sm" variant="secondary" />
           <Button
             size="icon"
             variant={isActive ? "default" : "secondary"}

@@ -64,11 +64,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const data = await response.json();
 
-      // Backend returns: { token: { access, refresh }, user: {...}, message }
-      const { token, user: userData } = data;
+      // Backend may return tokens as either top-level values or nested under `token`.
+      const accessToken =
+        data.access ??
+        data.token?.access ??
+        data.token ??
+        data.accessToken;
+      const refreshToken =
+        data.refresh ??
+        data.token?.refresh ??
+        data.refreshToken;
+      const userData = data.user ?? data.userData ?? data;
 
-      if (token?.access) localStorage.setItem("accessToken", token.access);
-      if (token?.refresh) localStorage.setItem("refreshToken", token.refresh);
+      if (typeof accessToken === "string" && accessToken) {
+        localStorage.setItem("accessToken", accessToken);
+      }
+      if (typeof refreshToken === "string" && refreshToken) {
+        localStorage.setItem("refreshToken", refreshToken);
+      }
 
       if (userData?.id) {
         localStorage.setItem("userId", userData.id);

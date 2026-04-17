@@ -46,9 +46,11 @@ export async function apiRequestJson<T = unknown>(
 ): Promise<T> {
   const url = buildEndpointUrl(endpoint, params);
   const headers = buildAuthHeaders({ "Content-Type": "application/json" });
+  console.debug("apiRequestJson request", { url, method, headers, body, params });
   const init: RequestInit = {
     method,
     headers,
+    credentials: 'include',
     body: body !== undefined ? JSON.stringify(toSnakeCaseObject(body)) : undefined,
   };
 
@@ -81,7 +83,7 @@ export async function apiRequestFormData<T = unknown>(
   const url = buildEndpointUrl(endpoint);
   // No Content-Type — let the browser set it with the correct boundary
   const headers = buildAuthHeaders();
-  const init: RequestInit = { method, headers, body: formData };
+  const init: RequestInit = { method, headers, credentials: 'include', body: formData };
 
   let response = await fetch(url, init);
 
@@ -110,6 +112,7 @@ async function attemptTokenRefresh(): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE_URL}/api/users/refresh`, {
       method: "POST",
+      credentials: 'include',
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh: refreshToken }),
     });
@@ -117,11 +120,17 @@ async function attemptTokenRefresh(): Promise<boolean> {
     if (!response.ok) return false;
 
     const data = await response.json();
+    const accessToken = data.access ?? data.token?.access ?? data.token ?? data.accessToken;
+    const refreshTokenResponse = data.refresh ?? data.token?.refresh ?? data.refreshToken;
 
-    if (data.access) localStorage.setItem("accessToken", data.access);
-    if (data.refresh) localStorage.setItem("refreshToken", data.refresh);
+    if (typeof accessToken === "string" && accessToken) {
+      localStorage.setItem("accessToken", accessToken);
+    }
+    if (typeof refreshTokenResponse === "string" && refreshTokenResponse) {
+      localStorage.setItem("refreshToken", refreshTokenResponse);
+    }
 
-    return Boolean(data.access);
+    return Boolean(accessToken);
   } catch (err) {
     console.error("[queryClient] Token refresh failed:", err);
     return false;
@@ -163,6 +172,7 @@ function buildAuthHeaders(
 ): Record<string, string> {
   const headers: Record<string, string> = { ...extra };
   const accessToken = localStorage.getItem("accessToken");
+  console.debug("buildAuthHeaders token", { accessTokenExists: !!accessToken, accessToken: accessToken ? `${accessToken.substring(0, 20)}...` : null });
   if (accessToken) {
     headers["Authorization"] = `Bearer ${accessToken}`;
   }
@@ -184,11 +194,13 @@ async function refreshAndRetry(
     throw new Error("401: Unauthorized");
   }
 
-  const retryHeaders = buildAuthHeaders(
-    (init.headers as Record<string, string>) ?? {}
-  );
+  const currentHeaders = init.headers instanceof Headers
+    ? Object.fromEntries(init.headers.entries())
+    : ((init.headers as Record<string, string>) ?? {});
 
-  return fetch(url, { ...init, headers: retryHeaders });
+  const retryHeaders = buildAuthHeaders(currentHeaders);
+
+  return fetch(url, { ...init, headers: retryHeaders, credentials: 'include' });
 }
 
 /**
@@ -199,11 +211,20 @@ async function refreshAndRetry(
 async function assertOk(response: Response): Promise<void> {
   if (response.ok) return;
 
+  const responseText = await response.text().catch(() => "");
+  console.debug("assertOk response", { status: response.status, statusText: response.statusText, body: responseText });
+
   if (response.status >= 500) {
     throw new Error(`Server error ${response.status}: ${response.statusText}`);
   }
 
-  const errorData = await response.json().catch(() => ({}));
+  let errorData: any = {};
+  try {
+    errorData = JSON.parse(responseText);
+  } catch {
+    errorData = {};
+  }
+
   const message =
     errorData.message ??
     errorData.detail ??

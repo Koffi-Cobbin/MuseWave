@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Home as HomeIcon, Compass, UploadCloud, User as UserIcon, LogOut } from "lucide-react";
+import { Home as HomeIcon, Compass, UploadCloud, User as UserIcon, LogOut, Music } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -104,6 +104,7 @@ export default function BottomNav() {
     { href: "/", label: "Home", icon: HomeIcon, testId: "link-nav-home" },
     { href: "/discover", label: "Discover", icon: Compass, testId: "link-nav-discover" },
     { href: "/upload", label: "Upload", icon: UploadCloud, testId: "link-nav-upload" },
+    ...(isAuthenticated ? [{ href: "/playlists", label: "Playlists", icon: Music, testId: "link-nav-playlists" }] : []),
   ];
 
   return (

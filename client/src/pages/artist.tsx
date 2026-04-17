@@ -142,7 +142,7 @@ function ResendVerificationBanner({ artist }: { artist: Artist }) {
     if (sending || cooldown > 0) return;
     setSending(true);
     try {
-      await apiRequestJson("POST", `/api/users/resend-verification`, { email: artist.email });
+      await apiRequestJson("POST", `/api/users/resend-verification/`, { email: artist.email });
       setSent(true);
       setCooldown(60);
       toast({

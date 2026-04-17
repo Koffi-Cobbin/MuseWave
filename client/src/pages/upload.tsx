@@ -27,7 +27,6 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson, apiRequestFormData } from "@/lib/queryClient";
-import type { User } from "../../../shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

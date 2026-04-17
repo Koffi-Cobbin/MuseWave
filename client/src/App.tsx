@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider } from "@/contexts/auth-context";
 import { PlayerProvider } from "@/contexts/player-context";
+import { PlaylistProvider } from "@/contexts/playlist-context";
 import PlayerBar from "@/components/PlayerBar";
 import BottomNav from "@/components/BottomNav";
 import NotFound from "@/pages/not-found";
@@ -14,6 +15,8 @@ import Artist from "./pages/artist";
 import Discover from "./pages/discover";
 import ResetPassword from "./pages/reset-password";
 import VerifyEmail from "./pages/verify-email";
+import Playlists from "./pages/playlists";
+import PlaylistDetail from "./pages/playlist-detail";
 
 function Router() {
   return (
@@ -22,6 +25,8 @@ function Router() {
       <Route path="/discover" component={Discover} />
       <Route path="/upload" component={Upload} />
       <Route path="/artist/:slug" component={Artist} />
+      <Route path="/playlists" component={Playlists} />
+      <Route path="/playlists/:id" component={PlaylistDetail} />
       <Route path="/reset-password/:uid/:token" component={ResetPassword} />
       <Route path="/verify-email/:uidb64/:token" component={VerifyEmail} />
       <Route component={NotFound} />
@@ -34,13 +39,15 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <PlayerProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-            {/* Global overlays — rendered above all pages */}
-            <BottomNav />
-            <PlayerBar />
-          </TooltipProvider>
+          <PlaylistProvider>
+            <TooltipProvider>
+              <Toaster />
+              <Router />
+              {/* Global overlays — rendered above all pages */}
+              <BottomNav />
+              <PlayerBar />
+            </TooltipProvider>
+          </PlaylistProvider>
         </PlayerProvider>
       </AuthProvider>
     </QueryClientProvider>
