@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
-import { Plus, Music } from "lucide-react";
+import { Plus, Music, MoreVertical } from "lucide-react";
 
 interface AddToPlaylistButtonProps {
   trackId: string;
@@ -33,7 +33,8 @@ export function AddToPlaylistButton({
   if (!isAuthenticated) {
     return (
       <Button variant={variant} size={size} disabled>
-        <Plus className="h-4 w-4" />
+        {/* <Plus className="h-4 w-4" /> */}
+        <MoreVertical className="h-3.5 w-3.5" />
       </Button>
     );
   }
@@ -59,8 +60,8 @@ export function AddToPlaylistButton({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant={variant} size={size} disabled={loading}>
-            <Plus className="h-4 w-4" />
-            {size !== "icon" && <span className="ml-2 hidden sm:inline">Add</span>}
+            <MoreVertical className="h-3.5 w-3.5" />
+            {/* {size !== "icon" && <span className="ml-2 hidden sm:inline">Add</span>} */}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">

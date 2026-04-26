@@ -200,7 +200,7 @@ export default function PlaylistDetailPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => handlePlayTrack(track.id)}
-                  className="p-0 w-8 h-8 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="p-0 w-8 h-8 shrink-0"
                 >
                   <Play className="h-4 w-4 fill-current" />
                 </Button>
@@ -218,8 +218,8 @@ export default function PlaylistDetailPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => setTrackToRemove(track.id)}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                    onClick={() => setTrackToRemove(track.track.id)}
+                    className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>

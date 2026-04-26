@@ -10,7 +10,7 @@ export const API_ENDPOINTS = {
     list: '/api/users',
     byId: (id: string) => `/api/users/${id}`,
     byUsername: (username: string) => `/api/users/username/${username}`,
-    create: '/api/users',
+    create: '/api/users/create',
     update: (id: string) => `/api/users/${id}`,
     stats: (id: string) => `/api/users/${id}/stats`,
     delete: (id: string) => `/api/users/${id}`,
@@ -39,7 +39,7 @@ export const API_ENDPOINTS = {
   tracks: {
     list: '/api/tracks',
     byId: (id: string) => `/api/tracks/${id}`,
-    create: '/api/tracks',
+    create: '/api/tracks/create',
     update: (id: string) => `/api/tracks/${id}`,
     delete: (id: string) => `/api/tracks/${id}`,
     stats: (id: string) => `/api/tracks/${id}/stats`,

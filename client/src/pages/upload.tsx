@@ -143,8 +143,8 @@ function DropZone({
         dragging
           ? "border-primary/60 bg-primary/5 scale-[1.01]"
           : fileName
-          ? "border-white/15 bg-white/4 hover:border-white/25 hover:bg-white/6"
-          : "border-white/10 bg-white/3 hover:border-white/20 hover:bg-white/5",
+            ? "border-white/15 bg-white/4 hover:border-white/25 hover:bg-white/6"
+            : "border-white/10 bg-white/3 hover:border-white/20 hover:bg-white/5",
         disabled && "pointer-events-none opacity-50"
       )}
       onClick={() => !disabled && inputRef.current?.click()}
@@ -366,7 +366,22 @@ export default function Upload() {
       let isNewUser = false;
 
       setUploadProgress("Checking artist profile…");
-      const existingUser = await apiRequestJson<any>("GET", API_ENDPOINTS.users.byUsername(artistSlug)).catch(() => null);
+
+      let existingUser: any = null;
+
+      try {
+        existingUser = await apiRequestJson<any>(
+          "GET",
+          API_ENDPOINTS.users.byUsername(artistSlug)
+        );
+      } catch (err: any) {
+        // Only treat 404 as "user not found"
+        if (err?.status === 404 || err?.response?.status === 404) {
+          existingUser = null;
+        } else {
+          throw err; // rethrow other errors
+        }
+      }
 
       if (existingUser) {
         userId = existingUser.id;
@@ -392,11 +407,11 @@ export default function Upload() {
 
       setUploadProgress("Processing audio…");
       let audioDuration = 0;
-      try { audioDuration = await getAudioDuration(draft.audioFile); } catch {}
+      try { audioDuration = await getAudioDuration(draft.audioFile); } catch { }
 
       setUploadProgress("Uploading files…");
       const formData = new FormData();
-      formData.append("user_id", userId);
+      formData.append("user_id", userId);  
       formData.append("title", draft.title.trim());
       formData.append("artist", draft.artist.trim());
       formData.append("artist_slug", artistSlug);

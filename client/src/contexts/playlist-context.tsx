@@ -58,7 +58,7 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
         API_ENDPOINTS.playlists.byId(id)
       );
       setCurrentPlaylist(data);
-      console.log('Fetched playlist:', data);
+      // console.log('Fetched playlist:', data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch playlist';
       setError(message);

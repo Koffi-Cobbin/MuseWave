@@ -675,6 +675,8 @@ export default function ArtistPage() {
         body: JSON.stringify(snakePayload),
       });
       const responseBody = await response.json().catch(() => ({}));
+      console.log("Update response:", { status: response.status, body: responseBody });
+
       if (!response.ok) {
         const detail = Object.entries(responseBody)
           .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`)
@@ -682,6 +684,8 @@ export default function ArtistPage() {
         throw new Error(detail || `${response.status} ${response.statusText}`);
       }
       const updatedUser = toCamelCaseObject(responseBody);
+      console.log("Updated user data:", updatedUser);
+      
       setArtist((prev) => (prev ? { ...prev, ...updatedUser } : null));
       setIsEditingCredentials(false);
       setNewUsername(""); setNewPassword(""); setNewEmail("");

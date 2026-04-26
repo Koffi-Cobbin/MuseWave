@@ -212,18 +212,22 @@ async function assertOk(response: Response): Promise<void> {
   if (response.ok) return;
 
   const responseText = await response.text().catch(() => "");
-  console.debug("assertOk response", { status: response.status, statusText: response.statusText, body: responseText });
+  console.debug("assertOk response", {
+    status: response.status,
+    statusText: response.statusText,
+    body: responseText,
+  });
 
   if (response.status >= 500) {
-    throw new Error(`Server error ${response.status}: ${response.statusText}`);
+    const error = new Error(`Server error ${response.status}: ${response.statusText}`) as any;
+    error.status = response.status;
+    throw error;
   }
 
   let errorData: any = {};
   try {
     errorData = JSON.parse(responseText);
-  } catch {
-    errorData = {};
-  }
+  } catch {}
 
   const message =
     errorData.message ??
@@ -231,5 +235,8 @@ async function assertOk(response: Response): Promise<void> {
     errorData.error ??
     `${response.status}: ${response.statusText}`;
 
-  throw new Error(message);
+  const error = new Error(message) as any;
+  error.status = response.status; // ✅ THIS is the key fix
+
+  throw error;
 }

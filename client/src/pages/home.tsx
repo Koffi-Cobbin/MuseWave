@@ -257,7 +257,6 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
           {track.audioDuration ? (
             <span className="hidden text-[10px] text-muted-foreground sm:block">{secondsToTime(track.audioDuration)}</span>
           ) : null}
-          <AddToPlaylistButton trackId={track.id} size="sm" variant="secondary" />
           <Button
             size="icon"
             variant={isActive ? "default" : "secondary"}
@@ -267,6 +266,7 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
           >
             {isActiveAndPlaying ? <Pause className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : <Play className="h-3 w-3 sm:h-3.5 sm:w-3.5 translate-x-px" />}
           </Button>
+          <AddToPlaylistButton trackId={track.id} size="sm" variant="secondary" />
         </div>
       </div>
 
