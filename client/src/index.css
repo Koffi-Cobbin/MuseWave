@@ -63,7 +63,8 @@
 }
 
 :root {
-  --bottom-nav-h: 62px;
+  /* FIXED: Increased bottom nav height for larger touch targets */
+  --bottom-nav-h: 70px;
   --button-outline: rgba(255, 255, 255, 0.12);
   --badge-outline: rgba(255, 255, 255, 0.08);
   --opaque-button-border-intensity: 9;
@@ -171,11 +172,16 @@
   html {
     color-scheme: dark;
     overflow-x: hidden;
+    /* FIXED: Ensure base font size is 16px on mobile — never smaller */
+    font-size: 16px;
   }
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
     overflow-x: hidden;
+    /* FIXED: Prevent iOS font size adjustment after orientation change */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 
   h1,
@@ -183,6 +189,21 @@
   h3 {
     font-family: var(--font-display);
     letter-spacing: -0.02em;
+  }
+
+  /* FIXED: Minimum tap target size for all interactive elements on mobile */
+  @media (max-width: 1024px) {
+    button,
+    a,
+    [role="button"] {
+      min-height: 44px;
+    }
+
+    /* Exception for inline/small elements where we control size explicitly */
+    button.no-min-h,
+    .no-min-h button {
+      min-height: unset;
+    }
   }
 }
 

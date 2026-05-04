@@ -2,6 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- FIXED: Removed maximum-scale=1 which was preventing proper mobile scaling -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#ffffff" />
 
     <link rel="manifest" href="/favicon_io/site.webmanifest" />
@@ -26,15 +28,14 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // FIXED: Unregister stale service workers that were causing
+      // "Failed to fetch" errors by pre-caching files that don't exist.
+      // Remove this block only when sw.js is properly configured.
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(registration => {
-              // console.log('SW registered: ', registration);
-            })
-            .catch(registrationError => {
-              console.log('SW registration failed: ', registrationError);
-            });
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+          for (let reg of registrations) {
+            reg.unregister();
+          }
         });
       }
     </script>

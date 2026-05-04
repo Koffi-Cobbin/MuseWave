@@ -61,14 +61,14 @@ function secondsToTime(duration: number) {
 
 function Logo() {
   return (
-    <div className="flex items-center gap-2.5" data-testid="brand-musewave">
+    <div className="flex items-center gap-3" data-testid="brand-musewave">
       <div
-        className="h-8 w-8 shrink-0 rounded-xl bg-gradient-to-br from-emerald-400/90 via-emerald-400/20 to-fuchsia-500/80 shadow-[0_8px_24px_-8px_rgba(16,185,129,.8)]"
+        className="h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br from-emerald-400/90 via-emerald-400/20 to-fuchsia-500/80 shadow-[0_8px_24px_-8px_rgba(16,185,129,.8)]"
         aria-hidden="true"
       />
       <div className="min-w-0 leading-tight">
-        <div className="truncate text-sm font-semibold tracking-tight">MuseWave</div>
-        <div className="truncate text-[10px] text-muted-foreground">music for the next fave</div>
+        <div className="truncate text-base font-semibold tracking-tight">MuseWave</div>
+        <div className="truncate text-xs text-muted-foreground">music for the next fave</div>
       </div>
     </div>
   );
@@ -126,7 +126,7 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
         <Logo />
         {onMobileClose && (
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMobileClose} data-testid="button-close-nav">
-            <X className="h-4 w-4" />
+            <X className="h-5 w-5" />
           </Button>
         )}
       </div>
@@ -143,12 +143,12 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
                 data-testid={it.testId}
                 onClick={onMobileClose}
                 className={cn(
-                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                  "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition",
                   "hover:bg-white/5 hover:border-white/10 border border-transparent",
                   active && "bg-white/6 border-white/10",
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0 text-foreground/80 group-hover:text-foreground" />
+                <Icon className="h-5 w-5 shrink-0 text-foreground/80 group-hover:text-foreground" />
                 <span className="font-medium">{it.label}</span>
               </a>
             </Link>
@@ -163,12 +163,12 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
                 data-testid={it.testId}
                 onClick={onMobileClose}
                 className={cn(
-                  "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition",
+                  "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition",
                   "hover:bg-white/5 hover:border-white/10 border border-transparent",
                   active && "bg-white/6 border-white/10",
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0 text-foreground/80 group-hover:text-foreground" />
+                <Icon className="h-5 w-5 shrink-0 text-foreground/80 group-hover:text-foreground" />
                 <span className="font-medium">{it.label}</span>
               </a>
             </Link>
@@ -182,7 +182,7 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
         <Link href={`/artist/${user.username}`}>
           <div className="mb-4 rounded-xl border border-white/10 bg-white/4 p-3 cursor-pointer hover:bg-white/6 transition">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-emerald-400/30 to-fuchsia-500/20">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-emerald-400/30 to-fuchsia-500/20">
                 <UserIcon className="h-5 w-5" />
               </div>
               <div className="min-w-0 flex-1">
@@ -195,7 +195,7 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
       )}
 
       {isAuthenticated ? (
-        <Button variant="ghost" className="w-full justify-start" onClick={handleLogout} data-testid="button-logout">
+        <Button variant="ghost" className="w-full justify-start text-sm" onClick={handleLogout} data-testid="button-logout">
           <LogOut className="mr-2 h-4 w-4" />
           Log out
         </Button>
@@ -217,16 +217,16 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
       layout
       whileHover={{ y: -2 }}
       className={cn(
-        "group glass glow noise overflow-hidden rounded-2xl p-2.5 sm:p-3 transition-all",
+        "group glass glow noise overflow-hidden rounded-2xl p-3 sm:p-4 transition-all",
         isActive && "ring-1 ring-primary/60 bg-primary/5"
       )}
       data-testid={`card-track-${track.id}`}
     >
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Cover */}
+      <div className="flex items-center gap-3 sm:gap-4">
+        {/* Cover — bigger on mobile */}
         <div
           className={cn(
-            "relative h-9 w-9 sm:h-10 sm:w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
+            "relative h-14 w-14 sm:h-12 sm:w-12 shrink-0 overflow-hidden rounded-xl border border-white/10",
             !track.coverUrl && "bg-gradient-to-br",
             track.coverUrl ? "" : track.coverGradient,
           )}
@@ -241,30 +241,37 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
 
         {/* Info */}
         <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="truncate text-sm font-semibold leading-tight" data-testid={`text-track-title-${track.id}`}>
+          <div className="truncate text-base font-semibold leading-tight" data-testid={`text-track-title-${track.id}`}>
             {track.title}
           </div>
           <Link href={`/artist/${track.artistSlug}`}>
-            <a className="mt-0.5 flex min-w-0 max-w-full items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground" data-testid={`link-track-artist-${track.id}`}>
-              <Music2 className="h-2.5 w-2.5 shrink-0" />
+            <a className="mt-1 flex min-w-0 max-w-full items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid={`link-track-artist-${track.id}`}>
+              <Music2 className="h-3 w-3 shrink-0" />
               <span className="truncate">{track.artist}</span>
             </a>
           </Link>
         </div>
 
         {/* Meta + Play */}
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-2">
           {track.audioDuration ? (
-            <span className="hidden text-[10px] text-muted-foreground sm:block">{secondsToTime(track.audioDuration)}</span>
+            <span className="hidden text-xs text-muted-foreground sm:block">{secondsToTime(track.audioDuration)}</span>
           ) : null}
+          {/* Play button — larger touch target on mobile */}
           <Button
             size="icon"
             variant={isActive ? "default" : "secondary"}
-            className={cn("h-7 w-7 sm:h-8 sm:w-8 shrink-0 rounded-xl border-white/10 bg-white/5", isActive && "bg-primary glow")}
+            className={cn(
+              "h-10 w-10 sm:h-9 sm:w-9 shrink-0 rounded-xl border-white/10 bg-white/5",
+              isActive && "bg-primary glow"
+            )}
             onClick={() => onPlay(track)}
             data-testid={`button-play-${track.id}`}
           >
-            {isActiveAndPlaying ? <Pause className="h-3 w-3 sm:h-3.5 sm:w-3.5" /> : <Play className="h-3 w-3 sm:h-3.5 sm:w-3.5 translate-x-px" />}
+            {isActiveAndPlaying
+              ? <Pause className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+              : <Play className="h-4 w-4 sm:h-3.5 sm:w-3.5 translate-x-px" />
+            }
           </Button>
           <AddToPlaylistButton trackId={track.id} size="sm" variant="secondary" />
         </div>
@@ -272,8 +279,8 @@ function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Trac
 
       {/* Genre tag */}
       {track.genre && (
-        <div className="mt-1.5 pl-11 sm:pl-12">
-          <Badge variant="secondary" className="border-white/10 bg-white/5 px-1.5 py-0 text-[9px] sm:text-[10px] font-normal">
+        <div className="mt-2 pl-[68px] sm:pl-[60px]">
+          <Badge variant="secondary" className="border-white/10 bg-white/5 px-2 py-0.5 text-xs font-normal">
             {track.genre}
           </Badge>
         </div>
@@ -288,12 +295,12 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
   return (
     <Link href={`/artist/${artist.slug}`}>
       <a
-        className="group flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-xl border border-transparent p-2 transition hover:border-white/10 hover:bg-white/4"
+        className="group flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-transparent p-3 transition hover:border-white/10 hover:bg-white/4"
         data-testid={`link-artist-${artist.slug}`}
       >
         <div
           className={cn(
-            "flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10",
+            "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10",
             !artist.avatarUrl && "bg-gradient-to-br",
             artist.accent || "from-emerald-400/30 to-fuchsia-500/20",
           )}
@@ -301,22 +308,22 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
           {artist.avatarUrl ? (
             <img src={artist.avatarUrl} alt={`${artist.name} profile`} className="h-full w-full object-cover" />
           ) : (
-            <span className="text-xs sm:text-sm font-bold">{(artist.name || artist.slug).charAt(0).toUpperCase()}</span>
+            <span className="text-sm font-bold">{(artist.name || artist.slug).charAt(0).toUpperCase()}</span>
           )}
         </div>
         <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="truncate text-xs sm:text-sm font-semibold" data-testid={`text-artist-name-${artist.slug}`}>
+          <div className="truncate text-sm font-semibold" data-testid={`text-artist-name-${artist.slug}`}>
             {artist.name || artist.slug}
           </div>
-          <div className="truncate text-[10px] sm:text-xs text-muted-foreground" data-testid={`text-artist-tagline-${artist.slug}`}>
+          <div className="truncate text-xs text-muted-foreground" data-testid={`text-artist-tagline-${artist.slug}`}>
             {artist.tagline || "Indie artist"}
           </div>
         </div>
         <div className="ml-auto shrink-0 text-right">
-          <div className="text-[10px] sm:text-xs tabular-nums text-muted-foreground" data-testid={`text-artist-followers-${artist.slug}`}>
+          <div className="text-xs tabular-nums text-muted-foreground font-medium" data-testid={`text-artist-followers-${artist.slug}`}>
             {formatCount(artist.followers || 0)}
           </div>
-          <div className="text-[9px] sm:text-[10px] text-muted-foreground/60 leading-none">followers</div>
+          <div className="text-[10px] text-muted-foreground/60 leading-none">followers</div>
         </div>
       </a>
     </Link>
@@ -334,7 +341,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
 
-  // Scroll to top every time the Home page is mounted
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
@@ -409,7 +415,7 @@ export default function Home() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
 
-      <div className="mx-auto w-full max-w-6xl overflow-x-hidden px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-6 xl:py-8">
+      <div className="mx-auto w-full max-w-6xl overflow-x-hidden px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 xl:py-8">
         <div className="grid gap-4 lg:grid-cols-12 lg:gap-6">
 
           {/* ── Desktop Sidebar ── */}
@@ -423,30 +429,31 @@ export default function Home() {
           <main className="min-w-0 lg:col-span-9">
 
             {/* ── Mobile Top Bar ── */}
-            <div className="mb-4 lg:hidden">
+            <div className="mb-5 lg:hidden">
               <Logo />
             </div>
 
             {/* ── Search + Title ── */}
-            <div className="mb-4 flex flex-col gap-2 sm:mb-5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+            <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <h1
-                  className="text-balance text-base font-semibold tracking-tight sm:text-xl lg:text-2xl"
+                  className="text-balance text-xl font-semibold tracking-tight sm:text-2xl lg:text-3xl"
                   data-testid="text-title"
                 >
                   No gatekeepers. Just music.
                 </h1>
-                <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm" data-testid="text-subtitle">
+                <p className="mt-1 text-sm text-muted-foreground" data-testid="text-subtitle">
                   Artists upload, listeners discover — that's the whole deal.
                 </p>
               </div>
+              {/* Search — full width on mobile */}
               <div className="relative w-full sm:w-56 lg:w-72">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search tracks, artists…"
-                  className="h-9 pl-8 text-sm"
+                  className="h-11 pl-9 text-sm"
                   data-testid="input-search"
                 />
               </div>
@@ -458,14 +465,14 @@ export default function Home() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4 }}
-                className="glass glow noise mb-4 overflow-hidden rounded-2xl border border-white/10 sm:mb-5"
+                className="glass glow noise mb-5 overflow-hidden rounded-2xl border border-white/10 sm:mb-6"
                 aria-label="Hero"
               >
-                <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4 lg:p-5">
-                  {/* Cover art */}
+                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5 lg:p-6">
+                  {/* Cover art — taller on mobile for visual impact */}
                   <div
                     className={cn(
-                      "relative h-28 w-full overflow-hidden rounded-xl border border-white/10 sm:h-24 sm:w-24 sm:shrink-0",
+                      "relative h-40 w-full overflow-hidden rounded-xl border border-white/10 sm:h-28 sm:w-28 sm:shrink-0",
                       !featuredTrack.coverUrl && "bg-gradient-to-br",
                       featuredTrack.coverUrl ? "" : featuredTrack.coverGradient,
                     )}
@@ -473,18 +480,18 @@ export default function Home() {
                     {featuredTrack.coverUrl && (
                       <img src={featuredTrack.coverUrl} alt={`${featuredTrack.title} cover`} className="h-full w-full object-cover" />
                     )}
-                    {/* Overlay play on cover (mobile) */}
+                    {/* Play overlay on mobile cover */}
                     <div className="absolute inset-0 flex items-center justify-center sm:hidden">
                       <Button
                         size="icon"
-                        className="h-10 w-10 rounded-full bg-background/50 backdrop-blur-md hover:bg-background/70"
+                        className="h-14 w-14 rounded-full bg-background/50 backdrop-blur-md hover:bg-background/70"
                         onClick={() => handlePlay(featuredTrack)}
                         data-testid="button-hero-play"
                       >
                         {active?.id === featuredTrack.id && isPlaying ? (
-                          <Pause className="h-4 w-4" />
+                          <Pause className="h-6 w-6" />
                         ) : (
-                          <Play className="h-4 w-4 translate-x-px" />
+                          <Play className="h-6 w-6 translate-x-px" />
                         )}
                       </Button>
                     </div>
@@ -492,36 +499,36 @@ export default function Home() {
 
                   {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Badge className="border-white/10 bg-white/5 text-[10px]" variant="secondary" data-testid="badge-new">
-                        <Sparkles className="mr-1 h-2.5 w-2.5" />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge className="border-white/10 bg-white/5 text-xs" variant="secondary" data-testid="badge-new">
+                        <Sparkles className="mr-1 h-3 w-3" />
                         New
                       </Badge>
-                      <span className="text-[10px] uppercase tracking-widest text-muted-foreground">Featured release</span>
+                      <span className="text-xs uppercase tracking-widest text-muted-foreground">Featured release</span>
                     </div>
-                    <h2 className="mt-1.5 text-base font-bold tracking-tight sm:text-xl" data-testid="text-featured-title">
+                    <h2 className="mt-2 text-xl font-bold tracking-tight sm:text-2xl" data-testid="text-featured-title">
                       {featuredTrack.title}
                     </h2>
-                    <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground sm:text-sm" data-testid="text-featured-description">
+                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground" data-testid="text-featured-description">
                       {featuredTrack.description || `The latest from ${featuredTrack.artist}.`}
                     </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
                       {/* Desktop play button */}
                       <Button
                         size="sm"
-                        className="glow hidden h-8 sm:flex"
+                        className="glow hidden h-9 sm:flex"
                         onClick={() => handlePlay(featuredTrack)}
                         data-testid="button-hero-play-desktop"
                       >
                         {active?.id === featuredTrack.id && isPlaying ? (
-                          <><Pause className="mr-1.5 h-3.5 w-3.5" /> Pause</>
+                          <><Pause className="mr-1.5 h-4 w-4" /> Pause</>
                         ) : (
-                          <><Play className="mr-1.5 h-3.5 w-3.5 translate-x-px" /> Play</>
+                          <><Play className="mr-1.5 h-4 w-4 translate-x-px" /> Play</>
                         )}
                       </Button>
                       <Link href={`/artist/${featuredTrack.artistSlug}`}>
-                        <a className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground" data-testid="link-featured-artist">
-                          <Music2 className="h-3.5 w-3.5" />
+                        <a className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" data-testid="link-featured-artist">
+                          <Music2 className="h-4 w-4" />
                           {featuredTrack.artist}
                         </a>
                       </Link>
@@ -532,30 +539,30 @@ export default function Home() {
             )}
 
             {/* ── Main Grid: Tracks + Trending ── */}
-            <div className="grid min-w-0 gap-4 sm:gap-5 lg:grid-cols-8">
+            <div className="grid min-w-0 gap-5 sm:gap-6 lg:grid-cols-8">
 
               {/* Tracks */}
               <div className="min-w-0 lg:col-span-5">
-                <div className="mb-3 flex items-center justify-between">
+                <div className="mb-4 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Music2 className="h-4 w-4 shrink-0 text-emerald-400" />
-                    <h2 className="text-sm font-semibold sm:text-base" data-testid="text-tracks-title">
+                    <Music2 className="h-5 w-5 shrink-0 text-emerald-400" />
+                    <h2 className="text-base font-semibold sm:text-lg" data-testid="text-tracks-title">
                       {query ? "Matching Tracks" : "Latest Tracks"}
                     </h2>
                   </div>
                   {!query && (
                     <Link href="/discover">
-                      <a className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors" data-testid="link-see-all-tracks">
-                        See all <ArrowRight className="h-3 w-3" />
+                      <a className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-see-all-tracks">
+                        See all <ArrowRight className="h-4 w-4" />
                       </a>
                     </Link>
                   )}
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid gap-3">
                   {loading ? (
                     Array.from({ length: HOME_TRACK_LIMIT }).map((_, i) => (
-                      <div key={i} className="h-16 w-full animate-pulse rounded-2xl bg-white/5" />
+                      <div key={i} className="h-20 w-full animate-pulse rounded-2xl bg-white/5" />
                     ))
                   ) : previewTracks.length > 0 ? (
                     <>
@@ -570,18 +577,18 @@ export default function Home() {
                       {hasMore && (
                         <Link href={query ? `/discover?q=${encodeURIComponent(query)}` : "/discover"}>
                           <div
-                            className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/3 p-3 text-xs text-muted-foreground transition hover:border-white/25 hover:bg-white/5 hover:text-foreground"
+                            className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/3 p-4 text-sm text-muted-foreground transition hover:border-white/25 hover:bg-white/5 hover:text-foreground"
                             data-testid="link-browse-all-tracks"
                           >
-                            <Compass className="h-3.5 w-3.5 shrink-0" />
+                            <Compass className="h-4 w-4 shrink-0" />
                             <span className="truncate">Browse all {filteredTracks.length} tracks on Discover</span>
-                            <ArrowRight className="h-3.5 w-3.5 shrink-0" />
+                            <ArrowRight className="h-4 w-4 shrink-0" />
                           </div>
                         </Link>
                       )}
                     </>
                   ) : (
-                    <div className="glass rounded-2xl p-6 text-center text-sm text-muted-foreground">
+                    <div className="glass rounded-2xl p-8 text-center text-sm text-muted-foreground">
                       No tracks found matching your search.
                     </div>
                   )}
@@ -590,23 +597,23 @@ export default function Home() {
 
               {/* Trending Artists */}
               <div className="min-w-0 lg:col-span-3">
-                <div className="mb-3 flex items-center gap-2">
-                  <Flame className="h-4 w-4 shrink-0 text-fuchsia-500" />
-                  <h2 className="text-sm font-semibold sm:text-base" data-testid="text-trending-title">
+                <div className="mb-4 flex items-center gap-2">
+                  <Flame className="h-5 w-5 shrink-0 text-fuchsia-500" />
+                  <h2 className="text-base font-semibold sm:text-lg" data-testid="text-trending-title">
                     {query ? "Matching Artists" : "Trending"}
                   </h2>
                 </div>
                 <div className="glass glow noise overflow-hidden rounded-2xl border border-white/10 p-2">
                   {loading ? (
                     Array.from({ length: 4 }).map((_, i) => (
-                      <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-white/5 mb-1" />
+                      <div key={i} className="h-14 w-full animate-pulse rounded-xl bg-white/5 mb-2" />
                     ))
                   ) : filteredArtists.length > 0 ? (
                     filteredArtists.slice(0, 6).map((artist) => (
                       <ArtistRow key={artist.slug} artist={artist} />
                     ))
                   ) : (
-                    <div className="p-4 text-center text-xs text-muted-foreground">No artists found.</div>
+                    <div className="p-4 text-center text-sm text-muted-foreground">No artists found.</div>
                   )}
                 </div>
 
@@ -614,15 +621,15 @@ export default function Home() {
                 {!query && (
                   <Link href="/upload">
                     <div
-                      className="mt-3 flex min-w-0 overflow-hidden cursor-pointer items-center gap-2.5 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 p-3 transition hover:border-emerald-400/35 hover:bg-emerald-400/8"
+                      className="mt-4 flex min-w-0 overflow-hidden cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-emerald-400/20 bg-emerald-400/5 p-4 transition hover:border-emerald-400/35 hover:bg-emerald-400/8"
                       data-testid="link-upload-cta"
                     >
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15">
-                        <UploadCloud className="h-4 w-4 text-emerald-400" />
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-400/15">
+                        <UploadCloud className="h-5 w-5 text-emerald-400" />
                       </div>
                       <div className="min-w-0 overflow-hidden">
-                        <div className="truncate text-xs font-semibold text-emerald-400">Share your music</div>
-                        <div className="truncate text-[10px] text-muted-foreground">Upload a track in minutes</div>
+                        <div className="truncate text-sm font-semibold text-emerald-400">Share your music</div>
+                        <div className="truncate text-xs text-muted-foreground">Upload a track in minutes</div>
                       </div>
                     </div>
                   </Link>
@@ -631,7 +638,7 @@ export default function Home() {
             </div>
 
             {/* Spacer for player bar + bottom nav */}
-            <div className="h-28 lg:h-24" aria-hidden="true" />
+            <div className="h-32 lg:h-24" aria-hidden="true" />
           </main>
         </div>
       </div>
