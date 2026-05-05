@@ -4,9 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Compass,
-  Play,
-  Pause,
-  Music2,
   Sparkles,
   ChevronLeft,
   ChevronRight,
@@ -25,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { usePlayer } from "@/contexts/player-context";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
+import { TrackCard } from "@/components/TrackCard";
 import type { Track } from "../../../shared/schema";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -65,126 +63,6 @@ function formatCount(n: number) {
   return `${n}`;
 }
 
-function secondsToTime(s: number) {
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m}:${`${sec}`.padStart(2, "0")}`;
-}
-
-// ─── Track Card ──────────────────────────────────────────────────────────────
-
-function DiscoverTrackCard({
-  track,
-  index,
-  isActive,
-  onPlay,
-}: {
-  track: Track;
-  index: number;
-  isActive: boolean;
-  onPlay: (t: Track) => void;
-}) {
-  const { isPlaying } = usePlayer();
-  const isActiveAndPlaying = isActive && isPlaying;
-  return (
-    <motion.div
-      layout
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      transition={{ duration: 0.22, delay: index * 0.04 }}
-      className={cn(
-        "group relative glass glow noise rounded-2xl p-3 sm:p-4 transition-all duration-200",
-        "hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/10",
-        isActive && "ring-1 ring-primary/60 bg-primary/5",
-      )}
-      data-testid={`discover-track-${track.id}`}
-    >
-      <div className="flex items-center gap-3 sm:gap-4">
-        {/* Cover Art */}
-        <div
-          className={cn(
-            "relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 sm:h-16 sm:w-16",
-            !track.coverUrl && "bg-gradient-to-br",
-            track.coverUrl ? "" : track.coverGradient || "from-emerald-400/30 to-fuchsia-500/20",
-          )}
-          aria-hidden="true"
-        >
-          {track.coverUrl ? (
-            <img src={track.coverUrl} alt={track.title} className="h-full w-full object-cover" />
-          ) : (
-            <div className="absolute inset-0 opacity-40 blur-[8px]" />
-          )}
-          {/* Play overlay on hover */}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-            <Play className="h-5 w-5 fill-white text-white" />
-          </div>
-        </div>
-
-        {/* Info */}
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold leading-tight">{track.title}</p>
-              <Link href={`/artist/${track.artistSlug}`}>
-                <a className="mt-0.5 inline-flex max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                  <Music2 className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{track.artist}</span>
-                </a>
-              </Link>
-            </div>
-            {/* Play button */}
-            <div className="shrink-0">
-              {isActive ? (
-                <Button
-                  size="icon"
-                  className="h-8 w-8 rounded-xl sm:h-9 sm:w-9"
-                  onClick={() => onPlay(track)}
-                  data-testid={`button-play-discover-${track.id}`}
-                >
-                  {isActiveAndPlaying ? (
-                    <Pause className="h-3.5 w-3.5 fill-current" />
-                  ) : (
-                    <Play className="h-3.5 w-3.5 fill-current" />
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  size="icon"
-                  className="h-8 w-8 rounded-xl sm:h-9 sm:w-9"
-                  onClick={() => onPlay(track)}
-                  data-testid={`button-play-discover-${track.id}`}
-                >
-                  <Play className="h-3.5 w-3.5 fill-current" />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {/* Tags + Meta */}
-          <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant="secondary" className="border-white/10 bg-white/5 text-xs">
-                {track.genre}
-              </Badge>
-              {track.mood && (
-                <Badge variant="outline" className="border-white/12 bg-transparent text-xs">
-                  {track.mood}
-                </Badge>
-              )}
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground whitespace-nowrap">
-              <span>{secondsToTime(track.audioDuration)}</span>
-              <span className="opacity-40">·</span>
-              <span>{formatCount(track.plays)} plays</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
 // ─── Pagination ──────────────────────────────────────────────────────────────
 
 function Pagination({
@@ -198,7 +76,6 @@ function Pagination({
 }) {
   if (totalPages <= 1) return null;
 
-  // Build visible page numbers — always show first, last, and a window around current
   const pages: (number | "…")[] = [];
   for (let i = 1; i <= totalPages; i++) {
     if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
@@ -322,7 +199,6 @@ export default function Discover() {
 
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
 
-  // Fetch all published tracks once
   useEffect(() => {
     async function load() {
       try {
@@ -339,7 +215,6 @@ export default function Discover() {
     load();
   }, []);
 
-  // Genre → count map (for tab badges)
   const genreCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const t of allTracks) {
@@ -348,14 +223,11 @@ export default function Discover() {
     return counts;
   }, [allTracks]);
 
-  // Filter → sort pipeline
   const processed = useMemo(() => {
     let list = allTracks;
 
-    // Genre filter
     if (genre !== "All") list = list.filter((t) => t.genre === genre);
 
-    // Search filter
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter((t) =>
@@ -363,7 +235,6 @@ export default function Discover() {
       );
     }
 
-    // Sort
     const sorted = [...list].sort((a, b) => {
       if (sortBy === "createdAt") {
         return new Date(b.publishedAt ?? b.createdAt ?? 0).getTime() -
@@ -377,7 +248,6 @@ export default function Discover() {
 
   const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE));
 
-  // Reset to page 1 when filters change
   useEffect(() => { setPage(1); }, [genre, search, sortBy]);
 
   const paged = processed.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -393,10 +263,6 @@ export default function Discover() {
     },
     [active, isPlaying, setActive, setAutoPlay, setIsPlaying],
   );
-
-  const handleGenreChange = (g: string) => {
-    setGenre(g);
-  };
 
   return (
     <div className="min-h-screen bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
@@ -432,7 +298,6 @@ export default function Discover() {
             </div>
           </div>
 
-          {/* Search + filter toggle */}
           <div className="flex items-center gap-2">
             <div className="relative hidden sm:block">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -527,17 +392,14 @@ export default function Discover() {
 
         {/* ── Genre tabs ── */}
         <div className="mb-5">
-          <GenreTabs active={genre} onChange={handleGenreChange} counts={genreCounts} />
+          <GenreTabs active={genre} onChange={setGenre} counts={genreCounts} />
         </div>
 
         {/* ── Results header ── */}
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             {genre !== "All" && (
-              <div
-                className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15"
-                aria-hidden="true"
-              >
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/15" aria-hidden="true">
                 <Sparkles className="h-3 w-3 text-primary" />
               </div>
             )}
@@ -571,12 +433,12 @@ export default function Discover() {
           ) : paged.length > 0 ? (
             <AnimatePresence mode="popLayout">
               {paged.map((track, i) => (
-                <DiscoverTrackCard
+                <TrackCard
                   key={track.id}
                   track={track}
-                  index={i}
-                  isActive={active?.id === track.id}
                   onPlay={handlePlay}
+                  isActive={active?.id === track.id}
+                  index={i}
                 />
               ))}
             </AnimatePresence>
@@ -609,7 +471,6 @@ export default function Discover() {
           </div>
         )}
 
-        {/* Spacer for PlayerBar */}
         <div className="h-24" aria-hidden="true" />
       </div>
     </div>

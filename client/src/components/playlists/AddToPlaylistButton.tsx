@@ -30,14 +30,8 @@ export function AddToPlaylistButton({
   const { toast } = useToast();
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  if (!isAuthenticated) {
-    return (
-      <Button variant={variant} size={size} disabled>
-        {/* <Plus className="h-4 w-4" /> */}
-        <MoreVertical className="h-3.5 w-3.5" />
-      </Button>
-    );
-  }
+  // Not logged in — render nothing
+  if (!isAuthenticated) return null;
 
   const handleAddToPlaylist = async (playlistId: string) => {
     try {
@@ -61,7 +55,6 @@ export function AddToPlaylistButton({
         <DropdownMenuTrigger asChild>
           <Button variant={variant} size={size} disabled={loading}>
             <MoreVertical className="h-3.5 w-3.5" />
-            {/* {size !== "icon" && <span className="ml-2 hidden sm:inline">Add</span>} */}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
@@ -96,9 +89,6 @@ export function AddToPlaylistButton({
       <CreatePlaylistModal
         open={showCreateModal}
         onOpenChange={setShowCreateModal}
-        onSuccess={() => {
-          // The context will already be updated after creating a playlist
-        }}
       />
     </>
   );

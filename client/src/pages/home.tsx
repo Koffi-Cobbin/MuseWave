@@ -27,7 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { LoginModal } from "@/components/LoginModal";
-import { AddToPlaylistButton } from "@/components/playlists/AddToPlaylistButton";
+import { TrackCard } from "@/components/TrackCard";
 import type { Track } from "../../../shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -206,89 +206,6 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
   );
 }
 
-// ─── Track Card ──────────────────────────────────────────────────────────────
-
-function TrackCard({ track, onPlay, isActive }: { track: Track; onPlay: (t: Track) => void; isActive: boolean }) {
-  const { isPlaying } = usePlayer();
-  const isActiveAndPlaying = isActive && isPlaying;
-
-  return (
-    <motion.div
-      layout
-      whileHover={{ y: -2 }}
-      className={cn(
-        "group glass glow noise overflow-hidden rounded-2xl p-3 sm:p-4 transition-all",
-        isActive && "ring-1 ring-primary/60 bg-primary/5"
-      )}
-      data-testid={`card-track-${track.id}`}
-    >
-      <div className="flex items-center gap-3 sm:gap-4">
-        {/* Cover — bigger on mobile */}
-        <div
-          className={cn(
-            "relative h-14 w-14 sm:h-12 sm:w-12 shrink-0 overflow-hidden rounded-xl border border-white/10",
-            !track.coverUrl && "bg-gradient-to-br",
-            track.coverUrl ? "" : track.coverGradient,
-          )}
-          aria-hidden="true"
-        >
-          {track.coverUrl ? (
-            <img src={track.coverUrl} alt={`${track.title} cover`} className="h-full w-full object-cover" />
-          ) : (
-            <div className="absolute inset-0 opacity-50 blur-[10px]" />
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="truncate text-base font-semibold leading-tight" data-testid={`text-track-title-${track.id}`}>
-            {track.title}
-          </div>
-          <Link href={`/artist/${track.artistSlug}`}>
-            <a className="mt-1 flex min-w-0 max-w-full items-center gap-1 text-sm text-muted-foreground hover:text-foreground" data-testid={`link-track-artist-${track.id}`}>
-              <Music2 className="h-3 w-3 shrink-0" />
-              <span className="truncate">{track.artist}</span>
-            </a>
-          </Link>
-        </div>
-
-        {/* Meta + Play */}
-        <div className="flex shrink-0 items-center gap-2">
-          {track.audioDuration ? (
-            <span className="hidden text-xs text-muted-foreground sm:block">{secondsToTime(track.audioDuration)}</span>
-          ) : null}
-          {/* Play button — larger touch target on mobile */}
-          <Button
-            size="icon"
-            variant={isActive ? "default" : "secondary"}
-            className={cn(
-              "h-10 w-10 sm:h-9 sm:w-9 shrink-0 rounded-xl border-white/10 bg-white/5",
-              isActive && "bg-primary glow"
-            )}
-            onClick={() => onPlay(track)}
-            data-testid={`button-play-${track.id}`}
-          >
-            {isActiveAndPlaying
-              ? <Pause className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-              : <Play className="h-4 w-4 sm:h-3.5 sm:w-3.5 translate-x-px" />
-            }
-          </Button>
-          <AddToPlaylistButton trackId={track.id} size="sm" variant="secondary" />
-        </div>
-      </div>
-
-      {/* Genre tag */}
-      {track.genre && (
-        <div className="mt-2 pl-[68px] sm:pl-[60px]">
-          <Badge variant="secondary" className="border-white/10 bg-white/5 px-2 py-0.5 text-xs font-normal">
-            {track.genre}
-          </Badge>
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
 // ─── Artist Row ───────────────────────────────────────────────────────────────
 
 function ArtistRow({ artist }: { artist: ArtistRowData }) {
@@ -446,7 +363,6 @@ export default function Home() {
                   Artists upload, listeners discover — that's the whole deal.
                 </p>
               </div>
-              {/* Search — full width on mobile */}
               <div className="relative w-full sm:w-56 lg:w-72">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -469,7 +385,6 @@ export default function Home() {
                 aria-label="Hero"
               >
                 <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5 lg:p-6">
-                  {/* Cover art — taller on mobile for visual impact */}
                   <div
                     className={cn(
                       "relative h-40 w-full overflow-hidden rounded-xl border border-white/10 sm:h-28 sm:w-28 sm:shrink-0",
@@ -480,7 +395,6 @@ export default function Home() {
                     {featuredTrack.coverUrl && (
                       <img src={featuredTrack.coverUrl} alt={`${featuredTrack.title} cover`} className="h-full w-full object-cover" />
                     )}
-                    {/* Play overlay on mobile cover */}
                     <div className="absolute inset-0 flex items-center justify-center sm:hidden">
                       <Button
                         size="icon"
@@ -497,7 +411,6 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* Info */}
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge className="border-white/10 bg-white/5 text-xs" variant="secondary" data-testid="badge-new">
@@ -513,7 +426,6 @@ export default function Home() {
                       {featuredTrack.description || `The latest from ${featuredTrack.artist}.`}
                     </p>
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      {/* Desktop play button */}
                       <Button
                         size="sm"
                         className="glow hidden h-9 sm:flex"
@@ -566,12 +478,13 @@ export default function Home() {
                     ))
                   ) : previewTracks.length > 0 ? (
                     <>
-                      {previewTracks.map((track) => (
+                      {previewTracks.map((track, i) => (
                         <TrackCard
                           key={track.id}
                           track={track}
                           onPlay={handlePlay}
                           isActive={active?.id === track.id}
+                          index={i}
                         />
                       ))}
                       {hasMore && (
@@ -617,7 +530,6 @@ export default function Home() {
                   )}
                 </div>
 
-                {/* Upload CTA */}
                 {!query && (
                   <Link href="/upload">
                     <div
@@ -637,7 +549,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Spacer for player bar + bottom nav */}
             <div className="h-32 lg:h-24" aria-hidden="true" />
           </main>
         </div>

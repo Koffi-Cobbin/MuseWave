@@ -58,6 +58,8 @@ import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import type { Track, User } from "../../../shared/schema";
 import { Label } from "@/components/ui/label";
+import { TrackCard } from "@/components/TrackCard";
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -540,50 +542,7 @@ function AlbumDetailSheet({
                   <div className="py-8 text-center text-xs text-muted-foreground">No tracks in this album yet.</div>
                 ) : (
                   tracks.map((t, i) => (
-                    <button
-                      type="button"
-                      key={t.id}
-                      onClick={() => onPlayTrack(t)}
-                      className={cn(
-                        "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/5",
-                        activeTrackId === t.id && "bg-white/5",
-                      )}
-                    >
-                      <div className={cn(
-                        "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs text-muted-foreground",
-                        activeTrackId === t.id && "text-primary",
-                      )}>
-                        {activeTrackId === t.id ? (
-                          <Radio className="h-3.5 w-3.5 text-primary animate-pulse" />
-                        ) : (
-                          i + 1
-                        )}
-                      </div>
-                      <div
-                        className={cn(
-                          "h-9 w-9 shrink-0 overflow-hidden rounded-lg border border-white/10",
-                          !t.coverUrl && "bg-gradient-to-br",
-                          t.coverUrl ? "" : t.coverGradient,
-                        )}
-                      >
-                        {t.coverUrl ? (
-                          <img src={t.coverUrl} alt={t.title} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <Music2 className="h-3.5 w-3.5 text-white/30" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">{t.title}</div>
-                        <div className="text-xs text-muted-foreground">{t.genre}</div>
-                      </div>
-                      {t.audioDuration && (
-                        <div className="text-xs text-muted-foreground shrink-0">
-                          {time(t.audioDuration)}
-                        </div>
-                      )}
-                    </button>
+                    <TrackCard key={t.id} track={t} onPlay={handlePlayTrack} isActive={active?.id === t.id} index={idx} />
                   ))
                 )}
               </div>
@@ -643,11 +602,11 @@ export default function ArtistPage() {
   const handleUpdateCredentials = async () => {
     if (!artist) return;
     const updates: Record<string, string> = {};
-    if (newUsername.trim())    updates.username    = newUsername.trim();
-    if (newPassword.trim())    updates.password    = newPassword.trim();
-    if (newEmail.trim())       updates.email       = newEmail.trim();
+    if (newUsername.trim()) updates.username = newUsername.trim();
+    if (newPassword.trim()) updates.password = newPassword.trim();
+    if (newEmail.trim()) updates.email = newEmail.trim();
     if (newDisplayName.trim()) updates.displayName = newDisplayName.trim();
-    if (newBio.trim())         updates.bio         = newBio.trim();
+    if (newBio.trim()) updates.bio = newBio.trim();
     if (newAvatarFile) {
       updates.avatarUrl = await new Promise<string>((res, rej) => {
         const reader = new FileReader();
@@ -685,7 +644,7 @@ export default function ArtistPage() {
       }
       const updatedUser = toCamelCaseObject(responseBody);
       console.log("Updated user data:", updatedUser);
-      
+
       setArtist((prev) => (prev ? { ...prev, ...updatedUser } : null));
       setIsEditingCredentials(false);
       setNewUsername(""); setNewPassword(""); setNewEmail("");
@@ -1024,58 +983,37 @@ export default function ArtistPage() {
 
           {/* Tracks */}
           {activeTab === "tracks" && (
-            <motion.div key="tracks" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+            <motion.div
+              key="tracks"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+            >
               {tracks.length === 0 ? (
                 <div className="py-16 text-center">
                   <Music2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
                   <p className="text-sm text-muted-foreground">No tracks yet.</p>
                   {isOwner && (
-                    <Link href="/upload"><Button type="button" className="glow mt-4"><Sparkles className="mr-2 h-4 w-4" />Upload your first track</Button></Link>
+                    <Link href="/upload">
+                      <Button type="button" className="glow mt-4">
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Upload your first track
+                      </Button>
+                    </Link>
                   )}
                 </div>
               ) : (
-                <div className="space-y-1">
-                  {tracks.map((t, idx) => {
-                    const isActive = activeId === t.id;
-                    const isNowPlaying = isActive && isPlaying;
-                    return (
-                      <motion.div
-                        key={t.id}
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.04 }}
-                        className={cn(
-                          "group flex items-center gap-3 rounded-2xl border p-3 transition-all",
-                          isActive ? "border-primary/25 bg-primary/8" : "border-white/5 bg-white/2 hover:border-white/10 hover:bg-white/5",
-                        )}
-                      >
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center text-xs text-muted-foreground">
-                          {isNowPlaying ? <Radio className="h-3.5 w-3.5 text-primary animate-pulse" /> : idx + 1}
-                        </div>
-                        <div className={cn("h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10", !t.coverUrl && "bg-gradient-to-br", t.coverUrl ? "" : t.coverGradient)}>
-                          {t.coverUrl ? <img src={t.coverUrl} alt={t.title} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><Music2 className="h-4 w-4 text-white/30" /></div>}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold">{t.title}</div>
-                          <div className="flex items-center gap-2">
-                            {t.genre && <span className="text-xs text-muted-foreground">{t.genre}</span>}
-                            {t.mood && <span className="text-xs text-muted-foreground/50">· {t.mood}</span>}
-                          </div>
-                        </div>
-                        {t.audioDuration && <div className="shrink-0 text-xs text-muted-foreground">{time(t.audioDuration)}</div>}
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant={isActive ? "default" : "secondary"}
-                          className={cn("h-8 w-8 shrink-0 rounded-xl border-white/10 bg-white/5", isActive && "bg-primary glow")}
-                          onClick={() => handlePlayTrack(t)}
-                          data-testid={`button-play-${t.id}`}
-                        >
-                          {isNowPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5 translate-x-px" />}
-                        </Button>
-                      </motion.div>
-                    );
-                  })}
+                <div className="grid gap-2 sm:gap-3">
+                  {tracks.map((t, idx) => (
+                    <TrackCard
+                      key={t.id}
+                      track={t}
+                      onPlay={handlePlayTrack}
+                      isActive={active?.id === t.id}
+                      index={idx}
+                    />
+                  ))}
                 </div>
               )}
             </motion.div>
