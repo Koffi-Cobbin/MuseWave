@@ -705,7 +705,21 @@ export default function Upload() {
                       {/* Genre pills — horizontally scrollable */}
                       <div className="grid gap-1.5">
                         <Label className="text-xs">Genre</Label>
-                        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                        <div
+                          className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+                          ref={(el) => {
+                            if (!el) return;
+                            const onWheel = (e: WheelEvent) => {
+                              if (e.deltaY === 0) return;
+                              e.preventDefault();
+                              el.scrollLeft += e.deltaY;
+                            };
+                            if (!(el as any).__wheelBound) {
+                              el.addEventListener("wheel", onWheel, { passive: false });
+                              (el as any).__wheelBound = true;
+                            }
+                          }}
+                        >
                           {genres.map((g) => (
                             <button
                               key={g}
