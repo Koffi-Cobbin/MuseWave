@@ -504,11 +504,17 @@ function PlayerBar() {
                   </div>
                 </button>
 
-                {/* Title + artist */}
-                <div className="w-48 shrink-0 min-w-0">
+                {/* Title + artist — clickable to open play screen */}
+                <button
+                  type="button"
+                  onClick={() => setPlayScreenOpen(true)}
+                  className="w-48 shrink-0 min-w-0 text-left transition hover:opacity-80"
+                  data-testid="button-player-title-desktop"
+                  aria-label="Open full player"
+                >
                   <div className="truncate text-sm font-semibold" data-testid="text-player-title-desktop">{active.title}</div>
                   <div className="truncate text-xs text-muted-foreground" data-testid="text-player-artist-desktop">{active.artist}</div>
-                </div>
+                </button>
 
                 {/* Play + seek bar */}
                 <div className="flex flex-1 min-w-0 items-center gap-2">
