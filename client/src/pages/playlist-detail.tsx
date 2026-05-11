@@ -175,7 +175,10 @@ export default function PlaylistDetailPage() {
     // Persist to API
     setIsSavingOrder(true);
     try {
-      await reorderPlaylistTracks(playlistId, reordered.map((t) => t.track.id));
+      await reorderPlaylistTracks(
+        playlistId,
+        reordered.map((t, index) => ({ id: t.id, order: index })),
+      );
     } catch {
       toast({ variant: "destructive", title: "Failed to save order" });
       // Rollback
