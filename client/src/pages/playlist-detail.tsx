@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Play, Trash2, ArrowLeft, Music, Edit2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { AddToPlaylistButton } from "@/components/playlists/AddToPlaylistButton";
+import { AddToPlaylistButton } from "@/components/playlists/TrackActionsMenu";
 import { RenamePlaylistModal } from "@/components/playlists/RenamePlaylistModal";
 import {
   AlertDialog,

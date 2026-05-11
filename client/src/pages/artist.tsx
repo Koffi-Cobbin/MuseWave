@@ -542,7 +542,7 @@ function AlbumDetailSheet({
                   <div className="py-8 text-center text-xs text-muted-foreground">No tracks in this album yet.</div>
                 ) : (
                   tracks.map((t, i) => (
-                    <TrackCard key={t.id} track={t} onPlay={handlePlayTrack} isActive={active?.id === t.id} index={idx} />
+                    <TrackCard key={t.id} track={t} onPlay={onPlayTrack} isActive={t.id === activeTrackId} index={i} />
                   ))
                 )}
               </div>
@@ -724,6 +724,16 @@ export default function ArtistPage() {
   const handlePlayAlbum = (album: Album) => {
     const albumTracks = album.tracks ?? [];
     if (albumTracks.length > 0) handlePlayTrack(albumTracks[0]);
+  };
+
+  const handleTrackDeleted = (trackId: string) => {
+    setTracks((prev) => prev.filter((t) => t.id !== trackId));
+  };
+
+  const handleTrackUpdated = (updated: Track) => {
+    setTracks((prev) =>
+      prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
+    );
   };
 
   const displayName = artist?.displayName || artist?.username || slug;
@@ -1012,6 +1022,9 @@ export default function ArtistPage() {
                       onPlay={handlePlayTrack}
                       isActive={active?.id === t.id}
                       index={idx}
+                      isOwner={isOwner}
+                      onTrackDeleted={handleTrackDeleted}
+                      onTrackUpdated={handleTrackUpdated}
                     />
                   ))}
                 </div>

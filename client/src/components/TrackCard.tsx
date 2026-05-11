@@ -1,8 +1,6 @@
 /**
  * Shared TrackCard component
  * Used by: home.tsx, discover.tsx, artist.tsx
- *
- * Place at: client/src/components/TrackCard.tsx
  */
 
 import { Link } from "wouter";
@@ -12,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/contexts/player-context";
 import { useAuth } from "@/contexts/auth-context";
-import { AddToPlaylistButton } from "@/components/playlists/AddToPlaylistButton";
+import { TrackActionsMenu } from "@/components/playlists/TrackActionsMenu";
 import type { Track } from "../../../shared/schema";
 
 interface TrackCardProps {
@@ -22,9 +20,23 @@ interface TrackCardProps {
   isActive: boolean;
   /** Optional animation stagger index */
   index?: number;
+  /** When true, shows owner management actions (edit, delete) in the menu */
+  isOwner?: boolean;
+  /** Called after a successful deletion so the parent can remove the track */
+  onTrackDeleted?: (trackId: string) => void;
+  /** Called after a successful edit so the parent can update local state */
+  onTrackUpdated?: (track: Track) => void;
 }
 
-export function TrackCard({ track, onPlay, isActive, index = 0 }: TrackCardProps) {
+export function TrackCard({
+  track,
+  onPlay,
+  isActive,
+  index = 0,
+  isOwner = false,
+  onTrackDeleted,
+  onTrackUpdated,
+}: TrackCardProps) {
   const { isPlaying } = usePlayer();
   const { isAuthenticated } = useAuth();
   const isActiveAndPlaying = isActive && isPlaying;
@@ -65,7 +77,7 @@ export function TrackCard({ track, onPlay, isActive, index = 0 }: TrackCardProps
             <div className="absolute inset-0 opacity-50 blur-[10px]" />
           )}
 
-          {/* Play/pause circle — always visible when active, hover-only otherwise */}
+          {/* Play/pause circle */}
           <div
             className={cn(
               "absolute inset-0 flex items-center justify-center transition-all duration-150",
@@ -83,7 +95,7 @@ export function TrackCard({ track, onPlay, isActive, index = 0 }: TrackCardProps
           </div>
         </div>
 
-        {/* Track info — takes all remaining horizontal space */}
+        {/* Track info */}
         <div className="min-w-0 flex-1 overflow-hidden">
           <div
             className="truncate text-sm font-semibold leading-tight"
@@ -112,10 +124,17 @@ export function TrackCard({ track, onPlay, isActive, index = 0 }: TrackCardProps
           )}
         </div>
 
-        {/* ⋮ playlist menu — only rendered when the user is logged in */}
-        {isAuthenticated && (
+        {/* Actions menu — shown to authenticated users; owner gets extra controls */}
+        {(isAuthenticated || isOwner) && (
           <div className="shrink-0 self-start">
-            <AddToPlaylistButton trackId={track.id} size="sm" variant="ghost" />
+            <TrackActionsMenu
+              track={track}
+              isOwner={isOwner}
+              size="sm"
+              variant="ghost"
+              onTrackDeleted={onTrackDeleted}
+              onTrackUpdated={onTrackUpdated}
+            />
           </div>
         )}
       </div>
