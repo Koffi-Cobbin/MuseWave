@@ -40,6 +40,7 @@ export default function PlaylistDetailPage() {
   const [trackToRemove, setTrackToRemove] = useState<string | null>(null);
   const [localTracks, setLocalTracks] = useState<PlaylistTrack[]>([]);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [touchDragging, setTouchDragging] = useState<number | null>(null);
 
   // Drag state
   const dragIndex = useRef<number | null>(null);
@@ -140,11 +141,33 @@ export default function PlaylistDetailPage() {
     }
   };
 
-  // ── Drag-and-drop reorder ────────────────────────────────────────────────────
+  // ── Shared reorder logic ─────────────────────────────────────────────────────
 
-  const handleDragStart = (index: number) => {
-    dragIndex.current = index;
+  const performReorder = async (from: number, to: number) => {
+    if (from === to) return;
+    const reordered = [...localTracks];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    setLocalTracks(reordered);
+    setCurrentPlaylist({ ...currentPlaylist, tracks: reordered as unknown as Track[] });
+    setIsSavingOrder(true);
+    try {
+      await reorderPlaylistTracks(
+        playlistId,
+        reordered.map((t, i) => ({ id: t.id, order: i })),
+      );
+    } catch {
+      toast({ variant: "destructive", title: "Failed to save order" });
+      const original = (currentPlaylist.tracks as unknown as PlaylistTrack[]) || [];
+      setLocalTracks(original);
+    } finally {
+      setIsSavingOrder(false);
+    }
   };
+
+  // ── Mouse drag-and-drop ───────────────────────────────────────────────────────
+
+  const handleDragStart = (index: number) => { dragIndex.current = index; };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
@@ -155,43 +178,42 @@ export default function PlaylistDetailPage() {
     e.preventDefault();
     const from = dragIndex.current;
     const to = dragOverIndex.current;
-    if (from === null || to === null || from === to) return;
-
-    // Optimistically reorder
-    const reordered = [...localTracks];
-    const [moved] = reordered.splice(from, 1);
-    reordered.splice(to, 0, moved);
-    setLocalTracks(reordered);
-
-    // Also update context optimistically so play-all uses new order
-    setCurrentPlaylist({
-      ...currentPlaylist,
-      tracks: reordered as unknown as Track[],
-    });
-
     dragIndex.current = null;
     dragOverIndex.current = null;
-
-    // Persist to API
-    setIsSavingOrder(true);
-    try {
-      await reorderPlaylistTracks(
-        playlistId,
-        reordered.map((t, index) => ({ id: t.id, order: index })),
-      );
-    } catch {
-      toast({ variant: "destructive", title: "Failed to save order" });
-      // Rollback
-      const original = (currentPlaylist.tracks as unknown as PlaylistTrack[]) || [];
-      setLocalTracks(original);
-    } finally {
-      setIsSavingOrder(false);
-    }
+    if (from === null || to === null) return;
+    await performReorder(from, to);
   };
 
   const handleDragEnd = () => {
     dragIndex.current = null;
     dragOverIndex.current = null;
+  };
+
+  // ── Touch drag-and-drop (mobile) ──────────────────────────────────────────────
+
+  const handleTouchStart = (e: React.TouchEvent, index: number) => {
+    dragIndex.current = index;
+    setTouchDragging(index);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const row = el?.closest("[data-drag-index]") as HTMLElement | null;
+    if (row) {
+      const idx = parseInt(row.dataset.dragIndex ?? "-1", 10);
+      if (idx >= 0) dragOverIndex.current = idx;
+    }
+  };
+
+  const handleTouchEnd = async () => {
+    const from = dragIndex.current;
+    const to = dragOverIndex.current;
+    dragIndex.current = null;
+    dragOverIndex.current = null;
+    setTouchDragging(null);
+    if (from === null || to === null) return;
+    await performReorder(from, to);
   };
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -270,20 +292,13 @@ export default function PlaylistDetailPage() {
           </div>
         ) : (
           <div className="rounded-2xl border border-white/8 overflow-hidden mb-8">
-            {/* Header row */}
-            <div className="grid grid-cols-[auto_auto_1fr_auto_auto] gap-3 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground border-b border-white/8 bg-muted/20">
-              {isOwner && <div className="w-4" />}
-              <div className="w-6 text-right">#</div>
-              <div>Title</div>
-              <div className="text-right">Duration</div>
-              {isOwner && <div className="w-8" />}
-            </div>
-
             {localTracks.map((item, index) => {
               const isActive = active?.id === item.track.id;
+              const isTouchDragged = touchDragging === index;
               return (
                 <div
                   key={item.id}
+                  data-drag-index={index}
                   draggable={isOwner}
                   onDragStart={() => handleDragStart(index)}
                   onDragOver={(e) => handleDragOver(e, index)}
@@ -293,6 +308,7 @@ export default function PlaylistDetailPage() {
                     "grid grid-cols-[auto_auto_1fr_auto_auto] gap-3 items-center px-4 py-3 transition-colors group",
                     "border-b border-white/5 last:border-0",
                     isActive ? "bg-primary/10" : "hover:bg-muted/40",
+                    isTouchDragged && "opacity-50 scale-[0.98]",
                     isOwner && "cursor-default",
                   )}
                   data-testid={`row-playlist-track-${item.track.id}`}
@@ -300,8 +316,11 @@ export default function PlaylistDetailPage() {
                   {/* Drag handle (owner only) */}
                   {isOwner && (
                     <div
-                      className="w-4 cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground transition-colors touch-none"
+                      className="w-4 cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground transition-colors touch-none select-none"
                       data-testid={`drag-handle-${item.track.id}`}
+                      onTouchStart={(e) => handleTouchStart(e, index)}
+                      onTouchMove={handleTouchMove}
+                      onTouchEnd={handleTouchEnd}
                     >
                       <GripVertical className="h-4 w-4" />
                     </div>
