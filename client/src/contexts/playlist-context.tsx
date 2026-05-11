@@ -181,11 +181,12 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
 
   const reorderPlaylistTracks = useCallback(async (playlistId: string, tracks: { id: string; order: number }[]) => {
     setError(null);
+    console.log('Reordering tracks:', tracks)
     try {
       await apiRequestJson(
         'POST',
         API_ENDPOINTS.playlists.reorder(playlistId),
-        { playlistId, tracks }
+        tracks
       );
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to reorder playlist';
