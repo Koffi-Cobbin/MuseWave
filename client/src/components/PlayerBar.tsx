@@ -214,7 +214,16 @@ function PlayerBar() {
     const audio = audioRef.current;
     if (!audio || !active) return;
     if (isPlaying) {
-      audio.play().catch(() => setIsPlaying(false));
+      if (audio.readyState >= 3) {
+        audio.play().catch(() => setIsPlaying(false));
+      } else {
+        // Audio src just changed — wait for it to be ready before playing
+        const onCanPlay = () => {
+          audio.play().catch(() => setIsPlaying(false));
+        };
+        audio.addEventListener("canplay", onCanPlay, { once: true });
+        return () => audio.removeEventListener("canplay", onCanPlay);
+      }
     } else {
       audio.pause();
     }
