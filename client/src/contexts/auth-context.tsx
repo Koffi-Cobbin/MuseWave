@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
+import { toCamelCaseObject } from "@/lib/caseTransform";
 import type { User } from "../../../shared/schema";
 
 interface AuthContextType {
@@ -83,9 +84,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("refreshToken", refreshToken);
       }
 
-      if (userData?.id) {
-        localStorage.setItem("userId", userData.id);
-        setUser(userData);
+      const normalizedUser = toCamelCaseObject<User>(userData);
+      if (normalizedUser?.id) {
+        localStorage.setItem("userId", normalizedUser.id);
+        setUser(normalizedUser);
         setIsAuthenticated(true);
       } else {
         throw new Error("Invalid response format");

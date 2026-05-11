@@ -304,8 +304,10 @@ export default function Upload() {
   const { user: authUser } = useAuth();
   const { genres } = useGenres();
 
-  // Derive whether the logged-in user is already an artist
-  const isLoggedInArtist = !!(authUser && authUser.is_artist);
+  // Derive whether the logged-in user is already an artist.
+  // authUser.isArtist is the camelCase form stored after toCamelCaseObject;
+  // fall back to the raw snake_case field in case the login path stored it directly.
+  const isLoggedInArtist = !!(authUser && ((authUser as any).isArtist || (authUser as any).is_artist));
 
   // Helper to read the display name from the Django response (may be snake_case or camelCase)
   const authDisplayName = authUser

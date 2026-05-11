@@ -23,7 +23,8 @@ export const userSchema = z.object({
     soundcloud: z.string().optional(),
   }).optional(),
   verified: z.boolean().default(false),
-  is_artist: z.boolean().optional(), // Set automatically by backend on first track upload
+  is_artist: z.boolean().optional(),  // snake_case from raw login response
+  isArtist: z.boolean().optional(),   // camelCase after toCamelCaseObject (loadUser path)
   createdAt: z.string().optional(),
   updatedAt: z.string().optional(),
 });
