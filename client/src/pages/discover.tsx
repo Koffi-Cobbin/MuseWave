@@ -414,7 +414,7 @@ export default function Discover() {
         </div>
 
         {/* ── Track list ── */}
-        <div className="grid gap-2 sm:gap-3" data-testid="discover-track-list">
+        <div className="grid gap-2 sm:gap-3 lg:grid-cols-2" data-testid="discover-track-list">
           {loading ? (
             Array.from({ length: PAGE_SIZE }).map((_, i) => (
               <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/5" />
