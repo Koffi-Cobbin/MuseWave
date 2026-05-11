@@ -37,6 +37,8 @@ interface UploadDraft {
   genre: string;
   mood: string;
   description: string;
+  lyrics: string;
+  videoUrl: string;
   audioFile: File | null;
   coverFile: File | null;
 }
@@ -209,7 +211,7 @@ function LivePreview({
   isSubmitting: boolean;
   uploadProgress: string;
 }) {
-  const isReady = draft.title.trim() && draft.artist.trim() && draft.email.trim() && draft.audioFile;
+  const isReady = draft.title.trim() && draft.artist.trim() && draft.audioFile;
 
   return (
     <div className="glass glow noise rounded-2xl border border-white/10 p-4 sm:rounded-3xl sm:p-5">
@@ -291,7 +293,7 @@ function LivePreview({
 
       {!isReady && !isSubmitting && (
         <p className="mt-2 text-center text-[10px] text-muted-foreground">
-          Fill in title, artist, email & audio to publish
+          Fill in title, artist & audio to publish
         </p>
       )}
     </div>
@@ -301,13 +303,26 @@ function LivePreview({
 // ─── Upload Page ──────────────────────────────────────────────────────────────
 
 export default function Upload() {
+  const { toast } = useToast();
+  const { user: authUser } = useAuth();
+
+  // Derive whether the logged-in user is already an artist
+  const isLoggedInArtist = !!(authUser && authUser.is_artist);
+
+  // Helper to read the display name from the Django response (may be snake_case or camelCase)
+  const authDisplayName = authUser
+    ? (authUser as any).display_name || authUser.displayName || authUser.username || ""
+    : "";
+
   const [draft, setDraft] = useState<UploadDraft>({
     title: "",
-    artist: "",
-    email: "",
+    artist: isLoggedInArtist ? authDisplayName : "",
+    email: isLoggedInArtist ? (authUser?.email ?? "") : "",
     genre: "Indie",
     mood: "",
     description: "",
+    lyrics: "",
+    videoUrl: "",
     audioFile: null,
     coverFile: null,
   });
@@ -320,8 +335,17 @@ export default function Upload() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
 
-  const { toast } = useToast();
-  const { user: authUser, login } = useAuth();
+  // When auth state resolves (e.g. on page load), sync artist + email into draft
+  useEffect(() => {
+    if (isLoggedInArtist) {
+      setDraft((d) => ({
+        ...d,
+        artist: authDisplayName || d.artist,
+        email: authUser?.email ?? d.email,
+      }));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authUser?.id]);
 
   // Scroll to top whenever the step changes
   useEffect(() => {
@@ -355,7 +379,7 @@ export default function Upload() {
   async function onSubmit() {
     if (!draft.title.trim()) return toast({ title: "Missing title", variant: "destructive" });
     if (!draft.artist.trim()) return toast({ title: "Missing artist name", variant: "destructive" });
-    if (!draft.email.trim()) return toast({ title: "Missing email", variant: "destructive" });
+    if (!authUser && !draft.email.trim()) return toast({ title: "Missing email", variant: "destructive" });
     if (!draft.audioFile) return toast({ title: "Missing audio file", variant: "destructive" });
 
     setIsSubmitting(true);
@@ -365,53 +389,57 @@ export default function Upload() {
       let userId: string;
       let isNewUser = false;
 
-      setUploadProgress("Checking artist profile…");
-
-      let existingUser: any = null;
-
-      try {
-        existingUser = await apiRequestJson<any>(
-          "GET",
-          API_ENDPOINTS.users.byUsername(artistSlug)
-        );
-      } catch (err: any) {
-        // Only treat 404 as "user not found"
-        if (err?.status === 404 || err?.response?.status === 404) {
-          existingUser = null;
-        } else {
-          throw err; // rethrow other errors
-        }
-      }
-
-      if (existingUser) {
-        userId = existingUser.id;
+      if (authUser) {
+        // ── Already logged in — use this account directly, skip all user lookup/create ──
+        userId = authUser.id;
+        setUploadProgress("Processing audio…");
       } else {
-        setUploadProgress("Creating artist profile…");
-        const generatedPassword = `mw-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-        // save the generated password temporarily in session storage to log in the user after email verification
-        sessionStorage.setItem("temp_password", generatedPassword);
+        // ── Guest flow — look up or create a user account ──
+        setUploadProgress("Checking artist profile…");
 
-        const newUser = await apiRequestJson<any>("POST", API_ENDPOINTS.users.create, {
-          username: artistSlug,
-          email: draft.email.trim(),
-          password: generatedPassword,
-          display_name: draft.artist.trim(),
-          bio: "Indie artist sharing music on MuseWave",
-        });
-        userId = newUser.id;
-        isNewUser = true;
-        setUploadProgress("Setting up your account…");
-        await sleep(800);
-        // await login(artistSlug, generatedPassword).catch(() => {});
+        let existingUser: any = null;
+        try {
+          existingUser = await apiRequestJson<any>(
+            "GET",
+            API_ENDPOINTS.users.byUsername(artistSlug)
+          );
+        } catch (err: any) {
+          if (err?.status === 404 || err?.response?.status === 404) {
+            existingUser = null;
+          } else {
+            throw err;
+          }
+        }
+
+        if (existingUser) {
+          userId = existingUser.id;
+        } else {
+          setUploadProgress("Creating artist profile…");
+          const generatedPassword = `mw-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+          sessionStorage.setItem("temp_password", generatedPassword);
+
+          const newUser = await apiRequestJson<any>("POST", API_ENDPOINTS.users.create, {
+            username: artistSlug,
+            email: draft.email.trim(),
+            password: generatedPassword,
+            display_name: draft.artist.trim(),
+            bio: "Indie artist sharing music on MuseWave",
+          });
+          userId = newUser.id;
+          isNewUser = true;
+          setUploadProgress("Setting up your account…");
+          await sleep(800);
+        }
+
+        setUploadProgress("Processing audio…");
       }
 
-      setUploadProgress("Processing audio…");
       let audioDuration = 0;
       try { audioDuration = await getAudioDuration(draft.audioFile); } catch { }
 
       setUploadProgress("Uploading files…");
       const formData = new FormData();
-      formData.append("user_id", userId);  
+      formData.append("user_id", userId);
       formData.append("title", draft.title.trim());
       formData.append("artist", draft.artist.trim());
       formData.append("artist_slug", artistSlug);
@@ -430,6 +458,8 @@ export default function Upload() {
       }
       formData.append("cover_gradient", coverGradient);
       formData.append("published", "true");
+      if (draft.videoUrl.trim()) formData.append("video_url", draft.videoUrl.trim());
+      if (draft.lyrics.trim()) formData.append("lyrics", draft.lyrics.trim());
 
       setUploadProgress("Publishing track…");
       const createdTrack = await apiRequestFormData<any>("POST", API_ENDPOINTS.tracks.create, formData);
@@ -531,7 +561,18 @@ export default function Upload() {
                   variant="ghost"
                   className="w-full"
                   onClick={() => {
-                    setDraft({ title: "", artist: "", email: "", genre: "Indie", mood: "", description: "", audioFile: null, coverFile: null });
+                    setDraft({
+                      title: "",
+                      artist: isLoggedInArtist ? authDisplayName : "",
+                      email: isLoggedInArtist ? (authUser?.email ?? "") : "",
+                      genre: "Indie",
+                      mood: "",
+                      description: "",
+                      lyrics: "",
+                      videoUrl: "",
+                      audioFile: null,
+                      coverFile: null,
+                    });
                     setPreviewUrl(null);
                     setAudioPreviewUrl(null);
                     setSubmitted(false);
@@ -625,34 +666,43 @@ export default function Upload() {
                         />
                       </div>
 
-                      {/* Artist + Email */}
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="grid gap-1.5">
-                          <Label htmlFor="artist" className="text-xs">Artist name <span className="text-red-400">*</span></Label>
-                          <Input
-                            id="artist"
-                            value={draft.artist}
-                            onChange={(e) => update("artist", e.target.value)}
-                            placeholder="e.g. Luna Waves"
-                            className="h-10"
-                            data-testid="input-artist-name"
-                            disabled={isSubmitting}
-                          />
+                      {/* Artist + Email — hidden when the user is a logged-in artist */}
+                      {isLoggedInArtist ? (
+                        <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/4 px-3 py-2.5">
+                          <UserIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                          <span className="text-xs text-muted-foreground">
+                            Uploading as <span className="font-medium text-foreground">{draft.artist || authDisplayName}</span>
+                          </span>
                         </div>
-                        <div className="grid gap-1.5">
-                          <Label htmlFor="email" className="text-xs">Email <span className="text-red-400">*</span></Label>
-                          <Input
-                            id="email"
-                            type="email"
-                            value={draft.email}
-                            onChange={(e) => update("email", e.target.value)}
-                            placeholder="artist@example.com"
-                            className="h-10"
-                            data-testid="input-email"
-                            disabled={isSubmitting}
-                          />
+                      ) : (
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="artist" className="text-xs">Artist name <span className="text-red-400">*</span></Label>
+                            <Input
+                              id="artist"
+                              value={draft.artist}
+                              onChange={(e) => update("artist", e.target.value)}
+                              placeholder="e.g. Luna Waves"
+                              className="h-10"
+                              data-testid="input-artist-name"
+                              disabled={isSubmitting}
+                            />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label htmlFor="email" className="text-xs">Email <span className="text-red-400">*</span></Label>
+                            <Input
+                              id="email"
+                              type="email"
+                              value={draft.email}
+                              onChange={(e) => update("email", e.target.value)}
+                              placeholder="artist@example.com"
+                              className="h-10"
+                              data-testid="input-email"
+                              disabled={isSubmitting}
+                            />
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       {/* Genre pills */}
                       <div className="grid gap-1.5">
@@ -724,12 +774,49 @@ export default function Upload() {
                           disabled={isSubmitting}
                         />
                       </div>
+
+                      {/* YouTube / video URL */}
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="videoUrl" className="text-xs">
+                          YouTube / video URL <span className="text-muted-foreground font-normal">(optional)</span>
+                        </Label>
+                        <Input
+                          id="videoUrl"
+                          type="url"
+                          value={draft.videoUrl}
+                          onChange={(e) => update("videoUrl", e.target.value)}
+                          placeholder="https://youtube.com/watch?v=…"
+                          className="h-10"
+                          data-testid="input-video-url"
+                          disabled={isSubmitting}
+                        />
+                      </div>
+
+                      {/* Lyrics */}
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="lyrics" className="text-xs">
+                          Lyrics <span className="text-muted-foreground font-normal">(optional)</span>
+                        </Label>
+                        <Textarea
+                          id="lyrics"
+                          value={draft.lyrics}
+                          onChange={(e) => update("lyrics", e.target.value)}
+                          placeholder={"Verse 1\n...\n\nChorus\n..."}
+                          className="min-h-[100px] resize-y text-sm font-mono"
+                          data-testid="input-lyrics"
+                          disabled={isSubmitting}
+                        />
+                      </div>
                     </div>
 
                     <div className="mt-5 flex justify-end">
                       <Button
                         onClick={() => setStep(1)}
-                        disabled={!draft.title.trim() || !draft.artist.trim() || !draft.email.trim()}
+                        disabled={
+                          !draft.title.trim() ||
+                          !draft.artist.trim() ||
+                          (!authUser && !draft.email.trim())
+                        }
                         className="glow gap-1.5"
                         data-testid="button-next-step"
                       >

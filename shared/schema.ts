@@ -10,6 +10,7 @@ export const userSchema = z.object({
   email: z.string().email(),
   password: z.string(), // hashed
   displayName: z.string().optional(),
+  display_name: z.string().optional(), // Django snake_case alias
   bio: z.string().max(500).optional(),
   avatarUrl: z.string().url().optional(),
   headerUrl: z.string().url().optional(),
@@ -22,8 +23,9 @@ export const userSchema = z.object({
     soundcloud: z.string().optional(),
   }).optional(),
   verified: z.boolean().default(false),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  is_artist: z.boolean().optional(), // Set automatically by backend on first track upload
+  createdAt: z.string().optional(),
+  updatedAt: z.string().optional(),
 });
 
 export const createUserSchema = userSchema.omit({ 
@@ -90,6 +92,10 @@ export const trackSchema = z.object({
   coverGradient: z.string().optional(),
 
   waveformData: z.string().optional(), // JSON string of waveform data
+
+  // Optional content fields
+  videoUrl: z.string().optional(),   // YouTube / external video URL
+  lyrics: z.string().optional(),     // Plain text, newlines preserved
 
   // Metadata
   bpm: z.number().optional(),
