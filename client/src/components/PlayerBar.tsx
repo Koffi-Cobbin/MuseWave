@@ -359,6 +359,8 @@ function PlayerBar() {
         onTogglePlay={() => setIsPlaying(!isPlaying)}
         onLike={handleLike}
         onSeekDelta={handleSeekDelta}
+        volume={volume}
+        onVolumeChange={setVolume}
       />
 
       <AnimatePresence>
