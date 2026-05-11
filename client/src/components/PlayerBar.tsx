@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2, ChevronDown } from "lucide-react";
+import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -21,11 +21,9 @@ import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, API_BASE_URL, downloadTrack } from "@/lib/apiConfig";
 import { motion, AnimatePresence } from "framer-motion";
+import { PlayScreen } from "@/components/PlayScreen";
 
-// ── Extracted top-level sub-components ───────────────────────────────────────
-// IMPORTANT: These MUST be defined outside PlayerBar so React doesn't treat
-// them as new component types on every render (which would unmount/remount
-// them and instantly close the Popover/Dialog).
+// ── Sub-components (defined outside PlayerBar to preserve identity) ────────────
 
 interface SupportDialogProps {
   trigger: React.ReactNode;
@@ -150,10 +148,8 @@ function PlayerBar() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
-  // Mobile starts collapsed (pill); auto-expands when a track loads
-  const [expanded, setExpanded] = useState(false);
+  const [playScreenOpen, setPlayScreenOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  // Separate open states so mobile and desktop menus don't interfere with each other
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -167,13 +163,11 @@ function PlayerBar() {
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  // Volume sync
   useEffect(() => {
     const audio = audioRef.current;
     if (audio) audio.volume = volume;
   }, [volume]);
 
-  // Audio event listeners
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -190,12 +184,11 @@ function PlayerBar() {
     };
   }, [active]);
 
-  // Reset + auto-expand when track changes
+  // Reset state when track changes
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
     setIsLiked(false);
-    if (active) setExpanded(true);
   }, [active?.id]);
 
   // Fetch like status
@@ -216,7 +209,7 @@ function PlayerBar() {
     setIsPlaying(true);
   }, [autoPlay, active]);
 
-  // Sync audio element with isPlaying
+  // Sync audio element
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !active) return;
@@ -228,17 +221,29 @@ function PlayerBar() {
   }, [isPlaying]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+
   const togglePlay = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     setIsPlaying(!isPlaying);
   };
 
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSeek = (time: number) => {
     const audio = audioRef.current;
     if (!audio) return;
-    const t = parseFloat(e.target.value);
-    audio.currentTime = t;
-    setCurrentTime(t);
+    audio.currentTime = time;
+    setCurrentTime(time);
+  };
+
+  const handleSeekDelta = (delta: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const newTime = Math.max(0, Math.min(duration, audio.currentTime + delta));
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const handleSeekInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleSeek(parseFloat(e.target.value));
   };
 
   const formatTime = (t: number) => {
@@ -313,7 +318,6 @@ function PlayerBar() {
     toast({ title: "Link copied!", description: "Link copied to clipboard." });
   };
 
-  // Shared action props (no open/onOpenChange — those differ per instance)
   const sharedMenuProps = {
     isLiked,
     isLiking,
@@ -343,144 +347,112 @@ function PlayerBar() {
     <>
       <audio ref={audioRef} src={active?.audioUrl} preload="metadata" />
 
+      {/* ── Play Screen overlay ── */}
+      <PlayScreen
+        open={playScreenOpen}
+        onClose={() => setPlayScreenOpen(false)}
+        currentTime={currentTime}
+        duration={duration}
+        isLiked={isLiked}
+        isLiking={isLiking}
+        onSeek={handleSeek}
+        onTogglePlay={() => setIsPlaying(!isPlaying)}
+        onLike={handleLike}
+        onSeekDelta={handleSeekDelta}
+      />
+
       <AnimatePresence>
         {active && (
           <>
             {/* ══════════════════════════════════════════════
                 MOBILE  (hidden on lg+)
-                Two states: collapsed pill ↔ expanded bar
+                Compact always-visible bar above BottomNav
             ══════════════════════════════════════════════ */}
-            <div className="lg:hidden">
-              <AnimatePresence mode="wait">
+            <motion.div
+              key="mobile-bar"
+              data-testid="player-bar-mobile"
+              initial={{ y: 80, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 80, opacity: 0 }}
+              transition={{ type: "spring", stiffness: 380, damping: 36 }}
+              className="fixed inset-x-0 z-30 lg:hidden"
+              style={{ bottom: "calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px))" }}
+            >
+              {/* Hairline progress bar at top of bar */}
+              <div className="relative h-[2px] w-full bg-white/10">
+                <div
+                  className="absolute inset-y-0 left-0 bg-primary transition-all duration-200 pointer-events-none"
+                  style={{ width: `${progress}%` }}
+                />
+                <input
+                  type="range" min="0" max={duration || 0} value={currentTime}
+                  onChange={handleSeekInput}
+                  className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[16px] w-full cursor-pointer opacity-0"
+                  data-testid="input-player-seek"
+                />
+              </div>
 
-                {/* ── Collapsed pill ── */}
-                {!expanded && (
-                  <motion.button
-                    key="pill"
+              {/* Bar body — clickable to open play screen */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setPlayScreenOpen(true)}
+                onKeyDown={(e) => e.key === "Enter" && setPlayScreenOpen(true)}
+                className="flex cursor-pointer items-center gap-3 bg-background/94 px-3 py-2.5 backdrop-blur-2xl border-t border-white/8 select-none"
+                data-testid="button-open-play-screen"
+                aria-label="Open full player"
+              >
+                {/* Cover art */}
+                <div className={cn(
+                  "h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
+                  !active.coverUrl && "bg-gradient-to-br",
+                  active.coverUrl ? "" : active.coverGradient || "from-emerald-500/40 to-fuchsia-500/30",
+                )}>
+                  {active.coverUrl && (
+                    <img src={active.coverUrl} alt="" className="h-full w-full object-cover" />
+                  )}
+                </div>
+
+                {/* Track info */}
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <div className="truncate text-sm font-semibold leading-tight" data-testid="text-player-title">
+                    {active.title}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground" data-testid="text-player-artist">
+                    {active.artist}
+                  </div>
+                </div>
+
+                {/* Actions — stop propagation so clicks don't open play screen */}
+                <div
+                  className="flex shrink-0 items-center gap-0.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
                     type="button"
-                    onClick={() => setExpanded(true)}
-                    data-testid="button-player-pill"
-                    initial={{ y: 12, opacity: 0, scale: 0.94 }}
-                    animate={{ y: 0, opacity: 1, scale: 1 }}
-                    exit={{ y: 12, opacity: 0, scale: 0.94 }}
-                    transition={{ type: "spring", stiffness: 440, damping: 34 }}
-                    className="fixed left-1/2 z-30 flex -translate-x-1/2 items-center gap-2.5 rounded-full border border-white/15 bg-background/90 px-3 py-1.5 shadow-2xl backdrop-blur-xl"
-                    style={{ bottom: "calc(var(--bottom-nav-h) + env(safe-area-inset-bottom, 0px) + 20px)" }}
+                    onClick={togglePlay}
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition hover:bg-primary/20"
+                    data-testid="button-player-play-pause"
+                    aria-label={isPlaying ? "Pause" : "Play"}
                   >
-                    {/* Tiny cover art */}
-                    <div className={cn(
-                      "h-7 w-7 shrink-0 overflow-hidden rounded-full border border-white/10",
-                      !active.coverUrl && "bg-gradient-to-br",
-                      active.coverUrl ? "" : active.coverGradient || "from-emerald-500/40 to-fuchsia-500/30",
-                    )}>
-                      {active.coverUrl && (
-                        <img src={active.coverUrl} alt="" className="h-full w-full object-cover" />
-                      )}
-                    </div>
+                    {isPlaying
+                      ? <Pause className="h-4 w-4 fill-current" />
+                      : <Play className="h-4 w-4 translate-x-px fill-current" />
+                    }
+                  </button>
 
-                    {/* Play / Pause mini button */}
-                    <div
-                      role="button"
-                      onClick={(e) => { e.stopPropagation(); togglePlay(e); }}
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-foreground/10"
-                    >
-                      {isPlaying
-                        ? <Pause className="relative h-3 w-3 text-foreground" />
-                        : <Play className="relative h-3 w-3 translate-x-px text-foreground" />
-                      }
-                    </div>
-
-                    {/* Track name */}
-                    <span className="max-w-[110px] truncate text-xs font-semibold leading-none">
-                      {active.title}
-                    </span>
-
-                    {/* Expand chevron */}
-                    <ChevronDown className="h-3.5 w-3.5 rotate-180 text-muted-foreground" />
-                  </motion.button>
-                )}
-
-                {/* ── Expanded bar ── */}
-                {expanded && (
-                  <motion.div
-                    key="expanded"
-                    data-testid="player-bar-expanded"
-                    initial={{ y: "100%", opacity: 0 }}
-                    animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: "100%", opacity: 0 }}
-                    transition={{ type: "spring", stiffness: 380, damping: 36 }}
-                    className="fixed inset-x-0 z-30 border-t border-white/10 bg-background/92 backdrop-blur-2xl"
-                    style={{ bottom: "calc(57px + env(safe-area-inset-bottom, 0px) + 12px)" }}
+                  <button
+                    type="button"
+                    onClick={() => setPlayScreenOpen(true)}
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground"
+                    data-testid="button-player-expand"
+                    aria-label="Open full player"
                   >
-                    {/* Seekable hairline progress bar */}
-                    <div className="relative h-[3px] w-full bg-white/10">
-                      <div
-                        className="absolute inset-y-0 left-0 bg-primary transition-all duration-200 pointer-events-none"
-                        style={{ width: `${progress}%` }}
-                      />
-                      <input
-                        type="range" min="0" max={duration || 0} value={currentTime}
-                        onChange={handleSeek}
-                        className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[20px] w-full cursor-pointer opacity-0"
-                        data-testid="input-player-seek"
-                      />
-                    </div>
-
-                    <div className="px-3 pb-3 pt-2.5">
-                      {/* Row 1: cover art with play button · info · menu · collapse */}
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "relative h-12 w-12 shrink-0 overflow-hidden rounded-xl border border-white/10 group",
-                          !active.coverUrl && "bg-gradient-to-br",
-                          active.coverUrl ? "" : active.coverGradient || "from-emerald-500/40 to-fuchsia-500/30",
-                        )}>
-                          {active.coverUrl && (
-                            <img src={active.coverUrl} alt="" className="h-full w-full object-cover" />
-                          )}
-                          {/* Play / Pause Overlay */}
-                          <button
-                            onClick={togglePlay}
-                            className="absolute inset-0 flex items-center justify-center bg-black/40 text-white transition-opacity group-hover:bg-black/50"
-                            data-testid="button-player-play-pause-overlay"
-                          >
-                            {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="h-5 w-5 fill-current ml-0.5" />}
-                          </button>
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-semibold" data-testid="text-player-title">
-                            {active.title}
-                          </div>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <div className="truncate text-xs text-muted-foreground max-w-[100px]" data-testid="text-player-artist">
-                              {active.artist}
-                            </div>
-                            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
-                              {formatTime(currentTime)} / {formatTime(duration)}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Menu & Collapse Group */}
-                        <div className="flex items-center gap-1">
-                          <OverflowMenu side="top" align="end" {...mobileMenuProps} />
-
-                          <button
-                            type="button"
-                            onClick={() => setExpanded(false)}
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/8 text-muted-foreground transition hover:bg-white/14 hover:text-foreground"
-                            data-testid="button-player-collapse"
-                            aria-label="Collapse player"
-                          >
-                            <ChevronDown className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                    <ChevronUp className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
 
             {/* ══════════════════════════════════════════════
                 DESKTOP  (hidden below lg)
@@ -501,28 +473,39 @@ function PlayerBar() {
                 />
                 <input
                   type="range" min="0" max={duration || 0} value={currentTime}
-                  onChange={handleSeek}
+                  onChange={handleSeekInput}
                   className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[20px] w-full cursor-pointer opacity-0"
                   data-testid="input-player-seek-desktop"
                 />
               </div>
 
               <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
-                {/* Cover */}
-                <div className={cn(
-                  "h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
-                  !active.coverUrl && "bg-gradient-to-br",
-                  active.coverUrl ? "" : active.coverGradient || "from-emerald-500/40 to-fuchsia-500/30",
-                )}>
-                  {active.coverUrl && (
-                    <img src={active.coverUrl} alt={`${active.title} cover`} className="h-full w-full object-cover" />
-                  )}
-                </div>
+                {/* Cover — clickable to open play screen */}
+                <button
+                  type="button"
+                  onClick={() => setPlayScreenOpen(true)}
+                  className="group relative h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10 transition hover:border-white/25"
+                  data-testid="button-player-cover-desktop"
+                  aria-label="Open full player"
+                >
+                  <div className={cn(
+                    "h-full w-full",
+                    !active.coverUrl && "bg-gradient-to-br",
+                    active.coverUrl ? "" : active.coverGradient || "from-emerald-500/40 to-fuchsia-500/30",
+                  )}>
+                    {active.coverUrl && (
+                      <img src={active.coverUrl} alt={`${active.title} cover`} className="h-full w-full object-cover" />
+                    )}
+                  </div>
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition group-hover:opacity-100">
+                    <ChevronUp className="h-4 w-4 text-white" />
+                  </div>
+                </button>
 
                 {/* Title + artist */}
                 <div className="w-48 shrink-0 min-w-0">
-                  <div className="truncate text-sm font-semibold" data-testid="text-player-title">{active.title}</div>
-                  <div className="truncate text-xs text-muted-foreground" data-testid="text-player-artist">{active.artist}</div>
+                  <div className="truncate text-sm font-semibold" data-testid="text-player-title-desktop">{active.title}</div>
+                  <div className="truncate text-xs text-muted-foreground" data-testid="text-player-artist-desktop">{active.artist}</div>
                 </div>
 
                 {/* Play + seek bar */}
@@ -533,7 +516,7 @@ function PlayerBar() {
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatTime(currentTime)}</span>
                   <input
                     type="range" min="0" max={duration || 0} value={currentTime}
-                    onChange={handleSeek}
+                    onChange={handleSeekInput}
                     className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded-lg bg-white/20"
                     data-testid="input-player-seek-bar"
                   />
