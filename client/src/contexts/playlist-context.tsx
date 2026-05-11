@@ -15,6 +15,7 @@ interface PlaylistContextType {
   renamePlaylist: (id: string, newName: string, description?: string) => Promise<void>;
   addSongToPlaylist: (playlistId: string, trackId: string) => Promise<void>;
   removeSongFromPlaylist: (playlistId: string, trackId: string) => Promise<void>;
+  reorderPlaylistTracks: (playlistId: string, trackIds: string[]) => Promise<void>;
   setCurrentPlaylist: (playlist: (Playlist & { tracks?: Track[] }) | null) => void;
   clearError: () => void;
 }
@@ -168,7 +169,6 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
         API_ENDPOINTS.playlists.removeTrack(playlistId),
         { trackId }
       );
-      // Refresh the playlist
       await fetchPlaylistById(playlistId);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to remove song from playlist';
@@ -178,6 +178,21 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, [fetchPlaylistById]);
+
+  const reorderPlaylistTracks = useCallback(async (playlistId: string, trackIds: string[]) => {
+    setError(null);
+    try {
+      await apiRequestJson(
+        'POST',
+        API_ENDPOINTS.playlists.reorder(playlistId),
+        { trackIds }
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to reorder playlist';
+      setError(message);
+      throw err;
+    }
+  }, []);
 
   return (
     <PlaylistContext.Provider
@@ -193,6 +208,7 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
         renamePlaylist,
         addSongToPlaylist,
         removeSongFromPlaylist,
+        reorderPlaylistTracks,
         setCurrentPlaylist,
         clearError,
       }}

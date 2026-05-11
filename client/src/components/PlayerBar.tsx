@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2, ChevronUp } from "lucide-react";
+import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2, ChevronUp, SkipBack, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -144,7 +144,7 @@ function OverflowMenu({
 // ── Main component ────────────────────────────────────────────────────────────
 
 function PlayerBar() {
-  const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
+  const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying, playNext, playPrev, hasNext, hasPrev } = usePlayer();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
@@ -173,7 +173,7 @@ function PlayerBar() {
     if (!audio) return;
     const updateTime = () => setCurrentTime(audio.currentTime);
     const updateDuration = () => setDuration(audio.duration);
-    const handleEnded = () => setIsPlaying(false);
+    const handleEnded = () => playNext();
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
     audio.addEventListener("ended", handleEnded);
@@ -518,8 +518,14 @@ function PlayerBar() {
 
                 {/* Play + seek bar */}
                 <div className="flex flex-1 min-w-0 items-center gap-2">
+                  <Button size="icon" variant="ghost" onClick={playPrev} disabled={!hasPrev} className="shrink-0" data-testid="button-player-prev-desktop" aria-label="Previous track">
+                    <SkipBack className="h-4 w-4" />
+                  </Button>
                   <Button size="icon" variant="ghost" onClick={togglePlay} className="shrink-0" data-testid="button-player-play-pause-desktop">
                     {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={playNext} disabled={!hasNext} className="shrink-0" data-testid="button-player-next-desktop" aria-label="Next track">
+                    <SkipForward className="h-4 w-4" />
                   </Button>
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatTime(currentTime)}</span>
                   <input
