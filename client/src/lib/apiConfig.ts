@@ -110,6 +110,12 @@ export const API_ENDPOINTS = {
   artists: {
     list: '/api/artists',
   },
+
+  // Genres
+  genres: {
+    list: '/api/genres',
+    byId: (id: string) => `/api/genres/${id}`,
+  },
 } as const;
 
 // Helper function to get the full streaming URL for a track

@@ -23,28 +23,12 @@ import { usePlayer } from "@/contexts/player-context";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { TrackCard } from "@/components/TrackCard";
+import { useGenres } from "@/hooks/use-genres";
 import type { Track } from "../../../shared/schema";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 8;
-
-const GENRES = [
-  "All",
-  "Afrobeats",
-  "Indie",
-  "Lo-fi",
-  "Pop",
-  "Hip-Hop",
-  "R&B",
-  "Electronic",
-  "Folk",
-  "Jazz",
-  "Classical",
-  "Rock",
-  "Alternative",
-  "Ambient",
-];
 
 const SORT_OPTIONS = [
   { value: "createdAt", label: "Latest", icon: Clock },
@@ -136,21 +120,24 @@ function Pagination({
 // ─── Genre Tab Strip ─────────────────────────────────────────────────────────
 
 function GenreTabs({
+  genres,
   active,
   onChange,
   counts,
 }: {
+  genres: string[];
   active: string;
   onChange: (g: string) => void;
   counts: Record<string, number>;
 }) {
+  const all = ["All", ...genres];
   return (
     <div
       className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       role="tablist"
       aria-label="Genre filter"
     >
-      {GENRES.map((genre) => {
+      {all.map((genre) => {
         const count = genre === "All" ? Object.values(counts).reduce((a, b) => a + b, 0) : (counts[genre] ?? 0);
         const isActive = genre === active;
         return (
@@ -159,7 +146,7 @@ function GenreTabs({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(genre)}
-            data-testid={`tab-genre-${genre.toLowerCase().replace(/[\s/]/g, "-")}`}
+            data-testid={`tab-genre-${genre.toLowerCase().replace(/[\s/&]/g, "-")}`}
             className={cn(
               "flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-medium transition-all",
               "border focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary",
@@ -196,6 +183,8 @@ export default function Discover() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+
+  const { genres } = useGenres();
 
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
 
@@ -392,7 +381,7 @@ export default function Discover() {
 
         {/* ── Genre tabs ── */}
         <div className="mb-5">
-          <GenreTabs active={genre} onChange={setGenre} counts={genreCounts} />
+          <GenreTabs genres={genres} active={genre} onChange={setGenre} counts={genreCounts} />
         </div>
 
         {/* ── Results header ── */}

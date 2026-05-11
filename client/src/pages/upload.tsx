@@ -25,6 +25,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
+import { useGenres } from "@/hooks/use-genres";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson, apiRequestFormData } from "@/lib/queryClient";
 
@@ -49,10 +50,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-const GENRES = [
-  "Afrobeats", "Indie", "Lo-fi", "Pop", "Hip-Hop",
-  "R&B", "Electronic", "Folk", "Jazz", "Rock", "Ambient",
-];
 
 const MOODS = [
   "Chill", "Energetic", "Melancholic", "Uplifting", "Dark", "Romantic",
@@ -305,6 +302,7 @@ function LivePreview({
 export default function Upload() {
   const { toast } = useToast();
   const { user: authUser } = useAuth();
+  const { genres } = useGenres();
 
   // Derive whether the logged-in user is already an artist
   const isLoggedInArtist = !!(authUser && authUser.is_artist);
@@ -704,29 +702,29 @@ export default function Upload() {
                         </div>
                       )}
 
-                      {/* Genre pills */}
+                      {/* Genre pills — horizontally scrollable */}
                       <div className="grid gap-1.5">
                         <Label className="text-xs">Genre</Label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {GENRES.map((g) => (
+                        <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                          {genres.map((g) => (
                             <button
                               key={g}
                               type="button"
                               onClick={() => update("genre", g)}
                               className={cn(
-                                "rounded-full border px-3 py-1 text-xs transition-all",
+                                "shrink-0 rounded-full border px-3 py-1 text-xs transition-all",
                                 draft.genre === g
                                   ? "border-primary/50 bg-primary/15 text-primary"
                                   : "border-white/10 bg-white/4 text-muted-foreground hover:border-white/20 hover:text-foreground"
                               )}
-                              data-testid={`genre-pill-${g.toLowerCase()}`}
+                              data-testid={`genre-pill-${g.toLowerCase().replace(/[\s/&]/g, "-")}`}
                             >
                               {g}
                             </button>
                           ))}
                         </div>
-                        {/* Custom genre input */}
-                        {!GENRES.includes(draft.genre) && (
+                        {/* Custom genre input — shown when the typed value isn't in the list */}
+                        {draft.genre && !genres.includes(draft.genre) && (
                           <Input
                             value={draft.genre}
                             onChange={(e) => update("genre", e.target.value)}
