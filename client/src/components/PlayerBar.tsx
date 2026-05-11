@@ -227,7 +227,7 @@ function PlayerBar() {
     } else {
       audio.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, active?.id]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
