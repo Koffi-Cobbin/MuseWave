@@ -2,24 +2,39 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- FIXED: Removed maximum-scale=1 which was preventing proper mobile scaling -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#ffffff" />
 
-    <link rel="manifest" href="/favicon_io/site.webmanifest" />
+    <!-- PWA theme + manifest -->
+    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MuseWave" />
+    <meta name="application-name" content="MuseWave" />
+    <meta name="description" content="A home for indie artists to upload tracks, share releases, and help listeners discover new music." />
 
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- Favicon set -->
+    <link rel="icon" type="image/x-icon" href="/favicon_io/favicon.ico" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon_io/favicon-16x16.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon_io/favicon-32x32.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/favicon_io/apple-touch-icon.png" />
+
+    <!-- Open Graph -->
     <meta property="og:title" content="MuseWave" />
     <meta property="og:description" content="A home for indie artists to upload tracks, share releases, and help listeners discover new music." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="public/homepage.png" />
+    <meta property="og:image" content="/homepage.png" />
+
+    <!-- Twitter / X card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@musewave" />
     <meta name="twitter:title" content="MuseWave" />
     <meta name="twitter:description" content="A home for indie artists to upload tracks, share releases, and help listeners discover new music." />
-    <meta name="twitter:image" content="public/homepage.png" />
+    <meta name="twitter:image" content="/homepage.png" />
 
-    <link rel="icon" type="image/png" href="public/favicon.png" />
-
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300..700&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
@@ -28,14 +43,16 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // FIXED: Unregister stale service workers that were causing
-      // "Failed to fetch" errors by pre-caching files that don't exist.
-      // Remove this block only when sw.js is properly configured.
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (let reg of registrations) {
-            reg.unregister();
-          }
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' })
+            .then(function (reg) {
+              // Check for updates every time the page loads
+              reg.update();
+            })
+            .catch(function (err) {
+              console.warn('[MuseWave] Service worker registration failed:', err);
+            });
         });
       }
     </script>

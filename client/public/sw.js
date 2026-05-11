@@ -1,46 +1,42 @@
-// MuseWave Service Worker
-// FIXED: Previous version pre-cached files that didn't exist, causing
-// "Failed to fetch" errors. This version only caches what it successfully
-// fetches, and never causes the app to break if a resource is missing.
+// MuseWave Service Worker v3
+// Strategy: network-first for all same-origin GET requests.
+// Falls back to cache when offline. Never blocks install on missing files.
 
-const CACHE_NAME = "musewave-v2";
+const CACHE_NAME = "musewave-v3";
 
-// Only cache the app shell — files we KNOW exist at these exact paths.
-// Do NOT list files here unless you are certain they exist in /public.
+// App shell — pre-cached during install for offline support
 const SHELL_URLS = [
   "/",
-  "/src/main.tsx", // dev only — in prod this is a hashed JS bundle
+  "/favicon.png",
+  "/favicon_io/android-chrome-192x192.png",
+  "/favicon_io/android-chrome-512x512.png",
+  "/favicon_io/apple-touch-icon.png",
+  "/manifest.json",
 ];
 
-// ── Install ──────────────────────────────────────────────────────────────────
+// ── Install ───────────────────────────────────────────────────────────────────
 self.addEventListener("install", (event) => {
-  // Skip waiting so the new SW activates immediately
   self.skipWaiting();
-
-  // Pre-cache silently — never let a missing file block installation
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return Promise.allSettled(
-        SHELL_URLS.map((url) =>
-          cache.add(url).catch(() => {
-            // Silently ignore — the file may not exist in this environment
-          })
-        )
-      );
-    })
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.allSettled(
+        SHELL_URLS.map((url) => cache.add(url).catch(() => {}))
+      )
+    )
   );
 });
 
-// ── Activate ─────────────────────────────────────────────────────────────────
+// ── Activate ──────────────────────────────────────────────────────────────────
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys
-          .filter((key) => key !== CACHE_NAME)
-          .map((key) => caches.delete(key))
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k))
+        )
       )
-    ).then(() => self.clients.claim())
+      .then(() => self.clients.claim())
   );
 });
 
@@ -49,52 +45,37 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Never intercept:
-  // - Non-GET requests (POST, etc.)
-  // - API calls to the backend
-  // - Cross-origin requests (fonts, CDN assets)
-  // - Chrome extension URLs
+  // Pass through: non-GET, API calls, cross-origin, chrome-extension
   if (
     request.method !== "GET" ||
     url.pathname.startsWith("/api/") ||
     url.origin !== self.location.origin ||
     url.protocol === "chrome-extension:"
   ) {
-    return; // Let the browser handle it normally
+    return;
   }
 
-  // Network-first strategy: try network, fall back to cache.
-  // This means users always get fresh content when online.
+  // Network-first: try network, write to cache, fall back to cache on failure
   event.respondWith(
     fetch(request)
       .then((networkResponse) => {
-        // Cache successful responses for offline use
         if (networkResponse.ok) {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(request, responseToCache);
-          });
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return networkResponse;
       })
-      .catch(() => {
-        // Network failed — try the cache
-        return caches.match(request).then((cachedResponse) => {
-          if (cachedResponse) return cachedResponse;
-
-          // For navigation requests (HTML pages), return the cached root
-          if (request.mode === "navigate") {
-            return caches.match("/");
-          }
-
-          // Nothing available — return a minimal error response
-          // rather than throwing, which would cause an ugly browser error
+      .catch(() =>
+        caches.match(request).then((cached) => {
+          if (cached) return cached;
+          // For page navigations, serve the cached root so the SPA can handle routing
+          if (request.mode === "navigate") return caches.match("/");
           return new Response("Offline — resource not available", {
             status: 503,
             statusText: "Service Unavailable",
             headers: { "Content-Type": "text/plain" },
           });
-        });
-      })
+        })
+      )
   );
 });
