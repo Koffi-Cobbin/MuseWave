@@ -128,23 +128,23 @@ export default function BottomNav() {
             const active = it.href === "/" ? location === "/" : location.startsWith(it.href);
             const Icon = it.icon;
             return (
-              <Link key={it.href} href={it.href}>
-                <a
-                  data-testid={it.testId}
-                  className={cn(
-                    "flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all",
-                    active ? "text-foreground" : "text-muted-foreground"
-                  )}
-                  style={{ minWidth: 56, minHeight: 56 }}
-                >
-                  <div className={cn(
-                    "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
-                    active && "bg-primary/15"
-                  )}>
-                    <Icon className={cn("h-5 w-5 transition-all", active && "text-primary")} />
-                  </div>
-                  <span className="text-xs font-medium">{it.label}</span>
-                </a>
+              <Link
+                key={it.href}
+                href={it.href}
+                data-testid={it.testId}
+                className={cn(
+                  "flex flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all",
+                  active ? "text-foreground" : "text-muted-foreground"
+                )}
+                style={{ minWidth: 56, minHeight: 56 }}
+              >
+                <div className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
+                  active && "bg-primary/15"
+                )}>
+                  <Icon className={cn("h-5 w-5 transition-all", active && "text-primary")} />
+                </div>
+                <span className="text-xs font-medium">{it.label}</span>
               </Link>
             );
           })}

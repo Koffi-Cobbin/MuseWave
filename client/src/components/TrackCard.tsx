@@ -103,14 +103,13 @@ export function TrackCard({
           >
             {track.title}
           </div>
-          <Link href={`/artist/${track.artistSlug}`}>
-            <a
-              className="mt-0.5 flex min-w-0 max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-              data-testid={`link-track-artist-${track.id}`}
-            >
-              <Music2 className="h-3 w-3 shrink-0" />
-              <span className="truncate">{track.artist}</span>
-            </a>
+          <Link
+            href={`/artist/${track.artistSlug}`}
+            className="mt-0.5 flex min-w-0 max-w-full items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            data-testid={`link-track-artist-${track.id}`}
+          >
+            <Music2 className="h-3 w-3 shrink-0" />
+            <span className="truncate">{track.artist}</span>
           </Link>
           {track.genre && (
             <div className="mt-1.5">

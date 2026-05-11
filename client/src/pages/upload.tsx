@@ -465,11 +465,13 @@ export default function Upload() {
       <div className="min-h-screen bg-[radial-gradient(1200px_420px_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(1100px_520px_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(900px_400px_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
         <div className="mx-auto max-w-lg px-3 py-12 sm:px-4">
           {/* Back */}
-          <Link href="/">
-            <a className="mb-8 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="button-back-home">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Home
-            </a>
+          <Link
+            href="/"
+            className="mb-8 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="button-back-home"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Home
           </Link>
 
           <motion.div
@@ -566,12 +568,10 @@ export default function Upload() {
         <header className="mb-5 flex items-center justify-between gap-3 sm:mb-6">
           <div className="flex min-w-0 items-center gap-3">
             <Link href="/">
-              <a>
-                <Button variant="secondary" size="sm" className="border-white/10 bg-white/5 shrink-0" data-testid="button-back-home">
-                  <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                  Home
-                </Button>
-              </a>
+              <Button variant="secondary" size="sm" className="border-white/10 bg-white/5 shrink-0" data-testid="button-back-home">
+                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
+                Home
+              </Button>
             </Link>
             <div className="min-w-0">
               <h1 className="truncate text-base font-semibold sm:text-lg" data-testid="text-upload-title">

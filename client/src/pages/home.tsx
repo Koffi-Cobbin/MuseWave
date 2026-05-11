@@ -138,19 +138,19 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
           const active = it.href === "/" ? location === "/" : !it.href.includes("#") && location.startsWith(it.href);
           const Icon = it.icon;
           return (
-            <Link key={it.label} href={it.href}>
-              <a
-                data-testid={it.testId}
-                onClick={onMobileClose}
-                className={cn(
-                  "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition",
-                  "hover:bg-white/5 hover:border-white/10 border border-transparent",
-                  active && "bg-white/6 border-white/10",
-                )}
-              >
-                <Icon className="h-5 w-5 shrink-0 text-foreground/80 group-hover:text-foreground" />
-                <span className="font-medium">{it.label}</span>
-              </a>
+            <Link
+              key={it.label}
+              href={it.href}
+              data-testid={it.testId}
+              onClick={onMobileClose}
+              className={cn(
+                "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition",
+                "hover:bg-white/5 hover:border-white/10 border border-transparent",
+                active && "bg-white/6 border-white/10",
+              )}
+            >
+              <Icon className="h-5 w-5 shrink-0 text-foreground/80 group-hover:text-foreground" />
+              <span className="font-medium">{it.label}</span>
             </Link>
           );
         })}
@@ -158,19 +158,19 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
           const active = it.href === "/" ? location === "/" : !it.href.includes("#") && location.startsWith(it.href);
           const Icon = it.icon;
           return (
-            <Link key={it.label} href={it.href}>
-              <a
-                data-testid={it.testId}
-                onClick={onMobileClose}
-                className={cn(
-                  "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition",
-                  "hover:bg-white/5 hover:border-white/10 border border-transparent",
-                  active && "bg-white/6 border-white/10",
-                )}
-              >
-                <Icon className="h-5 w-5 shrink-0 text-foreground/80 group-hover:text-foreground" />
-                <span className="font-medium">{it.label}</span>
-              </a>
+            <Link
+              key={it.label}
+              href={it.href}
+              data-testid={it.testId}
+              onClick={onMobileClose}
+              className={cn(
+                "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition",
+                "hover:bg-white/5 hover:border-white/10 border border-transparent",
+                active && "bg-white/6 border-white/10",
+              )}
+            >
+              <Icon className="h-5 w-5 shrink-0 text-foreground/80 group-hover:text-foreground" />
+              <span className="font-medium">{it.label}</span>
             </Link>
           );
         })}
@@ -210,11 +210,11 @@ function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
 
 function ArtistRow({ artist }: { artist: ArtistRowData }) {
   return (
-    <Link href={`/artist/${artist.slug}`}>
-      <a
-        className="group flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-transparent p-3 transition hover:border-white/10 hover:bg-white/4"
-        data-testid={`link-artist-${artist.slug}`}
-      >
+    <Link
+      href={`/artist/${artist.slug}`}
+      className="group flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-xl border border-transparent p-3 transition hover:border-white/10 hover:bg-white/4"
+      data-testid={`link-artist-${artist.slug}`}
+    >
         <div
           className={cn(
             "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10",
@@ -242,7 +242,6 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
           </div>
           <div className="text-[10px] text-muted-foreground/60 leading-none">followers</div>
         </div>
-      </a>
     </Link>
   );
 }
@@ -438,11 +437,13 @@ export default function Home() {
                           <><Play className="mr-1.5 h-4 w-4 translate-x-px" /> Play</>
                         )}
                       </Button>
-                      <Link href={`/artist/${featuredTrack.artistSlug}`}>
-                        <a className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground" data-testid="link-featured-artist">
-                          <Music2 className="h-4 w-4" />
-                          {featuredTrack.artist}
-                        </a>
+                      <Link
+                        href={`/artist/${featuredTrack.artistSlug}`}
+                        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+                        data-testid="link-featured-artist"
+                      >
+                        <Music2 className="h-4 w-4" />
+                        {featuredTrack.artist}
                       </Link>
                     </div>
                   </div>
@@ -463,10 +464,12 @@ export default function Home() {
                     </h2>
                   </div>
                   {!query && (
-                    <Link href="/discover">
-                      <a className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors" data-testid="link-see-all-tracks">
-                        See all <ArrowRight className="h-4 w-4" />
-                      </a>
+                    <Link
+                      href="/discover"
+                      className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      data-testid="link-see-all-tracks"
+                    >
+                      See all <ArrowRight className="h-4 w-4" />
                     </Link>
                   )}
                 </div>
