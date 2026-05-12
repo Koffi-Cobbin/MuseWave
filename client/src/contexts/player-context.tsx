@@ -41,20 +41,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const insertNext = useCallback((track: Track) => {
-    setQueueState((prev) => {
-      if (prev.length === 0) {
-        // Nothing playing yet — start a fresh single-track queue
+    if (queue.length === 0) {
+      if (active) {
+        // A track is already playing but no formal queue exists yet.
+        // Build a queue with the current track at position 0 and the
+        // requested track at position 1 — WITHOUT changing active or
+        // interrupting playback.
+        setQueueState([active, track]);
+        setQueueIndex(0);
+      } else {
+        // Nothing playing at all — start the track immediately.
+        setQueueState([track]);
         setQueueIndex(0);
         setActiveState(track);
         setAutoPlay(true);
-        return [track];
       }
-      // Splice the track in right after the current position
-      const next = [...prev];
+    } else {
+      // Normal case: splice in right after the current position.
+      const next = [...queue];
       next.splice(queueIndex + 1, 0, track);
-      return next;
-    });
-  }, [queueIndex]);
+      setQueueState(next);
+    }
+  }, [queue, queueIndex, active]);
 
   const playNext = useCallback(() => {
     if (queue.length === 0) return;
