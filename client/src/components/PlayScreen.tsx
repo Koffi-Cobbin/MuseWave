@@ -172,7 +172,7 @@ export function PlayScreen({
           <>
             <div
               className={cn(
-                "overflow-hidden text-sm leading-relaxed text-white/80 transition-all duration-300",
+                "lyrics-display overflow-hidden text-sm leading-relaxed text-white/80 transition-all duration-300",
                 "[&_strong]:font-bold [&_em]:italic [&_u]:underline",
                 !lyricsExpanded && "max-h-[100px]",
               )}
@@ -656,7 +656,7 @@ export function PlayScreen({
                       <>
                         <div
                           className={cn(
-                            "overflow-hidden text-sm leading-relaxed text-white/80 transition-all duration-300",
+                            "lyrics-display overflow-hidden text-sm leading-relaxed text-white/80 transition-all duration-300",
                             "[&_strong]:font-bold [&_em]:italic [&_u]:underline",
                             !lyricsExpanded && "max-h-[140px]",
                           )}
