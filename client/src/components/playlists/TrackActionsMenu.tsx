@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
+import { usePlayer } from "@/contexts/player-context";
 import { usePlaylists } from "@/contexts/playlist-context";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
-import { Plus, Music, MoreVertical, Pencil, Trash2, ListMusic } from "lucide-react";
+import { Plus, Music, MoreVertical, Pencil, Trash2, ListMusic, ListEnd } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { queryClient } from "@/lib/queryClient";
@@ -56,6 +57,7 @@ export function TrackActionsMenu({
   onTrackUpdated,
 }: TrackActionsMenuProps) {
   const { isAuthenticated } = useAuth();
+  const { insertNext } = usePlayer();
   const { playlists, addSongToPlaylist, loading } = usePlaylists();
   const { toast } = useToast();
 
@@ -123,9 +125,6 @@ export function TrackActionsMenu({
     }
   };
 
-  // Nothing to show if not authenticated and not owner
-  if (!isAuthenticated && !isOwner) return null;
-
   return (
     <>
       <DropdownMenu>
@@ -142,6 +141,20 @@ export function TrackActionsMenu({
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-52">
+          {/* ── Playback actions (always visible) ── */}
+          <DropdownMenuItem
+            onClick={() => {
+              insertNext(track);
+              toast({ title: "Playing next", description: track.title });
+            }}
+            data-testid={`menu-play-next-${track.id}`}
+          >
+            <ListEnd className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+            Play next
+          </DropdownMenuItem>
+
+          {(isOwner || isAuthenticated) && <DropdownMenuSeparator />}
+
           {/* ── Owner actions ── */}
           {isOwner && (
             <>

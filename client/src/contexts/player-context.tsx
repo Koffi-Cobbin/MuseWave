@@ -11,6 +11,7 @@ type PlayerContextType = {
   queue: Track[];
   queueIndex: number;
   setQueue: (tracks: Track[], startIndex?: number) => void;
+  insertNext: (track: Track) => void;
   playNext: () => void;
   playPrev: () => void;
   hasNext: boolean;
@@ -38,6 +39,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setAutoPlay(true);
     }
   }, []);
+
+  const insertNext = useCallback((track: Track) => {
+    setQueueState((prev) => {
+      if (prev.length === 0) {
+        // Nothing playing yet — start a fresh single-track queue
+        setQueueIndex(0);
+        setActiveState(track);
+        setAutoPlay(true);
+        return [track];
+      }
+      // Splice the track in right after the current position
+      const next = [...prev];
+      next.splice(queueIndex + 1, 0, track);
+      return next;
+    });
+  }, [queueIndex]);
 
   const playNext = useCallback(() => {
     if (queue.length === 0) return;
@@ -75,6 +92,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       queue,
       queueIndex,
       setQueue,
+      insertNext,
       playNext,
       playPrev,
       hasNext,
