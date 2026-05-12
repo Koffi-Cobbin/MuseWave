@@ -32,15 +32,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
-import { Plus, Music, MoreVertical, Pencil, Trash2, ListMusic, ListEnd } from "lucide-react";
+import { Plus, Music, MoreVertical, Pencil, Trash2, ListMusic, ListEnd, Users } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
-import { queryClient } from "@/lib/queryClient";
 import type { Track } from "../../../../shared/schema";
 
 interface TrackActionsMenuProps {
   track: Track;
-  /** When true, shows edit + delete actions for the track owner */
   isOwner?: boolean;
   size?: "default" | "sm" | "lg" | "icon";
   variant?: "default" | "outline" | "ghost" | "secondary" | "destructive";
@@ -58,9 +56,10 @@ export function TrackActionsMenu({
 }: TrackActionsMenuProps) {
   const { isAuthenticated } = useAuth();
   const { insertNext } = usePlayer();
-  const { playlists, addSongToPlaylist, loading } = usePlaylists();
+  const { playlists, sharedWithMe, fetchSharedWithMe, addSongToPlaylist, loading } = usePlaylists();
   const { toast } = useToast();
 
+  const [open, setOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -72,12 +71,25 @@ export function TrackActionsMenu({
   const [editGenre, setEditGenre] = useState(track.genre ?? "");
   const [editDescription, setEditDescription] = useState(track.description ?? "");
 
-  const handleAddToPlaylist = async (playlistId: string) => {
+  // Playlists where the user can add tracks (owned + shared with edit permission)
+  const editableShared = sharedWithMe.filter((p) => p.myPermission === "edit");
+  const hasAnyPlaylist = playlists.length > 0 || editableShared.length > 0;
+
+  // Fetch shared playlists lazily when the menu first opens (if not yet loaded)
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen && sharedWithMe.length === 0) {
+      fetchSharedWithMe();
+    }
+  };
+
+  const handleAddToPlaylist = async (playlistId: string, playlistName: string) => {
     try {
       await addSongToPlaylist(playlistId, track.id);
-      toast({ title: "Added to playlist" });
-    } catch {
-      toast({ variant: "destructive", title: "Failed to add to playlist" });
+      toast({ title: "Added to playlist", description: playlistName });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to add to playlist";
+      toast({ variant: "destructive", title: "Error", description: msg });
     }
   };
 
@@ -127,7 +139,7 @@ export function TrackActionsMenu({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={open} onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
             variant={variant}
@@ -135,13 +147,14 @@ export function TrackActionsMenu({
             disabled={loading}
             aria-label="Track actions"
             className="border-transparent"
+            data-testid={`button-track-actions-${track.id}`}
           >
             <MoreVertical className="h-3.5 w-3.5" />
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="end" className="w-52">
-          {/* ── Playback actions (always visible) ── */}
+        <DropdownMenuContent align="end" className="w-56">
+          {/* ── Playback actions ── */}
           <DropdownMenuItem
             onClick={() => {
               insertNext(track);
@@ -166,6 +179,7 @@ export function TrackActionsMenu({
                   setEditDescription(track.description ?? "");
                   setShowEditDialog(true);
                 }}
+                data-testid={`menu-edit-track-${track.id}`}
               >
                 <Pencil className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                 Edit details
@@ -173,6 +187,7 @@ export function TrackActionsMenu({
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
                 onClick={() => setShowDeleteAlert(true)}
+                data-testid={`menu-delete-track-${track.id}`}
               >
                 <Trash2 className="h-3.5 w-3.5 mr-2" />
                 Delete track
@@ -184,29 +199,62 @@ export function TrackActionsMenu({
           {/* ── Playlist actions (authenticated users) ── */}
           {isAuthenticated && (
             <>
-              {playlists.length > 0 ? (
+              {hasAnyPlaylist ? (
                 <>
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <ListMusic className="h-3 w-3" /> Add to playlist
-                    </span>
-                  </DropdownMenuLabel>
-                  {playlists.map((playlist) => (
-                    <DropdownMenuItem
-                      key={playlist.id}
-                      onClick={() => handleAddToPlaylist(playlist.id)}
-                      disabled={loading}
-                    >
-                      <Music className="h-3 w-3 mr-2 text-muted-foreground" />
-                      <span className="truncate">{playlist.name}</span>
-                    </DropdownMenuItem>
-                  ))}
+                  {/* My playlists */}
+                  {playlists.length > 0 && (
+                    <>
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <ListMusic className="h-3 w-3" /> Add to my playlist
+                        </span>
+                      </DropdownMenuLabel>
+                      {playlists.map((playlist) => (
+                        <DropdownMenuItem
+                          key={playlist.id}
+                          onClick={() => handleAddToPlaylist(playlist.id, playlist.name)}
+                          disabled={loading}
+                          data-testid={`menu-add-to-playlist-${playlist.id}`}
+                        >
+                          <Music className="h-3 w-3 mr-2 text-muted-foreground shrink-0" />
+                          <span className="truncate">{playlist.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
+
+                  {/* Shared editable playlists */}
+                  {editableShared.length > 0 && (
+                    <>
+                      {playlists.length > 0 && <DropdownMenuSeparator />}
+                      <DropdownMenuLabel className="text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                          <Users className="h-3 w-3" /> Add to shared playlist
+                        </span>
+                      </DropdownMenuLabel>
+                      {editableShared.map((playlist) => (
+                        <DropdownMenuItem
+                          key={playlist.id}
+                          onClick={() => handleAddToPlaylist(playlist.id, playlist.name)}
+                          disabled={loading}
+                          data-testid={`menu-add-to-shared-playlist-${playlist.id}`}
+                        >
+                          <Users className="h-3 w-3 mr-2 text-muted-foreground shrink-0" />
+                          <span className="truncate">{playlist.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </>
+                  )}
+
                   <DropdownMenuSeparator />
                 </>
               ) : (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground">No playlists yet</div>
               )}
-              <DropdownMenuItem onClick={() => setShowCreateModal(true)}>
+              <DropdownMenuItem
+                onClick={() => setShowCreateModal(true)}
+                data-testid={`menu-new-playlist-${track.id}`}
+              >
                 <Plus className="h-3 w-3 mr-2" />
                 New playlist
               </DropdownMenuItem>
@@ -230,6 +278,7 @@ export function TrackActionsMenu({
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
                 placeholder="Track title"
+                data-testid="input-edit-track-title"
               />
             </div>
             <div className="grid gap-1.5">
@@ -239,6 +288,7 @@ export function TrackActionsMenu({
                 value={editGenre}
                 onChange={(e) => setEditGenre(e.target.value)}
                 placeholder="e.g. Indie, Lo-fi"
+                data-testid="input-edit-track-genre"
               />
             </div>
             <div className="grid gap-1.5">
@@ -249,6 +299,7 @@ export function TrackActionsMenu({
                 onChange={(e) => setEditDescription(e.target.value)}
                 placeholder="Tell listeners about this track…"
                 rows={3}
+                data-testid="input-edit-track-description"
               />
             </div>
           </div>
@@ -256,7 +307,7 @@ export function TrackActionsMenu({
             <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={isSaving}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit} disabled={isSaving}>
+            <Button onClick={handleSaveEdit} disabled={isSaving} data-testid="button-save-track-edit">
               {isSaving ? "Saving…" : "Save changes"}
             </Button>
           </div>
