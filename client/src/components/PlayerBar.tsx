@@ -161,6 +161,10 @@ function PlayerBar() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
 
+  // Always-fresh ref so the `ended` handler never captures a stale playNext.
+  const playNextRef = useRef(playNext);
+  useEffect(() => { playNextRef.current = playNext; }, [playNext]);
+
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   useEffect(() => {
@@ -173,7 +177,7 @@ function PlayerBar() {
     if (!audio) return;
     const updateTime = () => setCurrentTime(audio.currentTime);
     const updateDuration = () => setDuration(audio.duration);
-    const handleEnded = () => playNext();
+    const handleEnded = () => playNextRef.current();
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
     audio.addEventListener("ended", handleEnded);
