@@ -156,7 +156,7 @@ export function PlayScreen({
   const hasCover = !!active.coverUrl;
   const gradient = active.coverGradient || "from-emerald-500/60 via-fuchsia-500/40 to-cyan-500/30";
 
-  const lyricsText = active.description || "";
+  const lyricsText = active.lyrics || "";
   const lyricsLines = lyricsText.split("\n").filter(Boolean);
   const previewLines = lyricsLines.slice(0, 4);
   const hasMoreLyrics = lyricsLines.length > 4;
@@ -194,6 +194,14 @@ export function PlayScreen({
           <p className="text-sm text-white/40 italic">Lyrics not available for this track.</p>
         )}
       </section>
+
+      {/* Description */}
+      {active.description && (
+        <section className="bg-black/30 px-7 py-5 backdrop-blur-sm">
+          <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-white/50">Description</h2>
+          <p className="text-sm leading-relaxed text-white/80 whitespace-pre-wrap">{active.description}</p>
+        </section>
+      )}
 
       {/* About Artist */}
       <section className="bg-black/30 px-7 py-5 backdrop-blur-sm">
@@ -669,6 +677,17 @@ export function PlayScreen({
                       <p className="text-sm text-white/40 italic">Lyrics not available for this track.</p>
                     )}
                   </section>
+
+                  {/* Description */}
+                  {active.description && (
+                    <>
+                      <div className="mx-10 h-px bg-white/10" />
+                      <section className="px-10 py-6">
+                        <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-white/50">Description</h2>
+                        <p className="text-sm leading-relaxed text-white/80 whitespace-pre-wrap">{active.description}</p>
+                      </section>
+                    </>
+                  )}
 
                   <div className="mx-10 h-px bg-white/10" />
 
