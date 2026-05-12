@@ -198,6 +198,19 @@ export type Follow = z.infer<typeof followSchema>;
 // PLAYLIST SCHEMAS
 // ============================================================================
 
+export const playlistShareSchema = z.object({
+  id: z.string(),
+  playlistId: z.string(),
+  sharedByUsername: z.string(),
+  sharedWithUsername: z.string().optional(),
+  sharedWithEmail: z.string().optional(),
+  sharedWithAvatar: z.string().optional(),
+  permission: z.enum(["view", "edit"]),
+  createdAt: z.string(),
+});
+
+export type PlaylistShare = z.infer<typeof playlistShareSchema>;
+
 export const playlistSchema = z.object({
   id: z.string(),
   userId: z.string(),
@@ -205,7 +218,12 @@ export const playlistSchema = z.object({
   description: z.string().max(1000).optional(),
   coverUrl: z.string().url().optional(),
   trackIds: z.array(z.string()).default([]),
-  public: z.boolean().default(true),
+  public: z.boolean().default(false),
+  linkPermission: z.enum(["view", "edit"]).optional(),
+  myPermission: z.enum(["owner", "edit", "view"]).nullable().optional(),
+  shareToken: z.string().nullable().optional(),
+  sharesCount: z.number().optional(),
+  shares: z.array(playlistShareSchema).optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

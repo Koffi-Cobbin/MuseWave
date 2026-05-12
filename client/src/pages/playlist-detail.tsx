@@ -4,12 +4,14 @@ import { useAuth } from "@/contexts/auth-context";
 import { usePlaylists } from "@/contexts/playlist-context";
 import { usePlayer } from "@/contexts/player-context";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Play, Trash2, ArrowLeft, Music, Edit2,
-  GripVertical, ListMusic, SkipForward,
+  GripVertical, ListMusic, SkipForward, Share2, Globe, Lock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { RenamePlaylistModal } from "@/components/playlists/RenamePlaylistModal";
+import { SharePlaylistModal } from "@/components/playlists/SharePlaylistModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { secondsToTime, cn } from "@/lib/utils";
-import type { Track } from "../../../shared/schema";
+import type { Playlist, Track } from "../../../shared/schema";
 
 type PlaylistTrack = { id: string; track: Track; position?: number };
 
@@ -33,27 +35,26 @@ export default function PlaylistDetailPage() {
     fetchPlaylistById, removeSongFromPlaylist, deletePlaylist, reorderPlaylistTracks,
     setCurrentPlaylist,
   } = usePlaylists();
-  const { setQueue, active, setActive, setIsPlaying, setAutoPlay } = usePlayer();
+  const { setQueue, active } = usePlayer();
   const { toast } = useToast();
 
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [trackToRemove, setTrackToRemove] = useState<string | null>(null);
   const [localTracks, setLocalTracks] = useState<PlaylistTrack[]>([]);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [touchDragging, setTouchDragging] = useState<number | null>(null);
 
-  // Drag state
   const dragIndex = useRef<number | null>(null);
   const dragOverIndex = useRef<number | null>(null);
 
   const playlistId = params?.id;
 
   useEffect(() => {
-    if (!isAuthenticated || !playlistId) return;
+    if (!playlistId) return;
     fetchPlaylistById(playlistId);
-  }, [isAuthenticated, playlistId, fetchPlaylistById]);
+  }, [playlistId, fetchPlaylistById]);
 
-  // Sync localTracks from context whenever playlist data changes
   useEffect(() => {
     const tracks = (currentPlaylist?.tracks as unknown as PlaylistTrack[]) || [];
     setLocalTracks(tracks);
@@ -99,7 +100,9 @@ export default function PlaylistDetailPage() {
     );
   }
 
-  const isOwner = user?.id === currentPlaylist.userId;
+  const myPermission = currentPlaylist.myPermission;
+  const isOwner = myPermission === "owner" || user?.id === currentPlaylist.userId;
+  const canEdit = isOwner || myPermission === "edit";
   const totalDuration = localTracks.reduce((sum, t) => sum + (t.track.audioDuration || 0), 0);
 
   // ── Playback ────────────────────────────────────────────────────────────────
@@ -141,7 +144,7 @@ export default function PlaylistDetailPage() {
     }
   };
 
-  // ── Shared reorder logic ─────────────────────────────────────────────────────
+  // ── Reorder ──────────────────────────────────────────────────────────────────
 
   const performReorder = async (from: number, to: number) => {
     if (from === to) return;
@@ -165,15 +168,11 @@ export default function PlaylistDetailPage() {
     }
   };
 
-  // ── Mouse drag-and-drop ───────────────────────────────────────────────────────
-
   const handleDragStart = (index: number) => { dragIndex.current = index; };
-
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
     dragOverIndex.current = index;
   };
-
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     const from = dragIndex.current;
@@ -183,19 +182,14 @@ export default function PlaylistDetailPage() {
     if (from === null || to === null) return;
     await performReorder(from, to);
   };
-
   const handleDragEnd = () => {
     dragIndex.current = null;
     dragOverIndex.current = null;
   };
-
-  // ── Touch drag-and-drop (mobile) ──────────────────────────────────────────────
-
   const handleTouchStart = (e: React.TouchEvent, index: number) => {
     dragIndex.current = index;
     setTouchDragging(index);
   };
-
   const handleTouchMove = (e: React.TouchEvent) => {
     const touch = e.touches[0];
     const el = document.elementFromPoint(touch.clientX, touch.clientY);
@@ -205,7 +199,6 @@ export default function PlaylistDetailPage() {
       if (idx >= 0) dragOverIndex.current = idx;
     }
   };
-
   const handleTouchEnd = async () => {
     const from = dragIndex.current;
     const to = dragOverIndex.current;
@@ -222,7 +215,6 @@ export default function PlaylistDetailPage() {
     <div className="min-h-screen bg-background">
       <div className="max-w-4xl mx-auto px-4 py-8">
 
-        {/* Back */}
         <Link href="/playlists">
           <Button variant="outline" size="sm" className="mb-8">
             <ArrowLeft className="h-4 w-4 mr-2" />Back to Playlists
@@ -232,13 +224,29 @@ export default function PlaylistDetailPage() {
         {/* Header */}
         <div className="mb-8">
           <div className="flex gap-6 items-end">
-            {/* Cover */}
             <div className="w-36 h-36 rounded-2xl bg-gradient-to-br from-purple-500/30 to-pink-500/20 flex items-center justify-center shrink-0 border border-white/10">
               <ListMusic className="w-14 h-14 text-muted-foreground" />
             </div>
 
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-1">Playlist</p>
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Playlist</p>
+                {/* Visibility & permission badges */}
+                {currentPlaylist.public ? (
+                  <Badge variant="secondary" className="gap-1 text-xs py-0">
+                    <Globe className="h-3 w-3" />Public
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="gap-1 text-xs py-0">
+                    <Lock className="h-3 w-3" />Private
+                  </Badge>
+                )}
+                {myPermission && myPermission !== "owner" && (
+                  <Badge variant="outline" className="text-xs py-0 capitalize">
+                    {myPermission === "edit" ? "Editor" : "Viewer"}
+                  </Badge>
+                )}
+              </div>
               <h1 className="text-4xl font-bold mb-2 truncate">{currentPlaylist.name}</h1>
               {currentPlaylist.description && (
                 <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{currentPlaylist.description}</p>
@@ -256,7 +264,7 @@ export default function PlaylistDetailPage() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex items-center gap-3 mt-6">
+          <div className="flex items-center gap-3 mt-6 flex-wrap">
             <Button
               onClick={handlePlayAll}
               disabled={localTracks.length === 0}
@@ -269,14 +277,24 @@ export default function PlaylistDetailPage() {
             </Button>
 
             {isOwner && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowEditModal(true)}
-                data-testid="button-playlist-edit"
-              >
-                <Edit2 className="h-4 w-4 mr-2" />Edit
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowEditModal(true)}
+                  data-testid="button-playlist-edit"
+                >
+                  <Edit2 className="h-4 w-4 mr-2" />Edit
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowShareModal(true)}
+                  data-testid="button-playlist-share"
+                >
+                  <Share2 className="h-4 w-4 mr-2" />Share
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -286,7 +304,7 @@ export default function PlaylistDetailPage() {
           <div className="text-center py-16 bg-muted/10 rounded-2xl border border-white/5">
             <Music className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">No tracks in this playlist yet</p>
-            {isOwner && (
+            {canEdit && (
               <p className="text-xs text-muted-foreground mt-2">Browse tracks and add them from the track menu</p>
             )}
           </div>
@@ -299,22 +317,24 @@ export default function PlaylistDetailPage() {
                 <div
                   key={item.id}
                   data-drag-index={index}
-                  draggable={isOwner}
+                  draggable={canEdit}
                   onDragStart={() => handleDragStart(index)}
                   onDragOver={(e) => handleDragOver(e, index)}
                   onDrop={handleDrop}
                   onDragEnd={handleDragEnd}
                   className={cn(
-                    "grid grid-cols-[auto_auto_1fr_auto_auto] gap-3 items-center px-4 py-3 transition-colors group",
+                    "grid gap-3 items-center px-4 py-3 transition-colors group",
                     "border-b border-white/5 last:border-0",
+                    canEdit
+                      ? "grid-cols-[auto_auto_1fr_auto_auto]"
+                      : "grid-cols-[auto_1fr_auto]",
                     isActive ? "bg-primary/10" : "hover:bg-muted/40",
                     isTouchDragged && "opacity-50 scale-[0.98]",
-                    isOwner && "cursor-default",
                   )}
                   data-testid={`row-playlist-track-${item.track.id}`}
                 >
-                  {/* Drag handle (owner only) */}
-                  {isOwner && (
+                  {/* Drag handle (edit permission only) */}
+                  {canEdit && (
                     <div
                       className="w-4 cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground transition-colors touch-none select-none"
                       data-testid={`drag-handle-${item.track.id}`}
@@ -376,8 +396,8 @@ export default function PlaylistDetailPage() {
                     {secondsToTime(item.track.audioDuration)}
                   </div>
 
-                  {/* Remove (owner only) */}
-                  {isOwner ? (
+                  {/* Remove (edit permission only) */}
+                  {canEdit ? (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -403,7 +423,7 @@ export default function PlaylistDetailPage() {
           </p>
         )}
 
-        {/* Delete */}
+        {/* Delete — owner only */}
         {isOwner && (
           <Button
             variant="destructive"
@@ -422,6 +442,18 @@ export default function PlaylistDetailPage() {
           playlist={currentPlaylist}
           open={showEditModal}
           onOpenChange={setShowEditModal}
+        />
+      )}
+
+      {/* Share modal */}
+      {currentPlaylist && isOwner && (
+        <SharePlaylistModal
+          playlist={currentPlaylist}
+          open={showShareModal}
+          onOpenChange={setShowShareModal}
+          onPlaylistUpdated={(updates) => {
+            setCurrentPlaylist({ ...currentPlaylist, ...updates } as Playlist & { tracks?: Track[] });
+          }}
         />
       )}
 

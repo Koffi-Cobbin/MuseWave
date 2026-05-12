@@ -3,25 +3,31 @@ import { useAuth } from "@/contexts/auth-context";
 import { usePlaylists } from "@/contexts/playlist-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, Home } from "lucide-react";
+import { Loader2, Plus, Home, Users, ListMusic } from "lucide-react";
 import { Link } from "wouter";
 import { PlaylistCard } from "@/components/playlists/PlaylistCard";
 import { CreatePlaylistModal } from "@/components/playlists/CreatePlaylistModal";
 import { LoginModal } from "@/components/LoginModal";
+import { cn } from "@/lib/utils";
+
+type Tab = "my" | "shared";
 
 export default function PlaylistPage() {
   const { isAuthenticated, user } = useAuth();
-  const { playlists, loading, error, fetchPlaylists } = usePlaylists();
+  const { playlists, sharedWithMe, loading, error, fetchPlaylists, fetchSharedWithMe } = usePlaylists();
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("my");
 
   useEffect(() => {
     if (!isAuthenticated) return;
     fetchPlaylists();
-  }, [isAuthenticated, fetchPlaylists]);
+    fetchSharedWithMe();
+  }, [isAuthenticated, fetchPlaylists, fetchSharedWithMe]);
 
-  const filteredPlaylists = playlists.filter((playlist) =>
+  const activeList = activeTab === "my" ? playlists : sharedWithMe;
+  const filteredPlaylists = activeList.filter((playlist) =>
     playlist.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -34,11 +40,7 @@ export default function PlaylistPage() {
             <p className="text-muted-foreground mb-8">
               Sign in to create and manage your playlists
             </p>
-            <Button
-              size="lg"
-              onClick={() => setShowLoginModal(true)}
-              className="glow"
-            >
+            <Button size="lg" onClick={() => setShowLoginModal(true)} className="glow">
               Log In
             </Button>
           </div>
@@ -49,6 +51,7 @@ export default function PlaylistPage() {
           onSuccess={() => {
             setShowLoginModal(false);
             fetchPlaylists();
+            fetchSharedWithMe();
           }}
         />
       </div>
@@ -70,26 +73,66 @@ export default function PlaylistPage() {
           </div>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div>
-              <h1 className="text-4xl font-bold">My Playlists</h1>
+              <h1 className="text-4xl font-bold">Playlists</h1>
               <p className="text-muted-foreground mt-2">
                 {user?.displayName || user?.username}
               </p>
             </div>
-            <Button
-              onClick={() => setShowCreateModal(true)}
-              className="glow"
+            {activeTab === "my" && (
+              <Button onClick={() => setShowCreateModal(true)} className="glow" data-testid="button-create-playlist">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Playlist
+              </Button>
+            )}
+          </div>
+
+          {/* Tabs */}
+          <div className="flex gap-1 mb-5 bg-muted/30 rounded-lg p-1 w-fit">
+            <button
+              onClick={() => setActiveTab("my")}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                activeTab === "my"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              data-testid="tab-my-playlists"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Playlist
-            </Button>
+              <ListMusic className="h-4 w-4" />
+              My Playlists
+              {playlists.length > 0 && (
+                <span className="ml-1 bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-xs">
+                  {playlists.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab("shared")}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                activeTab === "shared"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              data-testid="tab-shared-playlists"
+            >
+              <Users className="h-4 w-4" />
+              Shared with me
+              {sharedWithMe.length > 0 && (
+                <span className="ml-1 bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-xs">
+                  {sharedWithMe.length}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Search */}
           <Input
-            placeholder="Search playlists..."
+            placeholder={activeTab === "my" ? "Search your playlists..." : "Search shared playlists..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="max-w-xs"
+            data-testid="input-search-playlists"
           />
         </div>
 
@@ -112,19 +155,26 @@ export default function PlaylistPage() {
           <>
             {filteredPlaylists.length === 0 ? (
               <div className="text-center py-12">
-                <p className="text-muted-foreground mb-6">
-                  {playlists.length === 0
-                    ? "Create your first playlist to get started"
-                    : "No playlists match your search"}
-                </p>
-                {playlists.length === 0 && (
-                  <Button
-                    onClick={() => setShowCreateModal(true)}
-                    className="glow"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Playlist
-                  </Button>
+                {activeTab === "my" ? (
+                  <>
+                    <p className="text-muted-foreground mb-6">
+                      {playlists.length === 0
+                        ? "Create your first playlist to get started"
+                        : "No playlists match your search"}
+                    </p>
+                    {playlists.length === 0 && (
+                      <Button onClick={() => setShowCreateModal(true)} className="glow">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create Playlist
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-muted-foreground">
+                    {sharedWithMe.length === 0
+                      ? "No playlists have been shared with you yet"
+                      : "No shared playlists match your search"}
+                  </p>
                 )}
               </div>
             ) : (
@@ -133,7 +183,10 @@ export default function PlaylistPage() {
                   <PlaylistCard
                     key={playlist.id}
                     playlist={playlist}
-                    onPlaylistDeleted={() => fetchPlaylists()}
+                    onPlaylistDeleted={() => {
+                      fetchPlaylists();
+                      fetchSharedWithMe();
+                    }}
                   />
                 ))}
               </div>

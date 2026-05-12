@@ -17,6 +17,7 @@ import ResetPassword from "./pages/reset-password";
 import VerifyEmail from "./pages/verify-email";
 import Playlists from "./pages/playlists";
 import PlaylistDetail from "./pages/playlist-detail";
+import SharedPlaylist from "./pages/shared-playlist";
 
 function Router() {
   return (
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/upload" component={Upload} />
       <Route path="/artist/:slug" component={Artist} />
       <Route path="/playlists" component={Playlists} />
+      <Route path="/playlists/link/:token" component={SharedPlaylist} />
       <Route path="/playlists/:id" component={PlaylistDetail} />
       <Route path="/reset-password/:uid/:token" component={ResetPassword} />
       <Route path="/verify-email/:uidb64/:token" component={VerifyEmail} />

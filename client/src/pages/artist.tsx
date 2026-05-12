@@ -63,6 +63,7 @@ import { apiRequestJson } from "@/lib/queryClient";
 import type { Track, User } from "../../../shared/schema";
 import { Label } from "@/components/ui/label";
 import { TrackCard } from "@/components/TrackCard";
+import type { Playlist } from "../../../shared/schema";
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -89,7 +90,7 @@ type Album = {
   createdAt?: string;
 };
 
-type Tab = "tracks" | "albums" | "about";
+type Tab = "tracks" | "albums" | "playlists" | "about";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -567,6 +568,7 @@ export default function ArtistPage() {
   const [artist, setArtist] = useState<Artist | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [publicPlaylists, setPublicPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
   const [followCount, setFollowCount] = useState(0);
@@ -700,13 +702,15 @@ export default function ArtistPage() {
           accent: userData.accent || "from-emerald-400/28 via-transparent to-cyan-400/22",
         });
 
-        const [tracksData, albumsData] = await Promise.all([
+        const [tracksData, albumsData, playlistsData] = await Promise.all([
           apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, {
             userId: userData.id,
             published: true,
           }),
           apiRequestJson<Album[]>("GET", API_ENDPOINTS.albums.byUser(userData.id)).catch(() => []),
+          apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.byUser(userData.id)).catch(() => []),
         ]);
+        setPublicPlaylists(playlistsData);
 
         setTracks(tracksData);
 
@@ -791,6 +795,7 @@ export default function ArtistPage() {
   const tabs: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
     { key: "tracks", label: "Tracks", icon: Music2, count: tracks.length },
     { key: "albums", label: "Albums", icon: Disc, count: albums.length },
+    { key: "playlists", label: "Playlists", icon: ListMusic, count: publicPlaylists.length },
     { key: "about", label: "About", icon: UserIcon },
   ];
 
@@ -1162,6 +1167,43 @@ export default function ArtistPage() {
                       onTrackDeleted={handleTrackDeleted}
                       onTrackUpdated={handleTrackUpdated}
                     />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Playlists */}
+          {activeTab === "playlists" && (
+            <motion.div key="playlists" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+              {publicPlaylists.length === 0 ? (
+                <div className="py-16 text-center">
+                  <ListMusic className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No public playlists yet.</p>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {publicPlaylists.map((pl, idx) => (
+                    <motion.a
+                      key={pl.id}
+                      href={`/playlists/${pl.id}`}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.05 }}
+                      className="group flex items-center gap-3 rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5 cursor-pointer"
+                      data-testid={`card-public-playlist-${pl.id}`}
+                    >
+                      <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/20 flex items-center justify-center border border-white/10">
+                        <ListMusic className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{pl.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(pl.trackIds?.length ?? 0)} {(pl.trackIds?.length ?? 0) === 1 ? "track" : "tracks"}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition shrink-0" />
+                    </motion.a>
                   ))}
                 </div>
               )}

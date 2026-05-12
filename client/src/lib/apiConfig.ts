@@ -62,12 +62,23 @@ export const API_ENDPOINTS = {
   playlists: {
     list: '/api/playlists',
     byId: (id: string) => `/api/playlists/${id}`,
+    byIdWithToken: (id: string, token: string) => `/api/playlists/${id}?token=${token}`,
     create: '/api/playlists',
     update: (id: string) => `/api/playlists/${id}`,
     delete: (id: string) => `/api/playlists/${id}`,
     addTrack: (id: string) => `/api/playlists/${id}/add-track`,
     removeTrack: (id: string) => `/api/playlists/${id}/remove-track`,
     reorder: (id: string) => `/api/playlists/${id}/reorder`,
+    // Sharing — direct user grants
+    shares: (id: string) => `/api/playlists/${id}/shares`,
+    shareById: (id: string, shareId: string) => `/api/playlists/${id}/shares/${shareId}`,
+    // Sharing — link
+    link: (id: string) => `/api/playlists/${id}/link`,
+    byLink: (token: string) => `/api/playlists/link/${token}`,
+    // Shared with me
+    sharedWithMe: '/api/playlists/shared-with-me',
+    // Public playlists by user
+    byUser: (userId: string) => `/api/users/${userId}/playlists`,
   },
 
   // Likes
