@@ -36,7 +36,11 @@ import {
   Loader2,
   BadgeCheck,
   X,
+  MapPin,
+  Globe,
+  Link2,
 } from "lucide-react";
+import { SiSpotify, SiSoundcloud, SiX, SiInstagram } from "react-icons/si";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -582,6 +586,12 @@ export default function ArtistPage() {
   const [newEmail, setNewEmail] = useState("");
   const [newDisplayName, setNewDisplayName] = useState("");
   const [newBio, setNewBio] = useState("");
+  const [newLocation, setNewLocation] = useState("");
+  const [newWebsite, setNewWebsite] = useState("");
+  const [newTwitter, setNewTwitter] = useState("");
+  const [newInstagram, setNewInstagram] = useState("");
+  const [newSpotify, setNewSpotify] = useState("");
+  const [newSoundcloud, setNewSoundcloud] = useState("");
   const [newAvatarUrl, setNewAvatarUrl] = useState("");
   const [newAvatarFile, setNewAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -601,12 +611,25 @@ export default function ArtistPage() {
 
   const handleUpdateCredentials = async () => {
     if (!artist) return;
-    const updates: Record<string, string> = {};
+    const updates: Record<string, unknown> = {};
     if (newUsername.trim()) updates.username = newUsername.trim();
     if (newPassword.trim()) updates.password = newPassword.trim();
     if (newEmail.trim()) updates.email = newEmail.trim();
     if (newDisplayName.trim()) updates.displayName = newDisplayName.trim();
     if (newBio.trim()) updates.bio = newBio.trim();
+    if (newLocation.trim()) updates.location = newLocation.trim();
+    if (newWebsite.trim()) updates.website = newWebsite.trim();
+    // Merge social links with existing ones so unedited handles are preserved
+    const hasSocial = newTwitter.trim() || newInstagram.trim() || newSpotify.trim() || newSoundcloud.trim();
+    if (hasSocial) {
+      updates.socialLinks = {
+        ...(artist.socialLinks ?? {}),
+        ...(newTwitter.trim() ? { twitter: newTwitter.trim() } : {}),
+        ...(newInstagram.trim() ? { instagram: newInstagram.trim() } : {}),
+        ...(newSpotify.trim() ? { spotify: newSpotify.trim() } : {}),
+        ...(newSoundcloud.trim() ? { soundcloud: newSoundcloud.trim() } : {}),
+      };
+    }
     if (newAvatarFile) {
       updates.avatarUrl = await new Promise<string>((res, rej) => {
         const reader = new FileReader();
@@ -634,7 +657,6 @@ export default function ArtistPage() {
         body: JSON.stringify(snakePayload),
       });
       const responseBody = await response.json().catch(() => ({}));
-      console.log("Update response:", { status: response.status, body: responseBody });
 
       if (!response.ok) {
         const detail = Object.entries(responseBody)
@@ -643,12 +665,13 @@ export default function ArtistPage() {
         throw new Error(detail || `${response.status} ${response.statusText}`);
       }
       const updatedUser = toCamelCaseObject(responseBody);
-      console.log("Updated user data:", updatedUser);
 
       setArtist((prev) => (prev ? { ...prev, ...updatedUser } : null));
       setIsEditingCredentials(false);
       setNewUsername(""); setNewPassword(""); setNewEmail("");
       setNewDisplayName(""); setNewBio(""); setNewAvatarUrl("");
+      setNewLocation(""); setNewWebsite("");
+      setNewTwitter(""); setNewInstagram(""); setNewSpotify(""); setNewSoundcloud("");
       setNewAvatarFile(null); setAvatarPreview(null);
       toast({ title: "Profile updated!", description: "Your changes have been saved." });
     } catch (error) {
@@ -853,15 +876,7 @@ export default function ArtistPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   {isEditingCredentials && (
                     <>
-                      <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                        <div className="text-xs text-muted-foreground mb-2">Profile Bio</div>
-                        <Textarea
-                          value={newBio}
-                          onChange={(e) => setNewBio(e.target.value)}
-                          placeholder="Tell us about yourself..."
-                          className="bg-transparent border border-white/10 text-sm focus:outline-none w-full min-h-[80px] rounded-xl p-3 resize-none"
-                        />
-                      </div>
+                      {/* Avatar */}
                       <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
                         <div className="text-xs text-muted-foreground mb-2">Profile Picture</div>
                         <div className="flex items-center gap-3">
@@ -884,17 +899,88 @@ export default function ArtistPage() {
                             <Label htmlFor="avatar-upload" className="cursor-pointer">
                               <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition">Choose image…</div>
                             </Label>
-                            <Input
-                              id="avatar-upload"
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
+                            <Input id="avatar-upload" type="file" accept="image/*" className="hidden"
                               onChange={(e) => {
                                 const file = e.target.files?.[0];
                                 if (file) { setNewAvatarFile(file); setAvatarPreview(createLocalPreview(file)); }
                               }}
                             />
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Bio */}
+                      <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                        <div className="text-xs text-muted-foreground mb-2">Bio</div>
+                        <Textarea value={newBio} onChange={(e) => setNewBio(e.target.value)}
+                          placeholder={artist.bio || "Tell us about yourself…"}
+                          className="bg-transparent border border-white/10 text-sm focus:outline-none w-full min-h-[80px] rounded-xl p-3 resize-none"
+                        />
+                      </div>
+
+                      {/* Location & Website */}
+                      <div className="glass rounded-2xl p-3 sm:p-4">
+                        <div className="text-xs text-muted-foreground mb-2">Location</div>
+                        <Input value={newLocation} onChange={(e) => setNewLocation(e.target.value)}
+                          placeholder={artist.location || "City, Country"}
+                          className="bg-transparent border-white/10 text-sm"
+                        />
+                      </div>
+                      <div className="glass rounded-2xl p-3 sm:p-4">
+                        <div className="text-xs text-muted-foreground mb-2">Website</div>
+                        <Input value={newWebsite} onChange={(e) => setNewWebsite(e.target.value)}
+                          placeholder={artist.website || "https://yoursite.com"}
+                          className="bg-transparent border-white/10 text-sm"
+                        />
+                      </div>
+
+                      {/* Social Links */}
+                      <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                        <div className="text-xs text-muted-foreground mb-3">Social Links</div>
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          <div className="flex items-center gap-2">
+                            <SiX className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <Input value={newTwitter} onChange={(e) => setNewTwitter(e.target.value)}
+                              placeholder={artist.socialLinks?.twitter || "@handle"}
+                              className="bg-transparent border-white/10 text-sm h-8"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <SiInstagram className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <Input value={newInstagram} onChange={(e) => setNewInstagram(e.target.value)}
+                              placeholder={artist.socialLinks?.instagram || "@handle"}
+                              className="bg-transparent border-white/10 text-sm h-8"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <SiSpotify className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <Input value={newSpotify} onChange={(e) => setNewSpotify(e.target.value)}
+                              placeholder={artist.socialLinks?.spotify || "Spotify artist URL"}
+                              className="bg-transparent border-white/10 text-sm h-8"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <SiSoundcloud className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            <Input value={newSoundcloud} onChange={(e) => setNewSoundcloud(e.target.value)}
+                              placeholder={artist.socialLinks?.soundcloud || "SoundCloud URL"}
+                              className="bg-transparent border-white/10 text-sm h-8"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Password */}
+                      <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
+                        <div className="text-xs text-muted-foreground mb-1">New Password</div>
+                        <div className="flex gap-2 mt-1">
+                          <Input type={showPassword ? "text" : "password"} value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="Leave blank to keep current"
+                            className="bg-transparent border-white/10 text-sm"
+                          />
+                          <Button type="button" variant="ghost" size="icon" className="h-9 w-9 border border-white/10 bg-white/5 shrink-0" onClick={() => setShowPassword(!showPassword)}>
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
                         </div>
                       </div>
                     </>
@@ -915,9 +1001,19 @@ export default function ArtistPage() {
                     )}
                   </div>
 
+                  {/* Display Name */}
+                  <div className="glass rounded-2xl p-3 sm:p-4">
+                    <div className="text-xs text-muted-foreground mb-1">Display Name</div>
+                    {isEditingCredentials ? (
+                      <Input value={newDisplayName} onChange={(e) => setNewDisplayName(e.target.value)} placeholder={artist.displayName || artist.username} className="bg-transparent border-white/10 text-sm mt-1" />
+                    ) : (
+                      <div className="text-sm font-medium">{artist.displayName || artist.username}</div>
+                    )}
+                  </div>
+
                   {/* Email */}
                   {(artist.email || isEditingCredentials) && (
-                    <div className="glass rounded-2xl p-3 sm:p-4">
+                    <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
                       <div className="flex items-center justify-between">
                         <div className="text-xs text-muted-foreground mb-1">Email</div>
                         {artist.email && (
@@ -934,21 +1030,60 @@ export default function ArtistPage() {
                     </div>
                   )}
 
-                  {/* Password */}
-                  {isEditingCredentials && (
+                  {/* Read-only: Location & Website */}
+                  {!isEditingCredentials && (artist.location || artist.website) && (
+                    <>
+                      {artist.location && (
+                        <div className="glass rounded-2xl p-3 sm:p-4">
+                          <div className="text-xs text-muted-foreground mb-1">Location</div>
+                          <div className="flex items-center gap-1.5 text-sm font-medium">
+                            <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            {artist.location}
+                          </div>
+                        </div>
+                      )}
+                      {artist.website && (
+                        <div className="glass rounded-2xl p-3 sm:p-4">
+                          <div className="text-xs text-muted-foreground mb-1">Website</div>
+                          <a href={artist.website} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline truncate">
+                            <Globe className="h-3.5 w-3.5 shrink-0" />
+                            {artist.website.replace(/^https?:\/\//, "")}
+                          </a>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Read-only: Social Links */}
+                  {!isEditingCredentials && artist.socialLinks && Object.values(artist.socialLinks).some(Boolean) && (
                     <div className="glass rounded-2xl p-3 sm:p-4 sm:col-span-2">
-                      <div className="text-xs text-muted-foreground mb-1">New Password</div>
-                      <div className="flex gap-2 mt-1">
-                        <Input
-                          type={showPassword ? "text" : "password"}
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          placeholder="Leave blank to keep current"
-                          className="bg-transparent border-white/10 text-sm"
-                        />
-                        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 border border-white/10 bg-white/5 shrink-0" onClick={() => setShowPassword(!showPassword)}>
-                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </Button>
+                      <div className="text-xs text-muted-foreground mb-2">Social Links</div>
+                      <div className="flex flex-wrap gap-2">
+                        {artist.socialLinks.twitter && (
+                          <a href={`https://x.com/${artist.socialLinks.twitter.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs hover:bg-white/10 transition">
+                            <SiX className="h-3 w-3" />{artist.socialLinks.twitter}
+                          </a>
+                        )}
+                        {artist.socialLinks.instagram && (
+                          <a href={`https://instagram.com/${artist.socialLinks.instagram.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs hover:bg-white/10 transition">
+                            <SiInstagram className="h-3 w-3" />{artist.socialLinks.instagram}
+                          </a>
+                        )}
+                        {artist.socialLinks.spotify && (
+                          <a href={artist.socialLinks.spotify} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs hover:bg-white/10 transition">
+                            <SiSpotify className="h-3 w-3 text-green-500" />Spotify
+                          </a>
+                        )}
+                        {artist.socialLinks.soundcloud && (
+                          <a href={artist.socialLinks.soundcloud} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs hover:bg-white/10 transition">
+                            <SiSoundcloud className="h-3 w-3 text-orange-400" />SoundCloud
+                          </a>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1082,6 +1217,77 @@ export default function ArtistPage() {
                     <h2 className="text-sm font-semibold">About</h2>
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed" data-testid="text-artist-bio">{artist.bio}</p>
+                </div>
+              )}
+
+              {/* Location / Website */}
+              {(artist.location || artist.website) && (
+                <div className="glass rounded-2xl border border-white/10 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <h2 className="text-sm font-semibold">Details</h2>
+                  </div>
+                  <div className="space-y-2">
+                    {artist.location && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="text-artist-location">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        {artist.location}
+                      </div>
+                    )}
+                    {artist.website && (
+                      <a href={artist.website} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-primary hover:underline"
+                        data-testid="link-artist-website"
+                      >
+                        <Globe className="h-3.5 w-3.5 shrink-0" />
+                        {artist.website.replace(/^https?:\/\//, "")}
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Social Links */}
+              {artist.socialLinks && Object.values(artist.socialLinks).some(Boolean) && (
+                <div className="glass rounded-2xl border border-white/10 p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Link2 className="h-4 w-4 text-primary" />
+                    <h2 className="text-sm font-semibold">Social</h2>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {artist.socialLinks.twitter && (
+                      <a href={`https://x.com/${artist.socialLinks.twitter.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
+                        data-testid="link-social-twitter"
+                      >
+                        <SiX className="h-3.5 w-3.5" />{artist.socialLinks.twitter}
+                      </a>
+                    )}
+                    {artist.socialLinks.instagram && (
+                      <a href={`https://instagram.com/${artist.socialLinks.instagram.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
+                        data-testid="link-social-instagram"
+                      >
+                        <SiInstagram className="h-3.5 w-3.5" />{artist.socialLinks.instagram}
+                      </a>
+                    )}
+                    {artist.socialLinks.spotify && (
+                      <a href={artist.socialLinks.spotify} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
+                        data-testid="link-social-spotify"
+                      >
+                        <SiSpotify className="h-3.5 w-3.5 text-green-500" />Spotify
+                      </a>
+                    )}
+                    {artist.socialLinks.soundcloud && (
+                      <a href={artist.socialLinks.soundcloud} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
+                        data-testid="link-social-soundcloud"
+                      >
+                        <SiSoundcloud className="h-3.5 w-3.5 text-orange-400" />SoundCloud
+                      </a>
+                    )}
+                  </div>
                 </div>
               )}
 
