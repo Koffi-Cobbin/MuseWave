@@ -102,6 +102,9 @@ export function LyricsEditor({ value, onChange, disabled = false, placeholder }:
       </div>
 
       <EditorContent editor={editor} />
+      <p className="px-3 pb-2 pt-1 text-[11px] text-muted-foreground/50 select-none">
+        Press <kbd className="rounded border border-muted-foreground/20 bg-muted/40 px-1 py-px font-mono text-[10px]">Enter</kbd> twice to add a blank line between sections
+      </p>
     </div>
   );
 }
