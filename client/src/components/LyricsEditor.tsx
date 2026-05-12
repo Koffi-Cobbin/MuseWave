@@ -1,6 +1,6 @@
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
+import Placeholder from "@tiptap/extension-placeholder";
 import { Bold, Italic, Underline as UnderlineIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -14,8 +14,17 @@ interface LyricsEditorProps {
 export function LyricsEditor({ value, onChange, disabled = false, placeholder }: LyricsEditorProps) {
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: false, blockquote: false, codeBlock: false, horizontalRule: false, bulletList: false, orderedList: false }),
-      Underline,
+      StarterKit.configure({
+        heading: false,
+        blockquote: false,
+        codeBlock: false,
+        horizontalRule: false,
+        bulletList: false,
+        orderedList: false,
+      }),
+      Placeholder.configure({
+        placeholder: placeholder ?? "Verse 1\n...\n\nChorus\n...",
+      }),
     ],
     content: value || "",
     editable: !disabled,
@@ -25,12 +34,13 @@ export function LyricsEditor({ value, onChange, disabled = false, placeholder }:
     },
     editorProps: {
       attributes: {
-        class: "min-h-[100px] max-h-[300px] overflow-y-auto outline-none text-sm leading-relaxed px-3 py-2",
+        class: "tiptap min-h-[100px] max-h-[300px] overflow-y-auto outline-none text-sm leading-relaxed px-3 py-2",
         "data-testid": "input-lyrics",
-        "data-placeholder": placeholder ?? "Verse 1\n...\n\nChorus\n...",
       },
     },
   });
+
+  const canUnderline = editor?.can().toggleMark("underline") ?? false;
 
   const ToolbarBtn = ({
     onClick,
@@ -65,7 +75,6 @@ export function LyricsEditor({ value, onChange, disabled = false, placeholder }:
         disabled && "pointer-events-none opacity-50",
       )}
     >
-      {/* Toolbar */}
       <div className="flex items-center gap-0.5 border-b border-input px-2 py-1">
         <ToolbarBtn
           onClick={() => editor?.chain().focus().toggleBold().run()}
@@ -81,16 +90,17 @@ export function LyricsEditor({ value, onChange, disabled = false, placeholder }:
         >
           <Italic className="h-3.5 w-3.5" />
         </ToolbarBtn>
-        <ToolbarBtn
-          onClick={() => editor?.chain().focus().toggleUnderline().run()}
-          active={!!editor?.isActive("underline")}
-          title="Underline (Ctrl+U)"
-        >
-          <UnderlineIcon className="h-3.5 w-3.5" />
-        </ToolbarBtn>
+        {canUnderline && (
+          <ToolbarBtn
+            onClick={() => editor?.chain().focus().toggleMark("underline").run()}
+            active={!!editor?.isActive("underline")}
+            title="Underline (Ctrl+U)"
+          >
+            <UnderlineIcon className="h-3.5 w-3.5" />
+          </ToolbarBtn>
+        )}
       </div>
 
-      {/* Editor area */}
       <EditorContent editor={editor} />
     </div>
   );

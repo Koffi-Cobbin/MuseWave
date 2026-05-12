@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import DOMPurify from "dompurify";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown,
@@ -157,9 +158,10 @@ export function PlayScreen({
   const gradient = active.coverGradient || "from-emerald-500/60 via-fuchsia-500/40 to-cyan-500/30";
 
   const lyricsText = active.lyrics || "";
-  const lyricsLines = lyricsText.split("\n").filter(Boolean);
-  const previewLines = lyricsLines.slice(0, 4);
-  const hasMoreLyrics = lyricsLines.length > 4;
+  // Strip tags to estimate plain-text length for "show more" threshold
+  const lyricsPlain = lyricsText.replace(/<[^>]+>/g, "").trim();
+  const hasMoreLyrics = lyricsPlain.length > 200;
+  const safeHtml = lyricsText ? DOMPurify.sanitize(lyricsText) : "";
 
   const scrollableSections = (
     <div className="flex-1 space-y-px">
@@ -168,14 +170,14 @@ export function PlayScreen({
         <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-white/50">Lyrics</h2>
         {lyricsText ? (
           <>
-            <div className={cn(
-              "overflow-hidden text-sm leading-relaxed text-white/80 transition-all duration-300",
-              !lyricsExpanded && "max-h-[100px]",
-            )}>
-              {(lyricsExpanded ? lyricsLines : previewLines).map((line, i) => (
-                <p key={i} className={line ? "" : "h-3"}>{line || ""}</p>
-              ))}
-            </div>
+            <div
+              className={cn(
+                "overflow-hidden text-sm leading-relaxed text-white/80 transition-all duration-300",
+                "[&_strong]:font-bold [&_em]:italic [&_u]:underline",
+                !lyricsExpanded && "max-h-[100px]",
+              )}
+              dangerouslySetInnerHTML={{ __html: safeHtml }}
+            />
             {hasMoreLyrics && (
               <button
                 type="button"
@@ -652,14 +654,14 @@ export function PlayScreen({
                     <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-white/50">Lyrics</h2>
                     {lyricsText ? (
                       <>
-                        <div className={cn(
-                          "overflow-hidden text-sm leading-relaxed text-white/80 transition-all duration-300",
-                          !lyricsExpanded && "max-h-[140px]",
-                        )}>
-                          {(lyricsExpanded ? lyricsLines : previewLines).map((line, i) => (
-                            <p key={i} className={line ? "" : "h-3"}>{line || ""}</p>
-                          ))}
-                        </div>
+                        <div
+                          className={cn(
+                            "overflow-hidden text-sm leading-relaxed text-white/80 transition-all duration-300",
+                            "[&_strong]:font-bold [&_em]:italic [&_u]:underline",
+                            !lyricsExpanded && "max-h-[140px]",
+                          )}
+                          dangerouslySetInnerHTML={{ __html: safeHtml }}
+                        />
                         {hasMoreLyrics && (
                           <button
                             type="button"

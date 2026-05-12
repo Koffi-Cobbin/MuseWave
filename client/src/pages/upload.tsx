@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { LyricsEditor } from "@/components/LyricsEditor";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
@@ -808,17 +809,14 @@ export default function Upload() {
 
                       {/* Lyrics */}
                       <div className="grid gap-1.5">
-                        <Label htmlFor="lyrics" className="text-xs">
+                        <Label className="text-xs">
                           Lyrics <span className="text-muted-foreground font-normal">(optional)</span>
                         </Label>
-                        <Textarea
-                          id="lyrics"
+                        <LyricsEditor
                           value={draft.lyrics}
-                          onChange={(e) => update("lyrics", e.target.value)}
-                          placeholder={"Verse 1\n...\n\nChorus\n..."}
-                          className="min-h-[100px] resize-y text-sm font-mono"
-                          data-testid="input-lyrics"
+                          onChange={(html) => update("lyrics", html)}
                           disabled={isSubmitting}
+                          placeholder="Verse 1&#10;...&#10;&#10;Chorus&#10;..."
                         />
                       </div>
                     </div>

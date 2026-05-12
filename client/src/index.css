@@ -269,3 +269,16 @@
     z-index: -1;
   }
 }
+
+/* ── Tiptap lyrics editor ─────────────────────────────────────────────────── */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+  opacity: 0.5;
+}
+
+.tiptap p { margin: 0 0 0.25rem; }
+.tiptap p:last-child { margin-bottom: 0; }
