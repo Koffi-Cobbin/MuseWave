@@ -611,50 +611,51 @@ export default function ArtistPage() {
 
   const handleUpdateCredentials = async () => {
     if (!artist) return;
-    const updates: Record<string, unknown> = {};
-    if (newUsername.trim()) updates.username = newUsername.trim();
-    if (newPassword.trim()) updates.password = newPassword.trim();
-    if (newEmail.trim()) updates.email = newEmail.trim();
-    if (newDisplayName.trim()) updates.displayName = newDisplayName.trim();
-    if (newBio.trim()) updates.bio = newBio.trim();
-    if (newLocation.trim()) updates.location = newLocation.trim();
-    if (newWebsite.trim()) updates.website = newWebsite.trim();
-    // Merge social links with existing ones so unedited handles are preserved
+
+    const formData = new FormData();
+    let hasChanges = false;
+
+    if (newUsername.trim())    { formData.append("username",     newUsername.trim());    hasChanges = true; }
+    if (newPassword.trim())    { formData.append("password",     newPassword.trim());    hasChanges = true; }
+    if (newEmail.trim())       { formData.append("email",        newEmail.trim());       hasChanges = true; }
+    if (newDisplayName.trim()) { formData.append("display_name", newDisplayName.trim()); hasChanges = true; }
+    if (newBio.trim())         { formData.append("bio",          newBio.trim());         hasChanges = true; }
+    if (newLocation.trim())    { formData.append("location",     newLocation.trim());    hasChanges = true; }
+    if (newWebsite.trim())     { formData.append("website",      newWebsite.trim());     hasChanges = true; }
+
     const hasSocial = newTwitter.trim() || newInstagram.trim() || newSpotify.trim() || newSoundcloud.trim();
     if (hasSocial) {
-      updates.socialLinks = {
+      const merged = {
         ...(artist.socialLinks ?? {}),
-        ...(newTwitter.trim() ? { twitter: newTwitter.trim() } : {}),
-        ...(newInstagram.trim() ? { instagram: newInstagram.trim() } : {}),
-        ...(newSpotify.trim() ? { spotify: newSpotify.trim() } : {}),
+        ...(newTwitter.trim()    ? { twitter:    newTwitter.trim()    } : {}),
+        ...(newInstagram.trim()  ? { instagram:  newInstagram.trim()  } : {}),
+        ...(newSpotify.trim()    ? { spotify:    newSpotify.trim()    } : {}),
         ...(newSoundcloud.trim() ? { soundcloud: newSoundcloud.trim() } : {}),
       };
+      formData.append("social_links", JSON.stringify(merged));
+      hasChanges = true;
     }
+
     if (newAvatarFile) {
-      updates.avatarUrl = await new Promise<string>((res, rej) => {
-        const reader = new FileReader();
-        reader.onload = () => res(reader.result as string);
-        reader.onerror = rej;
-        reader.readAsDataURL(newAvatarFile);
-      });
-    } else if (newAvatarUrl.trim()) {
-      updates.avatarUrl = newAvatarUrl.trim();
+      formData.append("avatar_file", newAvatarFile, newAvatarFile.name);
+      hasChanges = true;
     }
-    if (Object.keys(updates).length === 0) {
+
+    if (!hasChanges) {
       toast({ title: "Nothing to update", description: "Make a change first." });
       return;
     }
+
     try {
-      const { toSnakeCaseObject, toCamelCaseObject } = await import("@/lib/caseTransform");
+      const { toCamelCaseObject } = await import("@/lib/caseTransform");
       const accessToken = localStorage.getItem("accessToken") ?? "";
-      const snakePayload = toSnakeCaseObject(updates);
+      // Do NOT set Content-Type — the browser must add the multipart boundary automatically.
       const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.users.update(artist.id)}`, {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        body: JSON.stringify(snakePayload),
+        body: formData,
       });
       const responseBody = await response.json().catch(() => ({}));
 

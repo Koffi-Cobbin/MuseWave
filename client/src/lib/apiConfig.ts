@@ -11,7 +11,7 @@ export const API_ENDPOINTS = {
     byId: (id: string) => `/api/users/${id}`,
     byUsername: (username: string) => `/api/users/username/${username}`,
     create: '/api/users/create',
-    update: (id: string) => `/api/users/${id}`,
+    update: (id: string) => `/api/users/${id}/update`,
     stats: (id: string) => `/api/users/${id}/stats`,
     delete: (id: string) => `/api/users/${id}`,
     login: '/api/users/login',    // Django URLconf shows no trailing slash
