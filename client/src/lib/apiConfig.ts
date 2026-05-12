@@ -131,8 +131,13 @@ export const getTrackDownloadUrl = (trackId: string): string => {
 // Helper function to trigger a download
 export const downloadTrack = async (trackId: string, filename?: string): Promise<void> => {
   try {
+    const accessToken = localStorage.getItem("accessToken");
+    const headers: Record<string, string> = {};
+    if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+
     const response = await fetch(getTrackDownloadUrl(trackId), {
       credentials: 'include',
+      headers,
     });
 
     if (!response.ok) {
