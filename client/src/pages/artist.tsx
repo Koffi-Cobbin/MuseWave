@@ -702,15 +702,24 @@ export default function ArtistPage() {
           accent: userData.accent || "from-emerald-400/28 via-transparent to-cyan-400/22",
         });
 
+        const isOwnProfile = authUser?.id === userData.id;
+
         const [tracksData, albumsData, playlistsData] = await Promise.all([
           apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, {
             userId: userData.id,
             published: true,
           }),
           apiRequestJson<Album[]>("GET", API_ENDPOINTS.albums.byUser(userData.id)).catch(() => []),
-          apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.byUser(userData.id)).catch(() => []),
+          // The /api/users/<id>/playlists endpoint is not yet deployed on the backend.
+          // For own profile: fetch authenticated /api/playlists and filter public.
+          // For others: no usable public endpoint exists yet, so return [].
+          isOwnProfile
+            ? apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.list)
+                .then((all) => (Array.isArray(all) ? all.filter((p) => p.public) : []))
+                .catch(() => [])
+            : Promise.resolve([]),
         ]);
-        setPublicPlaylists(playlistsData);
+        setPublicPlaylists(Array.isArray(playlistsData) ? playlistsData : []);
 
         setTracks(tracksData);
 
