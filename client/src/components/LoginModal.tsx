@@ -86,9 +86,10 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
     if (password !== confirmPassword) return setError("Passwords don't match.");
     setLoading(true); setError("");
     try {
-      const data = await apiRequestJson<{ user: User }>(API_ENDPOINTS.AUTH.SIGNUP, {
-        method: "POST",
-        body: JSON.stringify({ displayName, email, password }),
+      const data = await apiRequestJson<{ user: User }>("POST", API_ENDPOINTS.users.create, {
+        displayName,
+        email,
+        password,
       });
       await login(data.user.email, password);
       toast({ title: "Account created!", description: "Welcome to MuseWave." });
@@ -105,9 +106,8 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
     if (!forgotEmail) return setError("Enter your email.");
     setLoading(true); setError("");
     try {
-      await apiRequestJson(API_ENDPOINTS.AUTH.FORGOT_PASSWORD, {
-        method: "POST",
-        body: JSON.stringify({ email: forgotEmail }),
+      await apiRequestJson("POST", API_ENDPOINTS.users.resetPassword, {
+        email: forgotEmail,
       });
       setView("sent");
     } catch (e: unknown) {
