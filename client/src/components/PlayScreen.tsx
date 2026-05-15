@@ -14,6 +14,9 @@ import {
   Music2,
   ExternalLink,
   Volume2,
+  ListMusic,
+  Repeat,
+  Repeat1,
 } from "lucide-react";
 import { Link } from "wouter";
 import { cn } from "@/lib/utils";
@@ -37,6 +40,7 @@ interface PlayScreenProps {
   onSeekDelta: (delta: number) => void;
   volume?: number;
   onVolumeChange?: (v: number) => void;
+  onOpenQueue?: () => void;
 }
 
 function formatTime(t: number) {
@@ -97,8 +101,9 @@ export function PlayScreen({
   onSeekDelta,
   volume = 1,
   onVolumeChange,
+  onOpenQueue,
 }: PlayScreenProps) {
-  const { active, isPlaying } = usePlayer();
+  const { active, isPlaying, repeatMode, toggleRepeatMode } = usePlayer();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
 
@@ -396,7 +401,28 @@ export function PlayScreen({
             {/* Progress + controls */}
             <div className="shrink-0 px-7 pt-6 pb-2">
               <ProgressBar currentTime={currentTime} duration={duration} onSeek={onSeek} />
-              <div className="mt-6 flex items-center justify-center gap-8">
+              <div className="mt-6 flex items-center justify-center gap-6 sm:gap-8">
+                <button
+                  type="button"
+                  onClick={toggleRepeatMode}
+                  className={cn(
+                    "flex flex-col items-center gap-0.5 transition",
+                    repeatMode !== "off" ? "text-primary" : "text-white/70 hover:text-white",
+                  )}
+                  data-testid="button-play-screen-repeat"
+                  aria-label={
+                    repeatMode === "off" ? "Repeat off" : repeatMode === "all" ? "Repeat all" : "Repeat one"
+                  }
+                >
+                  {repeatMode === "one" ? (
+                    <Repeat1 className="h-6 w-6" />
+                  ) : (
+                    <Repeat className="h-6 w-6" />
+                  )}
+                  <span className="text-[9px] font-bold tabular-nums">
+                    {repeatMode === "off" ? "" : repeatMode === "all" ? "ALL" : "ONE"}
+                  </span>
+                </button>
                 <button
                   type="button"
                   onClick={() => onSeekDelta(-15)}
@@ -431,16 +457,29 @@ export function PlayScreen({
               </div>
               {/* Action row */}
               <div className="mt-7 flex items-center justify-around">
-                <button
-                  type="button"
-                  onClick={handleDownload}
-                  disabled={isDownloading}
-                  className="flex flex-col items-center gap-1.5 text-white/60 transition hover:text-white disabled:opacity-40"
-                  data-testid="button-play-screen-download"
-                >
-                  <Download className="h-5 w-5" />
-                  <span className="text-[10px]">Download</span>
-                </button>
+                {onOpenQueue && (
+                  <button
+                    type="button"
+                    onClick={onOpenQueue}
+                    className="flex flex-col items-center gap-1.5 text-white/60 transition hover:text-white"
+                    data-testid="button-play-screen-queue"
+                  >
+                    <ListMusic className="h-5 w-5" />
+                    <span className="text-[10px]">Queue</span>
+                  </button>
+                )}
+                {isAuthenticated && (
+                  <button
+                    type="button"
+                    onClick={handleDownload}
+                    disabled={isDownloading}
+                    className="flex flex-col items-center gap-1.5 text-white/60 transition hover:text-white disabled:opacity-40"
+                    data-testid="button-play-screen-download"
+                  >
+                    <Download className="h-5 w-5" />
+                    <span className="text-[10px]">Download</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleShare}
@@ -553,7 +592,28 @@ export function PlayScreen({
                   </div>
 
                   {/* Playback controls */}
-                  <div className="mt-6 flex items-center justify-center gap-10">
+                  <div className="mt-6 flex items-center justify-center gap-8">
+                    <button
+                      type="button"
+                      onClick={toggleRepeatMode}
+                      className={cn(
+                        "flex flex-col items-center gap-0.5 transition",
+                        repeatMode !== "off" ? "text-primary" : "text-white/70 hover:text-white",
+                      )}
+                      data-testid="button-play-screen-repeat-desktop"
+                      aria-label={
+                        repeatMode === "off" ? "Repeat off" : repeatMode === "all" ? "Repeat all" : "Repeat one"
+                      }
+                    >
+                      {repeatMode === "one" ? (
+                        <Repeat1 className="h-6 w-6" />
+                      ) : (
+                        <Repeat className="h-6 w-6" />
+                      )}
+                      <span className="text-[9px] font-bold tabular-nums">
+                        {repeatMode === "off" ? "" : repeatMode === "all" ? "ALL" : "ONE"}
+                      </span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => onSeekDelta(-15)}
@@ -609,33 +669,46 @@ export function PlayScreen({
                   )}
 
                   {/* Action row */}
-                  <div className="mt-6 flex items-center justify-between">
-                    <button
-                      type="button"
-                      onClick={handleDownload}
-                      disabled={isDownloading}
-                      className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-white/70 transition hover:bg-white/20 hover:text-white disabled:opacity-40"
-                      data-testid="button-play-screen-download-desktop"
-                    >
-                      <Download className="h-4 w-4" />
-                      Download
-                    </button>
+                  <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+                    {onOpenQueue && (
+                      <button
+                        type="button"
+                        onClick={onOpenQueue}
+                        className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/70 transition hover:bg-white/20 hover:text-white"
+                        data-testid="button-play-screen-queue-desktop"
+                      >
+                        <ListMusic className="h-3.5 w-3.5" />
+                        Queue
+                      </button>
+                    )}
+                    {isAuthenticated && (
+                      <button
+                        type="button"
+                        onClick={handleDownload}
+                        disabled={isDownloading}
+                        className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/70 transition hover:bg-white/20 hover:text-white disabled:opacity-40"
+                        data-testid="button-play-screen-download-desktop"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        Download
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={handleShare}
-                      className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-white/70 transition hover:bg-white/20 hover:text-white"
+                      className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/70 transition hover:bg-white/20 hover:text-white"
                       data-testid="button-play-screen-share-desktop"
                     >
-                      <Share2 className="h-4 w-4" />
+                      <Share2 className="h-3.5 w-3.5" />
                       Share
                     </button>
                     <Link
                       href={`/artist/${active.artistSlug}`}
                       onClick={onClose}
-                      className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm text-white/70 transition hover:bg-white/20 hover:text-white"
+                      className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/70 transition hover:bg-white/20 hover:text-white"
                       data-testid="link-play-screen-artist-page-desktop"
                     >
-                      <ExternalLink className="h-4 w-4" />
+                      <ExternalLink className="h-3.5 w-3.5" />
                       Artist page
                     </Link>
                   </div>

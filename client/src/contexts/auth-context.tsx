@@ -28,7 +28,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadUser = async (userId: string) => {
     try {
       const userData = await apiRequestJson<User>('GET', API_ENDPOINTS.users.byId(userId));
+      // The detail endpoint may not return email. Restore it from localStorage
+      // (saved during login) so it's available immediately on page reload.
+      const cachedEmail = localStorage.getItem("userEmail");
       const { password: _, ...safeUser } = userData;
+      if (!safeUser.email && cachedEmail) {
+        safeUser.email = cachedEmail;
+      }
       setUser(safeUser);
       setIsAuthenticated(true);
     } catch (error) {
@@ -36,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("userId");
+      localStorage.removeItem("userEmail");
       setUser(null);
       setIsAuthenticated(false);
     }
@@ -87,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const normalizedUser = toCamelCaseObject<User>(userData);
       if (normalizedUser?.id) {
         localStorage.setItem("userId", normalizedUser.id);
+        if (normalizedUser.email) localStorage.setItem("userEmail", normalizedUser.email);
         setUser(normalizedUser);
         setIsAuthenticated(true);
       } else {
@@ -120,6 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("userId");
+      localStorage.removeItem("userEmail");
     }
   };
 

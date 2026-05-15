@@ -240,11 +240,20 @@ export default function Discover() {
     }
 
     const sorted = [...list].sort((a, b) => {
+      let diff: number;
       if (sortBy === "createdAt") {
-        return new Date(b.publishedAt ?? b.createdAt ?? 0).getTime() -
-          new Date(a.publishedAt ?? a.createdAt ?? 0).getTime();
+        const getTime = (t: Track) => {
+          const d = t.publishedAt ?? t.createdAt ?? t.updatedAt;
+          return d ? new Date(d).getTime() : 0;
+        };
+        diff = getTime(b) - getTime(a);
+      } else {
+        // Numeric sorts (plays, likes) — safely default undefined to 0.
+        diff = (b[sortBy] ?? 0) - (a[sortBy] ?? 0);
       }
-      return (b[sortBy] as number) - (a[sortBy] as number);
+      // Secondary sort by title (ascending) so ties always produce a visible change.
+      if (diff !== 0) return diff;
+      return a.title.localeCompare(b.title);
     });
 
     return sorted;
@@ -420,6 +429,21 @@ export default function Discover() {
                 </>
               )}
             </p>
+            {/* Active sort badge — always visible so the user can see which sort is applied */}
+            {!loading && processed.length > 0 && (
+              <span className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] text-muted-foreground">
+                {(() => {
+                  const opt = SORT_OPTIONS.find((o) => o.value === sortBy);
+                  const Icon = opt?.icon;
+                  return (
+                    <>
+                      {Icon && <Icon className="h-3 w-3" />}
+                      {opt?.label ?? sortBy}
+                    </>
+                  );
+                })()}
+              </span>
+            )}
           </div>
           {totalPages > 1 && (
             <p className="text-xs text-muted-foreground">
@@ -429,13 +453,15 @@ export default function Discover() {
         </div>
 
         {/* ── Track list ── */}
-        <div className="grid gap-2 sm:gap-3 lg:grid-cols-2" data-testid="discover-track-list">
+        {/* key=sortBy forces a full re-mount when sort changes, bypassing
+            framer-motion layout issues with CSS Grid reordering. */}
+        <div key={sortBy} className="grid gap-2 sm:gap-3 lg:grid-cols-2" data-testid="discover-track-list">
           {loading ? (
             Array.from({ length: PAGE_SIZE }).map((_, i) => (
               <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/5" />
             ))
           ) : paged.length > 0 ? (
-            <AnimatePresence mode="popLayout">
+            <>
               {paged.map((track, i) => (
                 <TrackCard
                   key={track.id}
@@ -445,7 +471,7 @@ export default function Discover() {
                   index={i}
                 />
               ))}
-            </AnimatePresence>
+            </>
           ) : (
             <div className="glass rounded-2xl p-12 text-center">
               <Compass className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />

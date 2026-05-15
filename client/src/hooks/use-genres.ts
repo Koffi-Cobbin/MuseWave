@@ -8,7 +8,9 @@ export interface Genre {
   slug: string;
   description?: string;
   cover_url?: string;
-  is_active: boolean;
+  is_active?: boolean;
+  /** camelCase variant after toCamelCaseObject transform */
+  isActive?: boolean;
 }
 
 const FALLBACK_GENRES = [
@@ -27,7 +29,8 @@ export function useGenres(): { genres: string[]; loading: boolean } {
       .then((data) => {
         if (cancelled) return;
         const names = data
-          .filter((g) => g.is_active)
+          // apiRequestJson converts snake_case → camelCase, so check both.
+          .filter((g) => g.isActive ?? g.is_active)
           .map((g) => g.name);
         if (names.length > 0) setGenres(names);
       })

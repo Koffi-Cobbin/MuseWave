@@ -26,7 +26,7 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
   const [showConfirm, setShowConfirm] = useState(false);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
-  const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [forgotEmail, setForgotEmail] = useState("");
@@ -82,16 +82,16 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
   };
 
   const handleSignup = async () => {
-    if (!displayName || !email || !password || !confirmPassword) return setError("Fill in all fields.");
+    if (!username || !email || !password || !confirmPassword) return setError("Fill in all fields.");
     if (password !== confirmPassword) return setError("Passwords don't match.");
     setLoading(true); setError("");
     try {
-      const data = await apiRequestJson<{ user: User }>("POST", API_ENDPOINTS.users.create, {
-        displayName,
+      const data = await apiRequestJson<User>("POST", API_ENDPOINTS.users.create, {
+        username,
         email,
         password,
       });
-      await login(data.user.email, password);
+      await login(data.email!, password);
       toast({ title: "Account created!", description: "Welcome to MuseWave." });
       handleClose();
       onSuccess?.();
@@ -263,8 +263,8 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
                       <ArrowLeft className="h-3 w-3" /> Back to login
                     </button>
                     <div className="grid gap-1.5">
-                      <Label htmlFor="lm-displayName" className="text-xs">Display name</Label>
-                      <Input id="lm-displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} data-testid="input-display-name" />
+                      <Label htmlFor="lm-username" className="text-xs">Username</Label>
+                      <Input id="lm-username" value={username} onChange={(e) => setUsername(e.target.value)} data-testid="input-username" />
                     </div>
                     <div className="grid gap-1.5">
                       <Label htmlFor="lm-email" className="text-xs">Email</Label>

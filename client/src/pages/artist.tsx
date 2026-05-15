@@ -57,6 +57,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
+import { usePlaylists } from "@/contexts/playlist-context";
 import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
@@ -135,9 +136,14 @@ function StatPill({
 
 function ResendVerificationBanner({ artist }: { artist: Artist }) {
   const { toast } = useToast();
+  const { user: authUser } = useAuth();
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
+
+  // The /api/users/username/<slug> endpoint doesn't return sensitive fields like
+  // email. Fall back to auth context, then localStorage (saved during login).
+  const userEmail = authUser?.email ?? artist.email ?? localStorage.getItem("userEmail");
 
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -147,14 +153,15 @@ function ResendVerificationBanner({ artist }: { artist: Artist }) {
 
   const handleResend = async () => {
     if (sending || cooldown > 0) return;
+    if (!userEmail) return;
     setSending(true);
     try {
-      await apiRequestJson("POST", `/api/users/resend-verification/`, { email: artist.email });
+      await apiRequestJson("POST", API_ENDPOINTS.users.resendVerification, { email: userEmail });
       setSent(true);
       setCooldown(60);
       toast({
         title: "Verification email sent!",
-        description: `We've sent a new verification link to ${artist.email}.`,
+        description: `We've sent a new verification link to ${userEmail}.`,
       });
     } catch (err) {
       toast({
@@ -178,8 +185,8 @@ function ResendVerificationBanner({ artist }: { artist: Artist }) {
         <p className="text-sm font-medium text-amber-200">Email not verified</p>
         <p className="mt-0.5 text-xs text-amber-300/60">
           Verify your email to unlock full artist features.
-          {artist.email && (
-            <> Sent to <span className="font-medium text-amber-300">{artist.email}</span>.</>
+          {userEmail && (
+            <> Sent to <span className="font-medium text-amber-300">{userEmail}</span>.</>
           )}
         </p>
       </div>
@@ -581,6 +588,7 @@ export default function ArtistPage() {
   const { user: authUser } = useAuth();
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
   const { toast } = useToast();
+  const { sharedWithMe, fetchSharedWithMe } = usePlaylists();
   const [copied, setCopied] = useState<string | null>(null);
   const [isEditingCredentials, setIsEditingCredentials] = useState(false);
   const [newUsername, setNewUsername] = useState("");
@@ -600,6 +608,7 @@ export default function ArtistPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isAlbumCreateOpen, setIsAlbumCreateOpen] = useState(false);
   const [showCredentials, setShowCredentials] = useState(false);
+  const [artistUserId, setArtistUserId] = useState<string | null>(null);
   const tabsRef = useRef<HTMLDivElement>(null);
 
   const isOwner = authUser?.id === artist?.id;
@@ -702,26 +711,26 @@ export default function ArtistPage() {
           accent: userData.accent || "from-emerald-400/28 via-transparent to-cyan-400/22",
         });
 
-        const isOwnProfile = authUser?.id === userData.id;
+        setArtistUserId(userData.id);
 
-        const [tracksData, albumsData, playlistsData] = await Promise.all([
+        const [tracksData, albumsData] = await Promise.all([
           apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, {
             userId: userData.id,
             published: true,
           }),
           apiRequestJson<Album[]>("GET", API_ENDPOINTS.albums.byUser(userData.id)).catch(() => []),
-          // The /api/users/<id>/playlists endpoint is not yet deployed on the backend.
-          // For own profile: fetch authenticated /api/playlists and filter public.
-          // For others: no usable public endpoint exists yet, so return [].
-          isOwnProfile
-            ? apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.list)
-                .then((all) => (Array.isArray(all) ? all.filter((p) => p.public) : []))
-                .catch(() => [])
-            : Promise.resolve([]),
         ]);
-        setPublicPlaylists(Array.isArray(playlistsData) ? playlistsData : []);
 
-        setTracks(tracksData);
+        setTracks(
+          (Array.isArray(tracksData) ? tracksData : []).filter((t) => {
+            // The API may return ALL tracks; filter to only this artist's tracks.
+            const idMatch = t.userId === userData.id;
+            // Fallback: also check if the track artist name matches (e.g. /api/tracks
+            // might embed artist info as a string rather than a user id).
+            const slugMatch = (t as any)["username"] === slug || (t as any)["artistSlug"] === slug;
+            return idMatch || slugMatch;
+          }),
+        );
 
         const enriched = await Promise.all(
           albumsData.map(async (album) => {
@@ -742,6 +751,25 @@ export default function ArtistPage() {
     }
     fetchData();
   }, [slug]);
+
+  // Fetch playlists separately — needs authUser to be loaded (race condition fix).
+  useEffect(() => {
+    if (!artistUserId) return;
+    const isOwnProfile = authUser?.id === artistUserId;
+    if (isOwnProfile) {
+      // Owner: show ALL playlists (not just public).
+      apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.list)
+        .then((all) => setPublicPlaylists(Array.isArray(all) ? all : []))
+        .catch(() => {});
+      // Also fetch playlists shared with this user.
+      fetchSharedWithMe();
+    } else {
+      // Other user: try public endpoint.
+      apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.byUser(artistUserId))
+        .then((all) => setPublicPlaylists(Array.isArray(all) ? all.filter((p) => p.public) : []))
+        .catch(() => setPublicPlaylists([]));
+    }
+  }, [artistUserId, authUser?.id]);
 
   useEffect(() => {
     setActiveId(active?.id ?? null);
@@ -804,7 +832,7 @@ export default function ArtistPage() {
   const tabs: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
     { key: "tracks", label: "Tracks", icon: Music2, count: tracks.length },
     { key: "albums", label: "Albums", icon: Disc, count: albums.length },
-    { key: "playlists", label: "Playlists", icon: ListMusic, count: publicPlaylists.length },
+    { key: "playlists", label: "Playlists", icon: ListMusic, count: publicPlaylists.length + sharedWithMe.length },
     { key: "about", label: "About", icon: UserIcon },
   ];
 
@@ -1185,37 +1213,89 @@ export default function ArtistPage() {
           {/* Playlists */}
           {activeTab === "playlists" && (
             <motion.div key="playlists" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              {publicPlaylists.length === 0 ? (
-                <div className="py-16 text-center">
-                  <ListMusic className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No public playlists yet.</p>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {publicPlaylists.map((pl, idx) => (
-                    <motion.a
-                      key={pl.id}
-                      href={`/playlists/${pl.id}`}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.05 }}
-                      className="group flex items-center gap-3 rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5 cursor-pointer"
-                      data-testid={`card-public-playlist-${pl.id}`}
-                    >
-                      <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/20 flex items-center justify-center border border-white/10">
-                        <ListMusic className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{pl.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {(pl.trackIds?.length ?? 0)} {(pl.trackIds?.length ?? 0) === 1 ? "track" : "tracks"}
-                        </p>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition shrink-0" />
-                    </motion.a>
-                  ))}
-                </div>
-              )}
+              <div className="space-y-8">
+                {/* Owned playlists */}
+                {publicPlaylists.length > 0 && (
+                  <section>
+                    <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+                      <ListMusic className="h-3.5 w-3.5" />
+                      My Playlists
+                    </h3>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {publicPlaylists.map((pl, idx) => (
+                        <motion.a
+                          key={pl.id}
+                          href={`/playlists/${pl.id}`}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className="group flex items-center gap-3 rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5 cursor-pointer"
+                          data-testid={`card-public-playlist-${pl.id}`}
+                        >
+                          <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/20 flex items-center justify-center border border-white/10">
+                            <ListMusic className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{pl.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(pl.trackIds?.length ?? 0)} {(pl.trackIds?.length ?? 0) === 1 ? "track" : "tracks"}
+                              {pl.myPermission && pl.myPermission !== "owner" && (
+                                <span className="ml-2 text-primary/60">({pl.myPermission})</span>
+                              )}
+                            </p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition shrink-0" />
+                        </motion.a>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Shared with me */}
+                {sharedWithMe.length > 0 && (
+                  <section>
+                    <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+                      <Users className="h-3.5 w-3.5" />
+                      Shared with me
+                    </h3>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {sharedWithMe.map((pl, idx) => (
+                        <motion.a
+                          key={pl.id}
+                          href={`/playlists/${pl.id}`}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className="group flex items-center gap-3 rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5 cursor-pointer"
+                          data-testid={`card-shared-playlist-${pl.id}`}
+                        >
+                          <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-emerald-500/30 to-cyan-500/20 flex items-center justify-center border border-white/10">
+                            <Users className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{pl.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(pl.trackIds?.length ?? 0)} {(pl.trackIds?.length ?? 0) === 1 ? "track" : "tracks"}
+                              {pl.myPermission && (
+                                <span className="ml-2 text-primary/60">({pl.myPermission})</span>
+                              )}
+                            </p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition shrink-0" />
+                        </motion.a>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Empty state — only when both are empty */}
+                {publicPlaylists.length === 0 && sharedWithMe.length === 0 && (
+                  <div className="py-16 text-center">
+                    <ListMusic className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
+                    <p className="text-sm text-muted-foreground">No playlists yet.</p>
+                  </div>
+                )}
+              </div>
             </motion.div>
           )}
 

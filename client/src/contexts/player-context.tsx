@@ -1,6 +1,8 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
 import type { Track } from "../../../shared/schema";
 
+export type RepeatMode = "off" | "all" | "one";
+
 type PlayerContextType = {
   active: Track | null;
   setActive: (track: Track | null) => void;
@@ -12,10 +14,22 @@ type PlayerContextType = {
   queueIndex: number;
   setQueue: (tracks: Track[], startIndex?: number) => void;
   insertNext: (track: Track) => void;
+  /** Appends a track to the very end of the queue */
+  addToQueue: (track: Track) => void;
+  /** Removes a track from the queue at the given index */
+  removeFromQueue: (index: number) => void;
+  /** Moves a track from one queue position to another */
+  reorderQueue: (fromIndex: number, toIndex: number) => void;
+  /** Empties the entire queue */
+  clearQueue: () => void;
   playNext: () => void;
   playPrev: () => void;
   hasNext: boolean;
   hasPrev: boolean;
+  queueCount: number;
+  repeatMode: RepeatMode;
+  /** Cycles repeat: off → all → one → off */
+  toggleRepeatMode: () => void;
 };
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -26,6 +40,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [queue, setQueueState] = useState<Track[]>([]);
   const [queueIndex, setQueueIndex] = useState(-1);
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
 
   const setActive = useCallback((track: Track | null) => {
     setActiveState(track);
@@ -64,6 +79,53 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, [queue, queueIndex, active]);
 
+  const addToQueue = useCallback((track: Track) => {
+    setQueueState((prev) => [...prev, track]);
+  }, []);
+
+  const removeFromQueue = useCallback((index: number) => {
+    setQueueState((prev) => {
+      if (index < 0 || index >= prev.length) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
+    // If the removed item was before or at the current index, adjust
+    setQueueIndex((prevIdx) => {
+      if (index < prevIdx) return prevIdx - 1;
+      return prevIdx;
+    });
+  }, []);
+
+  const reorderQueue = useCallback((fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex) return;
+    setQueueState((prev) => {
+      if (fromIndex < 0 || fromIndex >= prev.length || toIndex < 0 || toIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+    // Adjust queueIndex if the moved item affected it
+    setQueueIndex((prevIdx) => {
+      if (fromIndex === prevIdx) return toIndex;
+      if (fromIndex < prevIdx && toIndex >= prevIdx) return prevIdx - 1;
+      if (fromIndex > prevIdx && toIndex <= prevIdx) return prevIdx + 1;
+      return prevIdx;
+    });
+  }, []);
+
+  const clearQueue = useCallback(() => {
+    setQueueState([]);
+    setQueueIndex(-1);
+  }, []);
+
+  const toggleRepeatMode = useCallback(() => {
+    setRepeatMode((prev) => {
+      if (prev === "off") return "all";
+      if (prev === "all") return "one";
+      return "off";
+    });
+  }, []);
+
   const playNext = useCallback(() => {
     if (queue.length === 0) return;
     const nextIndex = queueIndex + 1;
@@ -71,10 +133,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setQueueIndex(nextIndex);
       setActiveState(queue[nextIndex]);
       setAutoPlay(true);
+    } else if (repeatMode === "all" && queue.length > 0) {
+      // Repeat all: loop back to the beginning
+      setQueueIndex(0);
+      setActiveState(queue[0]);
+      setAutoPlay(true);
     } else {
       setIsPlaying(false);
     }
-  }, [queue, queueIndex]);
+  }, [queue, queueIndex, repeatMode]);
 
   const playPrev = useCallback(() => {
     if (queue.length === 0) return;
@@ -88,6 +155,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const hasNext = queue.length > 0 && queueIndex < queue.length - 1;
   const hasPrev = queue.length > 0 && queueIndex > 0;
+  // Only count unplayed tracks (after queueIndex) for the badge.
+  // Played tracks remain in the array but shouldn't count toward "up next".
+  const queueCount = Math.max(0, queue.length - queueIndex - 1);
 
   return (
     <PlayerContext.Provider value={{
@@ -101,10 +171,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       queueIndex,
       setQueue,
       insertNext,
+      addToQueue,
+      removeFromQueue,
+      reorderQueue,
+      clearQueue,
       playNext,
       playPrev,
       hasNext,
       hasPrev,
+      queueCount,
+      repeatMode,
+      toggleRepeatMode,
     }}>
       {children}
     </PlayerContext.Provider>

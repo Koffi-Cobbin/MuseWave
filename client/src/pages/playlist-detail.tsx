@@ -60,9 +60,27 @@ export default function PlaylistDetailPage() {
     setLocalTracks(tracks);
   }, [currentPlaylist?.tracks]);
 
-  if (!playlistId) return <div>Playlist not found</div>;
+  if (!playlistId) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Playlist not found</p>
+      </div>
+    );
+  }
+
+  // Auth is still initialising (e.g. page reload) — show a loading spinner
+  // instead of flashing a "Login required" screen.
+  let hasTokens = false;
+  try { hasTokens = !!localStorage.getItem("accessToken"); } catch {}
 
   if (!isAuthenticated) {
+    if (hasTokens) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-background px-4 py-12">
         <div className="max-w-4xl mx-auto text-center">

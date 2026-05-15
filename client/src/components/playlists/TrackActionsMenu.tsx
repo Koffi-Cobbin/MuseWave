@@ -32,7 +32,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
-import { Plus, Music, MoreVertical, Pencil, Trash2, ListMusic, ListEnd, Users } from "lucide-react";
+import { Plus, Music, MoreVertical, Pencil, Trash2, ListMusic, ListEnd, ListOrdered, Users } from "lucide-react";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import type { Track } from "../../../../shared/schema";
@@ -55,7 +55,7 @@ export function TrackActionsMenu({
   onTrackUpdated,
 }: TrackActionsMenuProps) {
   const { isAuthenticated } = useAuth();
-  const { insertNext } = usePlayer();
+  const { insertNext, addToQueue } = usePlayer();
   const { playlists, sharedWithMe, fetchSharedWithMe, addSongToPlaylist, loading } = usePlaylists();
   const { toast } = useToast();
 
@@ -164,6 +164,17 @@ export function TrackActionsMenu({
           >
             <ListEnd className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
             Play next
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onClick={() => {
+              addToQueue(track);
+              toast({ title: "Added to queue", description: track.title });
+            }}
+            data-testid={`menu-add-to-queue-${track.id}`}
+          >
+            <ListOrdered className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+            Add to queue
           </DropdownMenuItem>
 
           {(isOwner || isAuthenticated) && <DropdownMenuSeparator />}

@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from "react";
-import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2, ChevronUp, SkipBack, SkipForward } from "lucide-react";
+import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, API_BASE_URL, downloadTrack } from "@/lib/apiConfig";
 import { motion, AnimatePresence } from "framer-motion";
 import { PlayScreen } from "@/components/PlayScreen";
+import { QueueSheet } from "@/components/QueueSheet";
 
 // ── Sub-components (defined outside PlayerBar to preserve identity) ────────────
 
@@ -69,6 +70,7 @@ interface OverflowMenuProps {
   onDownload: () => void;
   onShare: () => void;
   onCopyLink: () => void;
+  isAuthenticated: boolean;
 }
 
 function OverflowMenu({
@@ -84,6 +86,7 @@ function OverflowMenu({
   onDownload,
   onShare,
   onCopyLink,
+  isAuthenticated,
 }: OverflowMenuProps) {
   return (
     <Popover open={open} onOpenChange={onOpenChange}>
@@ -110,16 +113,20 @@ function OverflowMenu({
           <Crown className="h-4 w-4 shrink-0 text-muted-foreground" />
           Support Artist
         </button>
-        <Separator className="my-1 opacity-50" />
-        <button
-          onClick={onDownload}
-          disabled={isDownloading}
-          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8 disabled:opacity-50"
-          data-testid="button-player-download"
-        >
-          <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
-          {isDownloading ? "Downloading…" : "Download"}
-        </button>
+        {isAuthenticated && (
+          <>
+            <Separator className="my-1 opacity-50" />
+            <button
+              onClick={onDownload}
+              disabled={isDownloading}
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8 disabled:opacity-50"
+              data-testid="button-player-download"
+            >
+              <Download className="h-4 w-4 shrink-0 text-muted-foreground" />
+              {isDownloading ? "Downloading…" : "Download"}
+            </button>
+          </>
+        )}
         <button
           onClick={onShare}
           className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8"
@@ -144,11 +151,12 @@ function OverflowMenu({
 // ── Main component ────────────────────────────────────────────────────────────
 
 function PlayerBar() {
-  const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying, playNext, playPrev, hasNext, hasPrev } = usePlayer();
+  const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying, playNext, playPrev, hasNext, hasPrev, queueCount, repeatMode, toggleRepeatMode } = usePlayer();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
   const [playScreenOpen, setPlayScreenOpen] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
@@ -161,9 +169,11 @@ function PlayerBar() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
 
-  // Always-fresh ref so the `ended` handler never captures a stale playNext.
+  // Always-fresh refs so the `ended` handler never captures stale values.
   const playNextRef = useRef(playNext);
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
+  const repeatModeRef = useRef(repeatMode);
+  useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -177,7 +187,15 @@ function PlayerBar() {
     if (!audio) return;
     const updateTime = () => setCurrentTime(audio.currentTime);
     const updateDuration = () => setDuration(audio.duration);
-    const handleEnded = () => playNextRef.current();
+    const handleEnded = () => {
+      if (repeatModeRef.current === "one") {
+        // Repeat one: restart the current track
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+      } else {
+        playNextRef.current();
+      }
+    };
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
     audio.addEventListener("ended", handleEnded);
@@ -346,6 +364,7 @@ function PlayerBar() {
     open: mobileMenuOpen,
     onOpenChange: setMobileMenuOpen,
     onOpenSupport: () => { setSupportOpen(true); setMobileMenuOpen(false); },
+    isAuthenticated,
   };
 
   const desktopMenuProps = {
@@ -353,12 +372,16 @@ function PlayerBar() {
     open: desktopMenuOpen,
     onOpenChange: setDesktopMenuOpen,
     onOpenSupport: () => { setSupportOpen(true); setDesktopMenuOpen(false); },
+    isAuthenticated,
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
       <audio ref={audioRef} src={active?.audioUrl} preload="metadata" />
+
+      {/* ── Queue Sheet ── */}
+      <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />
 
       {/* ── Play Screen overlay ── */}
       <PlayScreen
@@ -374,6 +397,7 @@ function PlayerBar() {
         onSeekDelta={handleSeekDelta}
         volume={volume}
         onVolumeChange={setVolume}
+        onOpenQueue={() => { setPlayScreenOpen(false); setQueueOpen(true); }}
       />
 
       <AnimatePresence>
@@ -454,6 +478,42 @@ function PlayerBar() {
                       ? <Pause className="h-4 w-4 fill-current" />
                       : <Play className="h-4 w-4 translate-x-px fill-current" />
                     }
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={toggleRepeatMode}
+                    className={cn(
+                      "flex h-9 w-9 items-center justify-center rounded-full transition",
+                      repeatMode !== "off"
+                        ? "text-primary hover:text-primary/80"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                    data-testid="button-player-repeat"
+                    aria-label={
+                      repeatMode === "off" ? "Repeat off" : repeatMode === "all" ? "Repeat all" : "Repeat one"
+                    }
+                  >
+                    {repeatMode === "one" ? (
+                      <Repeat1 className="h-4 w-4" />
+                    ) : (
+                      <Repeat className="h-4 w-4" />
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setQueueOpen(true)}
+                    className="relative flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground"
+                    data-testid="button-player-queue"
+                    aria-label="Open queue"
+                  >
+                    <ListMusic className="h-4 w-4" />
+                    {queueCount > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-1 text-[8px] font-bold text-white leading-none">
+                        {queueCount > 9 ? "9+" : queueCount}
+                      </span>
+                    )}
                   </button>
 
                   <button
@@ -552,6 +612,40 @@ function PlayerBar() {
 
                 {/* Right actions */}
                 <div className="flex shrink-0 items-center gap-1">
+                  {/* Repeat */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={cn(
+                      "px-2",
+                      repeatMode !== "off" ? "text-primary hover:text-primary/80" : "text-muted-foreground",
+                    )}
+                    onClick={toggleRepeatMode}
+                    data-testid="button-player-repeat-desktop"
+                  >
+                    {repeatMode === "one" ? (
+                      <Repeat1 className="h-3.5 w-3.5" />
+                    ) : (
+                      <Repeat className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+
+                  {/* Queue */}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="relative px-2"
+                    onClick={() => setQueueOpen(true)}
+                    data-testid="button-player-queue-desktop"
+                  >
+                    <ListMusic className="h-3.5 w-3.5" />
+                    {queueCount > 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-1 text-[8px] font-bold text-white leading-none">
+                        {queueCount > 9 ? "9+" : queueCount}
+                      </span>
+                    )}
+                  </Button>
+
                   {/* Volume */}
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">🔊</span>
