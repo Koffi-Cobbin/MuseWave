@@ -209,7 +209,7 @@ function LivePreview({
   isSubmitting: boolean;
   uploadProgress: string;
 }) {
-  const isReady = draft.title.trim() && draft.artist.trim() && draft.audioFile;
+  const isReady = draft.title.trim() && draft.artist.trim() && draft.audioFile && !!draft.coverFile;
 
   return (
     <div className="glass glow noise rounded-2xl border border-white/10 p-4 sm:rounded-3xl sm:p-5">
@@ -291,7 +291,7 @@ function LivePreview({
 
       {!isReady && !isSubmitting && (
         <p className="mt-2 text-center text-[10px] text-muted-foreground">
-          Fill in title, artist & audio to publish
+          Fill in title, artist, audio & cover to publish
         </p>
       )}
     </div>
@@ -382,6 +382,7 @@ export default function Upload() {
     if (!draft.artist.trim()) return toast({ title: "Missing artist name", variant: "destructive" });
     if (!authUser && !draft.email.trim()) return toast({ title: "Missing email", variant: "destructive" });
     if (!draft.audioFile) return toast({ title: "Missing audio file", variant: "destructive" });
+    if (!draft.coverFile) return toast({ title: "Missing cover art", description: "A cover image is required.", variant: "destructive" });
 
     setIsSubmitting(true);
     setUploadProgress("Preparing upload…");
@@ -872,8 +873,8 @@ export default function Upload() {
 
                       <DropZone
                         accept="image/*"
-                        label="Cover art"
-                        hint="Optional — JPG, PNG, WebP"
+                        label="Cover art *"
+                        hint="Required — JPG, PNG, WebP"
                         icon={ImageIcon}
                         fileName={draft.coverFile?.name}
                         disabled={isSubmitting}
@@ -901,8 +902,8 @@ export default function Upload() {
                       </Button>
                       <Button
                         onClick={onSubmit}
-                        disabled={isSubmitting || !draft.audioFile}
-                        className={cn("glow gap-1.5", !draft.audioFile && "opacity-50")}
+                        disabled={isSubmitting || !draft.audioFile || !draft.coverFile}
+                        className={cn("glow gap-1.5", (!draft.audioFile || !draft.coverFile) && "opacity-50")}
                         data-testid="button-submit-upload"
                       >
                         {isSubmitting ? (

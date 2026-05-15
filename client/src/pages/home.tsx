@@ -1,33 +1,26 @@
 import { useMemo, useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "wouter";
+import { motion } from "framer-motion";
 import {
   ArrowRight,
   Compass,
   Flame,
-  Home as HomeIcon,
   Music2,
   Pause,
   Play,
   Search,
   Sparkles,
   UploadCloud,
-  LogOut,
-  User as UserIcon,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
-import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
-import { LoginModal } from "@/components/LoginModal";
 import { TrackCard } from "@/components/TrackCard";
+import { Logo } from "@/components/SidebarNav";
 import type { Track } from "../../../shared/schema";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,155 +48,6 @@ function secondsToTime(duration: number) {
   const min = Math.floor(duration / 60);
   const sec = Math.floor(duration % 60);
   return `${min}:${`${sec}`.padStart(2, "0")}`;
-}
-
-// ─── Logo ────────────────────────────────────────────────────────────────────
-
-function Logo() {
-  return (
-    <div className="flex items-center gap-3" data-testid="brand-musewave">
-      <div
-        className="h-9 w-9 shrink-0 rounded-xl bg-gradient-to-br from-emerald-400/90 via-emerald-400/20 to-fuchsia-500/80 shadow-[0_8px_24px_-8px_rgba(16,185,129,.8)]"
-        aria-hidden="true"
-      />
-      <div className="min-w-0 leading-tight">
-        <div className="truncate text-base font-semibold tracking-tight">MuseWave</div>
-        <div className="truncate text-xs text-muted-foreground">music for the next fave</div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Login Dialog ─────────────────────────────────────────────────────────────
-
-function LoginDialog({ onSuccess }: { onSuccess?: () => void }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <>
-      <Button
-        size="sm"
-        className="glow shrink-0"
-        data-testid="button-open-login"
-        onClick={() => setOpen(true)}
-      >
-        Log in
-      </Button>
-      <LoginModal
-        open={open}
-        onClose={() => setOpen(false)}
-        onSuccess={onSuccess}
-      />
-    </>
-  );
-}
-
-// ─── Desktop Sidebar ──────────────────────────────────────────────────────────
-
-function SidebarNav({ onMobileClose }: { onMobileClose?: () => void }) {
-  const [location] = useLocation();
-  const { user, logout, isAuthenticated } = useAuth();
-  const { toast } = useToast();
-
-  const items = [
-    { href: "/", label: "Home", icon: HomeIcon, testId: "link-nav-home" },
-    { href: "/discover", label: "Discover", icon: Compass, testId: "link-nav-discover" },
-    { href: "/upload", label: "Upload", icon: UploadCloud, testId: "link-nav-upload" },
-  ];
-
-  const authenticatedItems = [
-    { href: "/playlists", label: "My Playlists", icon: Music2, testId: "link-nav-playlists" },
-  ];
-
-  const handleLogout = () => {
-    logout();
-    toast({ title: "Logged out", description: "You've been successfully logged out." });
-    onMobileClose?.();
-  };
-
-  return (
-    <div className="glass glow noise h-full rounded-2xl p-4 lg:h-auto">
-      <div className="flex items-center justify-between lg:block">
-        <Logo />
-        {onMobileClose && (
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMobileClose} data-testid="button-close-nav">
-            <X className="h-5 w-5" />
-          </Button>
-        )}
-      </div>
-
-      <Separator className="my-4 opacity-60" />
-
-      <nav className="grid gap-1">
-        {items.map((it) => {
-          const active = it.href === "/" ? location === "/" : !it.href.includes("#") && location.startsWith(it.href);
-          const Icon = it.icon;
-          return (
-            <Link
-              key={it.label}
-              href={it.href}
-              data-testid={it.testId}
-              onClick={onMobileClose}
-              className={cn(
-                "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition",
-                "hover:bg-white/5 hover:border-white/10 border border-transparent",
-                active && "bg-white/6 border-white/10",
-              )}
-            >
-              <Icon className="h-5 w-5 shrink-0 text-foreground/80 group-hover:text-foreground" />
-              <span className="font-medium">{it.label}</span>
-            </Link>
-          );
-        })}
-        {isAuthenticated && authenticatedItems.map((it) => {
-          const active = it.href === "/" ? location === "/" : !it.href.includes("#") && location.startsWith(it.href);
-          const Icon = it.icon;
-          return (
-            <Link
-              key={it.label}
-              href={it.href}
-              data-testid={it.testId}
-              onClick={onMobileClose}
-              className={cn(
-                "group flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition",
-                "hover:bg-white/5 hover:border-white/10 border border-transparent",
-                active && "bg-white/6 border-white/10",
-              )}
-            >
-              <Icon className="h-5 w-5 shrink-0 text-foreground/80 group-hover:text-foreground" />
-              <span className="font-medium">{it.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      <Separator className="my-4 opacity-60" />
-
-      {isAuthenticated && user && (
-        <Link href={`/artist/${user.username}`}>
-          <div className="mb-4 rounded-xl border border-white/10 bg-white/4 p-3 cursor-pointer hover:bg-white/6 transition">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-emerald-400/30 to-fuchsia-500/20">
-                <UserIcon className="h-5 w-5" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-semibold" data-testid="text-user-name">{user.displayName || user.username}</div>
-                <div className="truncate text-xs text-muted-foreground" data-testid="text-user-email">{user.email}</div>
-              </div>
-            </div>
-          </div>
-        </Link>
-      )}
-
-      {isAuthenticated ? (
-        <Button variant="ghost" className="w-full justify-start text-sm" onClick={handleLogout} data-testid="button-logout">
-          <LogOut className="mr-2 h-4 w-4" />
-          Log out
-        </Button>
-      ) : (
-        <LoginDialog onSuccess={onMobileClose} />
-      )}
-    </div>
-  );
 }
 
 // ─── Artist Row ───────────────────────────────────────────────────────────────
@@ -354,17 +198,10 @@ export default function Home() {
     <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
 
       <div className="mx-auto w-full max-w-6xl overflow-x-hidden px-4 py-4 sm:px-6 sm:py-5 lg:px-8 lg:py-6 xl:py-8">
-        <div className="grid gap-4 lg:grid-cols-12 lg:gap-6">
-
-          {/* ── Desktop Sidebar ── */}
-          <aside className="hidden lg:block lg:col-span-3">
-            <div className="sticky top-6">
-              <SidebarNav />
-            </div>
-          </aside>
+        <div className="grid gap-4 lg:gap-6">
 
           {/* ── Main Content ── */}
-          <main className="min-w-0 lg:col-span-9">
+          <main className="min-w-0">
 
             {/* ── Mobile Top Bar ── */}
             <div className="mb-5 lg:hidden">

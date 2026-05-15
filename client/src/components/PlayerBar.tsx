@@ -596,18 +596,27 @@ function PlayerBar() {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 20, opacity: 0 }}
               transition={{ type: "spring", stiffness: 400, damping: 35 }}
-              className="fixed inset-x-0 bottom-0 z-40 hidden border-t border-white/8 bg-background/85 backdrop-blur-2xl lg:block"
+              className="fixed inset-x-0 bottom-0 z-40 hidden border-t border-white/8 bg-background/85 backdrop-blur-2xl lg:block lg:pl-64"
             >
-              {/* Progress bar */}
-              <div className="relative h-[2px] w-full bg-white/10">
-                <div
-                  className="absolute inset-y-0 left-0 bg-primary/80 transition-all duration-150 pointer-events-none"
-                  style={{ width: `${progress}%` }}
-                />
+              {/* Hairline progress bar with time-on-hover + seek */}
+              <div className="group/progress relative h-5 w-full">
+                {/* Thin animated fill line at bottom edge */}
+                <div className="absolute bottom-0 inset-x-0 h-[2px] bg-white/10">
+                  <div
+                    className="absolute inset-y-0 left-0 bg-primary/80 transition-all duration-150 pointer-events-none"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                {/* Time labels — always visible */}
+                <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-0.5 pointer-events-none">
+                  <span className="text-[10px] text-muted-foreground tabular-nums">{formatTime(currentTime)}</span>
+                  <span className="text-[10px] text-muted-foreground tabular-nums">{formatTime(duration)}</span>
+                </div>
+                {/* Invisible seek trackpad spanning full width */}
                 <input
                   type="range" min="0" max={duration || 0} value={currentTime}
                   onChange={handleSeekInput}
-                  className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[20px] w-full cursor-pointer opacity-0"
+                  className="absolute inset-0 w-full cursor-pointer opacity-0"
                   data-testid="input-player-seek-desktop"
                 />
               </div>
@@ -647,8 +656,8 @@ function PlayerBar() {
                   <div className="truncate text-xs text-muted-foreground" data-testid="text-player-artist-desktop">{active.artist}</div>
                 </button>
 
-                {/* Play + seek bar */}
-                <div className="flex flex-1 min-w-0 items-center gap-2">
+                {/* Compact playback controls (no seek bar — moved to hairline above) */}
+                <div className="flex flex-1 min-w-0 items-center justify-center gap-2">
                   <Button size="icon" variant="ghost" onClick={playPrev} disabled={!hasPrev} className="shrink-0" data-testid="button-player-prev-desktop" aria-label="Previous track">
                     <SkipBack className="h-4 w-4" />
                   </Button>
@@ -658,14 +667,6 @@ function PlayerBar() {
                   <Button size="icon" variant="ghost" onClick={playNext} disabled={!hasNext} className="shrink-0" data-testid="button-player-next-desktop" aria-label="Next track">
                     <SkipForward className="h-4 w-4" />
                   </Button>
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatTime(currentTime)}</span>
-                  <input
-                    type="range" min="0" max={duration || 0} value={currentTime}
-                    onChange={handleSeekInput}
-                    className="h-1 min-w-0 flex-1 cursor-pointer appearance-none rounded-lg bg-white/20"
-                    data-testid="input-player-seek-bar"
-                  />
-                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{formatTime(duration)}</span>
                 </div>
 
                 {/* Right actions */}

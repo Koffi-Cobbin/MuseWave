@@ -7,6 +7,7 @@ import { queryClient } from "./lib/queryClient";
 import { AuthProvider } from "@/contexts/auth-context";
 import { PlayerProvider } from "@/contexts/player-context";
 import { PlaylistProvider } from "@/contexts/playlist-context";
+import { SidebarNav } from "@/components/SidebarNav";
 import PlayerBar from "@/components/PlayerBar";
 import BottomNav from "@/components/BottomNav";
 import NotFound from "@/pages/not-found";
@@ -56,8 +57,17 @@ function App() {
         <PlayerProvider>
           <PlaylistProvider>
             <TooltipProvider>
-              <Toaster />
-              <Router />
+              {/* Persistent sidebar on desktop */}
+              <aside className="fixed left-0 top-0 z-50 hidden h-screen w-64 border-r border-white/10 bg-background p-4 lg:flex lg:flex-col">
+                <SidebarNav />
+              </aside>
+
+              {/* Page content — offset for sidebar on desktop */}
+              <div className="min-h-screen lg:pl-64">
+                <Toaster />
+                <Router />
+              </div>
+
               {/* Global overlays — rendered above all pages */}
               <BottomNav />
               <PlayerBar />
