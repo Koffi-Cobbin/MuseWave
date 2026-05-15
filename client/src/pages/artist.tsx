@@ -219,7 +219,8 @@ function ArtistHero({
   albums,
   followCount,
   following,
-  setFollowing,
+  followLoading,
+  onToggleFollow,
   isOwner,
   supportOpen,
   setSupportOpen,
@@ -236,7 +237,8 @@ function ArtistHero({
   albums: Album[];
   followCount: number;
   following: boolean;
-  setFollowing: (v: boolean) => void;
+  followLoading: boolean;
+  onToggleFollow: () => void;
   isOwner: boolean;
   supportOpen: boolean;
   setSupportOpen: (v: boolean) => void;
@@ -360,11 +362,11 @@ function ArtistHero({
 
             {/* Stats row */}
             <div className="mt-4 flex flex-wrap gap-2">
-              <StatPill icon={Users} label="followers" value={formatCount(followCount)} />
+              <StatPill icon={Users} label={followCount === 1 ? "follower" : "followers"} value={formatCount(followCount)} />
               <StatPill icon={Headphones} label="monthly" value={formatCount(artist.monthlyListeners)} />
-              <StatPill icon={Music2} label="tracks" value={tracks.length} />
+              <StatPill icon={Music2} label={tracks.length === 1 ? "track" : "tracks"} value={tracks.length} />
               {albums.length > 0 && (
-                <StatPill icon={Disc} label="albums" value={albums.length} />
+                <StatPill icon={Disc} label={albums.length === 1 ? "album" : "albums"} value={albums.length} />
               )}
             </div>
           </motion.div>
@@ -383,10 +385,13 @@ function ArtistHero({
                 "border-white/15 backdrop-blur-sm",
                 following ? "bg-white/10 hover:bg-white/15" : "glow",
               )}
-              onClick={() => setFollowing(!following)}
+              onClick={onToggleFollow}
+              disabled={followLoading}
               data-testid="button-follow"
             >
-              {following ? (
+              {followLoading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : following ? (
                 <><Check className="mr-2 h-4 w-4" />Following</>
               ) : (
                 <><Heart className="mr-2 h-4 w-4" />Follow</>
@@ -539,7 +544,7 @@ function AlbumDetailSheet({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold">{album.title}</div>
-                  <div className="text-xs text-muted-foreground">{tracks.length} tracks</div>
+                  <div className="text-xs text-muted-foreground">{tracks.length === 1 ? "1 track" : `${tracks.length} tracks`}</div>
                 </div>
                 <Button type="button" variant="ghost" size="icon" onClick={onClose}>
                   <X className="h-4 w-4" />
@@ -578,6 +583,7 @@ export default function ArtistPage() {
   const [publicPlaylists, setPublicPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const [followCount, setFollowCount] = useState(0);
   const [supportOpen, setSupportOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("tracks");
@@ -771,6 +777,17 @@ export default function ArtistPage() {
     }
   }, [artistUserId, authUser?.id]);
 
+  // Check if the current user already follows this artist
+  useEffect(() => {
+    if (!artistUserId || !authUser?.id) return;
+    apiRequestJson<{ following?: boolean }>(
+      "GET",
+      API_ENDPOINTS.follows.check(artistUserId, authUser.id),
+    )
+      .then((data) => setFollowing(data.following ?? false))
+      .catch(() => setFollowing(false));
+  }, [artistUserId, authUser?.id]);
+
   useEffect(() => {
     setActiveId(active?.id ?? null);
   }, [active]);
@@ -799,6 +816,70 @@ export default function ArtistPage() {
     setTracks((prev) =>
       prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
     );
+  };
+
+  // Toggle follow/unfollow via API
+  const handleToggleFollow = async () => {
+    if (!authUser) {
+      toast({
+        title: "Sign in required",
+        description: "Please log in to follow artists.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!artistUserId) return;
+
+    setFollowLoading(true);
+    const accessToken = localStorage.getItem("accessToken") ?? "";
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+
+    try {
+      const url = `${API_BASE_URL}${API_ENDPOINTS.follows.create(artistUserId)}`;
+
+      if (following) {
+        // Unfollow
+        const res = await fetch(url, {
+          method: "DELETE",
+          headers,
+          body: JSON.stringify({ followerId: authUser.id }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || err.detail || "Failed to unfollow");
+        }
+        setFollowing(false);
+        setFollowCount((c) => Math.max(0, c - 1));
+      } else {
+        // Follow
+        const res = await fetch(url, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ followerId: authUser.id }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || err.detail || "Failed to follow");
+        }
+        setFollowing(true);
+        setFollowCount((c) => c + 1);
+        toast({
+          title: "Following!",
+          description: "You are now following this artist.",
+        });
+      }
+    } catch (err) {
+      toast({
+        title: following ? "Failed to unfollow" : "Failed to follow",
+        description: err instanceof Error ? err.message : "Something went wrong.",
+        variant: "destructive",
+      });
+    } finally {
+      setFollowLoading(false);
+    }
   };
 
   const displayName = artist?.displayName || artist?.username || slug;
@@ -868,7 +949,8 @@ export default function ArtistPage() {
           albums={albums}
           followCount={followCount}
           following={following}
-          setFollowing={setFollowing}
+          followLoading={followLoading}
+          onToggleFollow={handleToggleFollow}
           isOwner={isOwner}
           supportOpen={supportOpen}
           setSupportOpen={setSupportOpen}
@@ -1324,7 +1406,7 @@ export default function ArtistPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <div className="truncate font-semibold">{album.title}</div>
-                          <div className="text-xs text-muted-foreground">{album.tracks?.length ?? album.trackCount ?? 0} tracks · {album.genre}</div>
+                          <div className="text-xs text-muted-foreground">{(album.tracks?.length ?? album.trackCount ?? 0) === 1 ? "1 track" : `${album.tracks?.length ?? album.trackCount ?? 0} tracks`} · {album.genre}</div>
                         </div>
                         <Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition" onClick={(e) => { e.stopPropagation(); handlePlayAlbum(album); }}>
                           <Play className="h-3.5 w-3.5 translate-x-px" />

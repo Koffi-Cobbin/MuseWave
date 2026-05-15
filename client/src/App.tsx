@@ -1,4 +1,5 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
+import { useEffect } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/toaster";
@@ -19,20 +20,32 @@ import Playlists from "./pages/playlists";
 import PlaylistDetail from "./pages/playlist-detail";
 import SharedPlaylist from "./pages/shared-playlist";
 
+// Scrolls to top on every route change
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [location]);
+  return null;
+}
+
 function Router() {
   return (
-    <Switch>
-      <Route path="/" component={Home} />
-      <Route path="/discover" component={Discover} />
-      <Route path="/upload" component={Upload} />
-      <Route path="/artist/:slug" component={Artist} />
-      <Route path="/playlists" component={Playlists} />
-      <Route path="/playlists/link/:token" component={SharedPlaylist} />
-      <Route path="/playlists/:id" component={PlaylistDetail} />
-      <Route path="/reset-password/:uid/:token" component={ResetPassword} />
-      <Route path="/verify-email/:uidb64/:token" component={VerifyEmail} />
-      <Route component={NotFound} />
-    </Switch>
+    <>
+      <ScrollToTop />
+      <Switch>
+        <Route path="/" component={Home} />
+        <Route path="/discover" component={Discover} />
+        <Route path="/upload" component={Upload} />
+        <Route path="/artist/:slug" component={Artist} />
+        <Route path="/playlists" component={Playlists} />
+        <Route path="/playlists/link/:token" component={SharedPlaylist} />
+        <Route path="/playlists/:id" component={PlaylistDetail} />
+        <Route path="/reset-password/:uid/:token" component={ResetPassword} />
+        <Route path="/verify-email/:uidb64/:token" component={VerifyEmail} />
+        <Route component={NotFound} />
+      </Switch>
+    </>
   );
 }
 

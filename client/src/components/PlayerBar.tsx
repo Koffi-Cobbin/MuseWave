@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -175,6 +175,30 @@ function PlayerBar() {
   const repeatModeRef = useRef(repeatMode);
   useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
 
+  // Tracks the current play session so we can record partial plays on skip
+  const playSessionRef = useRef<{ trackId: string } | null>(null);
+
+  // Sends a play event to the backend
+  const recordPlay = useCallback(async (trackId: string, durationSec: number, completed: boolean) => {
+    try {
+      const accessToken = localStorage.getItem("accessToken") ?? "";
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+      const body: Record<string, unknown> = {
+        duration: Math.round(durationSec),
+        completed,
+      };
+      if (user?.id) body.userId = user.id;
+      await fetch(`${API_BASE_URL}${API_ENDPOINTS.plays.create(trackId)}`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+      });
+    } catch {
+      // silent — play tracking must never interrupt the user
+    }
+  }, [user?.id]);
+
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   useEffect(() => {
@@ -188,6 +212,13 @@ function PlayerBar() {
     const updateTime = () => setCurrentTime(audio.currentTime);
     const updateDuration = () => setDuration(audio.duration);
     const handleEnded = () => {
+      // Record a completed play
+      if (active) {
+        const playedSec = Math.floor(audio.duration || audio.currentTime || 0);
+        if (playedSec > 0) {
+          recordPlay(active.id, playedSec, true);
+        }
+      }
       if (repeatModeRef.current === "one") {
         // Repeat one: restart the current track
         audio.currentTime = 0;
@@ -205,6 +236,33 @@ function PlayerBar() {
       audio.removeEventListener("ended", handleEnded);
     };
   }, [active]);
+
+  // Ref that always holds the latest audio currentTime (updated from timeupdate)
+  const currentTimeRef = useRef(0);
+  useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
+
+  // Minimum seconds listened to count as a meaningful partial play
+  const MIN_PLAY_SECONDS = 30;
+
+  // Record partial play when user switches to a different track before it ends
+  useEffect(() => {
+    const prevSession = playSessionRef.current;
+
+    // Flush a partial play for the previous track
+    if (prevSession && prevSession.trackId !== active?.id) {
+      const playedSec = Math.floor(currentTimeRef.current);
+      if (playedSec >= MIN_PLAY_SECONDS) {
+        recordPlay(prevSession.trackId, playedSec, false);
+      }
+    }
+
+    // Set up new session
+    if (active?.id) {
+      playSessionRef.current = { trackId: active.id };
+    } else {
+      playSessionRef.current = null;
+    }
+  }, [active?.id, recordPlay]);
 
   // Reset state when track changes
   useEffect(() => {

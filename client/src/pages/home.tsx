@@ -240,7 +240,7 @@ function ArtistRow({ artist }: { artist: ArtistRowData }) {
           <div className="text-xs tabular-nums text-muted-foreground font-medium" data-testid={`text-artist-followers-${artist.slug}`}>
             {formatCount(artist.followers || 0)}
           </div>
-          <div className="text-[10px] text-muted-foreground/60 leading-none">followers</div>
+          <div className="text-[10px] text-muted-foreground/60 leading-none">{artist.followers === 1 ? "follower" : "followers"}</div>
         </div>
     </Link>
   );
@@ -281,15 +281,37 @@ export default function Home() {
         ]);
         if (mounted) {
           setTracks(Array.isArray(tracksData) ? tracksData : []);
-          const normalized: ArtistRowData[] = (Array.isArray(rawArtists) ? rawArtists : []).map((a) => ({
-            slug: a.username ?? a.slug ?? "",
-            name: a.displayName ?? a.display_name ?? a.name ?? a.username ?? "",
-            tagline: a.tagline ?? a.bio ?? "",
-            followers: a.totalFollowers ?? a.followers ?? 0,
-            monthlyListeners: a.monthlyListeners ?? 0,
-            accent: a.accent ?? "",
-            avatarUrl: a.avatarUrl ?? a.avatar_url ?? undefined,
-          }));
+          const raw = Array.isArray(rawArtists) ? rawArtists : [];
+
+          // Batch-fetch stats for each artist (up to 6) to get real follower counts
+          const statsResults = await Promise.allSettled(
+            raw.slice(0, 6).map((a) =>
+              apiRequestJson<any>("GET", API_ENDPOINTS.users.stats(a.id ?? a.userId)).catch(() => null),
+            ),
+          );
+          const statsMap = new Map<string, { totalFollowers: number; monthlyListeners: number }>();
+          raw.slice(0, 6).forEach((a, i) => {
+            const result = statsResults[i];
+            if (result && "value" in result && result.value) {
+              statsMap.set(a.id ?? a.userId, {
+                totalFollowers: result.value.totalFollowers ?? 0,
+                monthlyListeners: result.value.monthlyListeners ?? 0,
+              });
+            }
+          });
+
+          const normalized: ArtistRowData[] = raw.map((a) => {
+            const stats = statsMap.get(a.id ?? a.userId);
+            return {
+              slug: a.username ?? a.slug ?? "",
+              name: a.displayName ?? a.display_name ?? a.name ?? a.username ?? "",
+              tagline: a.tagline ?? a.bio ?? "",
+              followers: stats?.totalFollowers ?? a.totalFollowers ?? a.followers ?? 0,
+              monthlyListeners: stats?.monthlyListeners ?? a.monthlyListeners ?? 0,
+              accent: a.accent ?? "",
+              avatarUrl: a.avatarUrl ?? a.avatar_url ?? undefined,
+            };
+          });
           setArtists(normalized);
         }
       } catch {
