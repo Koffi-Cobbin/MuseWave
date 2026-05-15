@@ -1219,7 +1219,7 @@ export default function ArtistPage() {
         </AnimatePresence>
 
         {/* ── Tabs ── */}
-        <div ref={tabsRef} className="mb-4 flex gap-1 rounded-2xl border border-white/8 bg-white/3 p-1">
+        <div ref={tabsRef} className="mb-4 flex gap-1 overflow-x-auto rounded-2xl border border-white/8 bg-white/3 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -1229,7 +1229,7 @@ export default function ArtistPage() {
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-medium transition-all",
+                  "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-medium transition-all",
                   isActive
                     ? "bg-white/10 text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground",

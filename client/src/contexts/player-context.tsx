@@ -127,7 +127,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const playNext = useCallback(() => {
-    if (queue.length === 0) return;
+    if (queue.length === 0) {
+      setIsPlaying(false);
+      return;
+    }
     const nextIndex = queueIndex + 1;
     if (nextIndex < queue.length) {
       setQueueIndex(nextIndex);
@@ -141,7 +144,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     } else {
       setIsPlaying(false);
     }
-  }, [queue, queueIndex, repeatMode]);
+  }, [queue, queueIndex, repeatMode, setIsPlaying]);
 
   const playPrev = useCallback(() => {
     if (queue.length === 0) return;

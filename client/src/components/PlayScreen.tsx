@@ -9,7 +9,7 @@ import {
   Share2,
   Play,
   Pause,
-  RotateCcw,
+  SkipBack,
   SkipForward,
   Music2,
   ExternalLink,
@@ -103,7 +103,7 @@ export function PlayScreen({
   onVolumeChange,
   onOpenQueue,
 }: PlayScreenProps) {
-  const { active, isPlaying, repeatMode, toggleRepeatMode } = usePlayer();
+  const { active, isPlaying, repeatMode, toggleRepeatMode, playNext, playPrev, hasNext, hasPrev } = usePlayer();
   const { isAuthenticated } = useAuth();
   const { toast } = useToast();
 
@@ -375,63 +375,66 @@ export function PlayScreen({
 
             {/* Track info */}
             <div className="shrink-0 px-7">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 flex-1">
-                  <h1 className="truncate text-2xl font-bold tracking-tight text-white" data-testid="text-play-screen-title">
-                    {active.title}
-                  </h1>
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl font-bold tracking-tight text-white" data-testid="text-play-screen-title">
+                  {active.title}
+                </h1>
+                {/* Artist name + Repeat (inline) */}
+                <div className="mt-1 flex items-center justify-between gap-2">
                   <Link
                     href={`/artist/${active.artistSlug}`}
                     onClick={onClose}
-                    className="mt-1 flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors"
+                    className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors min-w-0"
                     data-testid="link-play-screen-artist"
                   >
                     <Music2 className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate font-medium">{active.artist}</span>
                   </Link>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {active.genre && (
+                      <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/70">
+                        {active.genre}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={toggleRepeatMode}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition sm:px-5 sm:py-2 sm:gap-2",
+                        repeatMode !== "off" ? "text-primary bg-primary/15" : "text-white/40 hover:text-white/70",
+                      )}
+                      aria-label={
+                        repeatMode === "off" ? "Repeat off" : repeatMode === "all" ? "Repeat all" : "Repeat one"
+                      }
+                    >
+                      {repeatMode === "one" ? (
+                        <Repeat1 className="h-4 w-4 sm:h-6 sm:w-6" />
+                      ) : (
+                        <Repeat className="h-4 w-4 sm:h-6 sm:w-6" />
+                      )}
+                      <span className="text-[11px] font-bold sm:text-sm">
+                        {repeatMode === "off" ? "" : repeatMode === "all" ? "ALL" : "ONE"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
-                {active.genre && (
-                  <span className="mt-1 shrink-0 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-medium text-white/70">
-                    {active.genre}
-                  </span>
-                )}
               </div>
             </div>
 
             {/* Progress + controls */}
             <div className="shrink-0 px-7 pt-6 pb-2">
               <ProgressBar currentTime={currentTime} duration={duration} onSeek={onSeek} />
-              <div className="mt-6 flex items-center justify-center gap-6 sm:gap-8">
+              <div className="mt-6 flex items-center justify-center gap-8 sm:gap-10">
                 <button
                   type="button"
-                  onClick={toggleRepeatMode}
-                  className={cn(
-                    "flex flex-col items-center gap-0.5 transition",
-                    repeatMode !== "off" ? "text-primary" : "text-white/70 hover:text-white",
-                  )}
-                  data-testid="button-play-screen-repeat"
-                  aria-label={
-                    repeatMode === "off" ? "Repeat off" : repeatMode === "all" ? "Repeat all" : "Repeat one"
-                  }
+                  onClick={playPrev}
+                  disabled={!hasPrev}
+                  className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white disabled:opacity-30"
+                  data-testid="button-play-screen-prev"
+                  aria-label="Previous track"
                 >
-                  {repeatMode === "one" ? (
-                    <Repeat1 className="h-6 w-6" />
-                  ) : (
-                    <Repeat className="h-6 w-6" />
-                  )}
-                  <span className="text-[9px] font-bold tabular-nums">
-                    {repeatMode === "off" ? "" : repeatMode === "all" ? "ALL" : "ONE"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSeekDelta(-15)}
-                  className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white"
-                  data-testid="button-play-screen-rewind"
-                  aria-label="Rewind 15 seconds"
-                >
-                  <RotateCcw className="h-7 w-7" />
-                  <span className="text-[9px] font-bold tabular-nums">15</span>
+                  <SkipBack className="h-7 w-7" />
+                  <span className="text-[9px] font-bold tabular-nums">PREV</span>
                 </button>
                 <button
                   type="button"
@@ -446,13 +449,14 @@ export function PlayScreen({
                 </button>
                 <button
                   type="button"
-                  onClick={() => onSeekDelta(30)}
-                  className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white"
-                  data-testid="button-play-screen-forward"
-                  aria-label="Forward 30 seconds"
+                  onClick={playNext}
+                  disabled={!hasNext}
+                  className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white disabled:opacity-30"
+                  data-testid="button-play-screen-next"
+                  aria-label="Next track"
                 >
                   <SkipForward className="h-7 w-7" />
-                  <span className="text-[9px] font-bold tabular-nums">30</span>
+                  <span className="text-[9px] font-bold tabular-nums">NEXT</span>
                 </button>
               </div>
               {/* Action row */}
@@ -564,64 +568,63 @@ export function PlayScreen({
 
                 {/* Track info */}
                 <div className="w-full max-w-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <h1 className="truncate text-3xl font-bold tracking-tight text-white leading-tight" data-testid="text-play-screen-title-desktop">
-                        {active.title}
-                      </h1>
-                      <Link
-                        href={`/artist/${active.artistSlug}`}
-                        onClick={onClose}
-                        className="mt-1.5 flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors w-fit"
-                        data-testid="link-play-screen-artist-desktop"
+                  <h1 className="truncate text-3xl font-bold tracking-tight text-white leading-tight" data-testid="text-play-screen-title-desktop">
+                    {active.title}
+                  </h1>
+                  {/* Artist name + Repeat + Genre (inline) */}
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <Link
+                      href={`/artist/${active.artistSlug}`}
+                      onClick={onClose}
+                      className="flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors min-w-0"
+                      data-testid="link-play-screen-artist-desktop"
+                    >
+                      <Music2 className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate font-medium">{active.artist}</span>
+                    </Link>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {active.genre && (
+                        <span className="rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white/70">
+                          {active.genre}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={toggleRepeatMode}
+                        className={cn(
+                          "flex items-center gap-2 rounded-full px-5 py-2 transition",
+                          repeatMode !== "off" ? "text-primary bg-primary/15" : "text-white/40 hover:text-white/70",
+                        )}
+                        aria-label={
+                          repeatMode === "off" ? "Repeat off" : repeatMode === "all" ? "Repeat all" : "Repeat one"
+                        }
                       >
-                        <Music2 className="h-3.5 w-3.5 shrink-0" />
-                        <span className="truncate font-medium">{active.artist}</span>
-                      </Link>
+                        {repeatMode === "one" ? (
+                          <Repeat1 className="h-6 w-6" />
+                        ) : (
+                          <Repeat className="h-6 w-6" />
+                        )}
+                        <span className="text-sm font-bold">
+                          {repeatMode === "off" ? "" : repeatMode === "all" ? "ALL" : "ONE"}
+                        </span>
+                      </button>
                     </div>
-                    {active.genre && (
-                      <span className="mt-1 shrink-0 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-xs font-medium text-white/70">
-                        {active.genre}
-                      </span>
-                    )}
                   </div>
-
-                  {/* Progress bar */}
                   <div className="mt-6">
                     <ProgressBar currentTime={currentTime} duration={duration} onSeek={onSeek} />
                   </div>
 
                   {/* Playback controls */}
-                  <div className="mt-6 flex items-center justify-center gap-8">
+                  <div className="mt-6 flex items-center justify-center gap-10">
                     <button
                       type="button"
-                      onClick={toggleRepeatMode}
-                      className={cn(
-                        "flex flex-col items-center gap-0.5 transition",
-                        repeatMode !== "off" ? "text-primary" : "text-white/70 hover:text-white",
-                      )}
-                      data-testid="button-play-screen-repeat-desktop"
-                      aria-label={
-                        repeatMode === "off" ? "Repeat off" : repeatMode === "all" ? "Repeat all" : "Repeat one"
-                      }
+                      onClick={playPrev}
+                      disabled={!hasPrev}
+                      className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white disabled:opacity-30"
+                      aria-label="Previous track"
                     >
-                      {repeatMode === "one" ? (
-                        <Repeat1 className="h-6 w-6" />
-                      ) : (
-                        <Repeat className="h-6 w-6" />
-                      )}
-                      <span className="text-[9px] font-bold tabular-nums">
-                        {repeatMode === "off" ? "" : repeatMode === "all" ? "ALL" : "ONE"}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onSeekDelta(-15)}
-                      className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white"
-                      aria-label="Rewind 15 seconds"
-                    >
-                      <RotateCcw className="h-6 w-6" />
-                      <span className="text-[9px] font-bold tabular-nums">15</span>
+                      <SkipBack className="h-6 w-6" />
+                      <span className="text-[9px] font-bold tabular-nums">PREV</span>
                     </button>
                     <button
                       type="button"
@@ -636,12 +639,13 @@ export function PlayScreen({
                     </button>
                     <button
                       type="button"
-                      onClick={() => onSeekDelta(30)}
-                      className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white"
-                      aria-label="Forward 30 seconds"
+                      onClick={playNext}
+                      disabled={!hasNext}
+                      className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white disabled:opacity-30"
+                      aria-label="Next track"
                     >
                       <SkipForward className="h-6 w-6" />
-                      <span className="text-[9px] font-bold tabular-nums">30</span>
+                      <span className="text-[9px] font-bold tabular-nums">NEXT</span>
                     </button>
                   </div>
 

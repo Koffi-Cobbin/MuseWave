@@ -1,5 +1,7 @@
 /**
  * Re-imagined TrackCard component
+ * Mobile: full-height cover strip on the left, minimal details
+ * Desktop: square cover card with rich metadata
  * Used by: home.tsx, discover.tsx, artist.tsx
  */
 
@@ -92,12 +94,15 @@ export function TrackCard({
         />
       )}
 
-      <div className="flex items-center gap-3 p-2.5 sm:gap-4 sm:p-3">
-        {/* ── Cover art ── */}
+      {/* ════════════════════════════════════════════════════════════
+          MOBILE  (default)
+          Full-height cover strip on the left
+      ════════════════════════════════════════════════════════════ */}
+      <div className="flex sm:hidden">
+        {/* ── Full-height cover strip ── */}
         <div
           className={cn(
-            "relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border cursor-pointer transition-shadow duration-200 sm:h-16 sm:w-16",
-            isActive ? "border-primary/30 shadow-sm shadow-primary/10" : "border-white/10",
+            "relative w-24 shrink-0 cursor-pointer overflow-hidden",
             !track.coverUrl && !accentStyle && "bg-gradient-to-br from-emerald-500/20 to-fuchsia-500/20",
           )}
           style={!track.coverUrl ? accentStyle : undefined}
@@ -105,17 +110,14 @@ export function TrackCard({
           role="button"
           aria-label={isActiveAndPlaying ? `Pause ${track.title}` : `Play ${track.title}`}
         >
-          {/* Cover image */}
           {track.coverUrl && (
             <>
-              {!imgLoaded && (
-                <div className="absolute inset-0 animate-pulse bg-white/5" />
-              )}
+              {!imgLoaded && <div className="absolute inset-0 animate-pulse bg-white/5" />}
               <img
                 src={track.coverUrl}
                 alt={`${track.title} cover`}
                 className={cn(
-                  "h-full w-full object-cover transition-opacity duration-300",
+                  "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
                   imgLoaded ? "opacity-100" : "opacity-0",
                 )}
                 onLoad={() => setImgLoaded(true)}
@@ -123,18 +125,136 @@ export function TrackCard({
             </>
           )}
 
+          {/* Gradient fade on the right edge so text doesn't bleed into the image */}
+          <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-r from-transparent to-background" />
+
+          {/* Play/pause icon centered vertically */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div
+              className={cn(
+                "flex h-7 w-7 items-center justify-center rounded-full transition-all",
+                isActiveAndPlaying ? "bg-white/90" : "bg-white/10 opacity-0 group-hover:opacity-100",
+              )}
+            >
+              {isActiveAndPlaying ? (
+                <Pause className="h-3 w-3 fill-current text-background" />
+              ) : (
+                <Play className="ml-0.5 h-3 w-3 fill-current text-white" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Info panel with PlayScreen-style blurred cover background ── */}
+        <div className="relative flex flex-1 items-center min-w-0 overflow-hidden">
+          {/* Blurred cover background (like PlayScreen) */}
+          {track.coverUrl && (
+            <img
+              src={track.coverUrl}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ filter: "blur(40px) saturate(1.4) brightness(0.5)", transform: "scale(1.15)" }}
+            />
+          )}
+
+          {/* Gradient overlay for depth */}
+          <div className={cn(
+            "absolute inset-0",
+            track.coverGradient
+              ? `bg-gradient-to-br opacity-60`
+              : "bg-gradient-to-br from-emerald-500/20 to-fuchsia-500/20",
+          )}
+            style={track.coverGradient ? { backgroundImage: `linear-gradient(135deg, ${track.coverGradient})`, opacity: 0.6 } : undefined}
+          />
+
+          {/* Dark scrim for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-black/40 to-black/60" />
+
+          {/* Content */}
+          <div className="relative z-10 flex flex-1 items-center min-w-0 pl-3 pr-2 py-3 gap-1">
+            <div className="min-w-0 flex-1">
+              {/* Title */}
+              <div
+                className={cn(
+                  "truncate text-sm font-semibold leading-tight",
+                  isActive ? "text-primary" : "text-white",
+                )}
+                data-testid={`text-track-title-${track.id}`}
+              >
+                {track.title}
+              </div>
+              {/* Artist */}
+              <Link
+                href={`/artist/${track.artistSlug}`}
+                className="mt-0.5 flex items-center gap-1 text-xs text-white/60 hover:text-white/90 transition-colors"
+                data-testid={`link-track-artist-${track.id}`}
+              >
+                <Music2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">{track.artist}</span>
+              </Link>
+            </div>
+
+            {/* Actions button */}
+            <div className="shrink-0 self-center">
+              {(isAuthenticated || isOwner) && (
+                <TrackActionsMenu
+                  track={track}
+                  isOwner={isOwner}
+                  size="sm"
+                  variant="ghost"
+                  onTrackDeleted={onTrackDeleted}
+                  onTrackUpdated={onTrackUpdated}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════
+          DESKTOP  (sm+)
+          Square cover with PlayScreen-style background + rich metadata
+      ════════════════════════════════════════════════════════════ */}
+      <div className="hidden sm:flex items-stretch">
+        {/* ── Cover art ── */}
+        <div
+          className={cn(
+            "relative w-20 shrink-0 cursor-pointer overflow-hidden rounded-l-2xl border-r-0",
+            isActive ? "border-primary/30" : "",
+          )}
+          onClick={() => onPlay(track)}
+          role="button"
+          aria-label={isActiveAndPlaying ? `Pause ${track.title}` : `Play ${track.title}`}
+        >
+          {track.coverUrl ? (
+            <>
+              {!imgLoaded && <div className="absolute inset-0 animate-pulse bg-white/5" />}
+              <img
+                src={track.coverUrl}
+                alt={`${track.title} cover`}
+                className={cn(
+                  "absolute inset-0 h-full w-full object-cover transition-opacity duration-300",
+                  imgLoaded ? "opacity-100" : "opacity-0",
+                )}
+                onLoad={() => setImgLoaded(true)}
+              />
+            </>
+          ) : (
+            <div className={cn(
+              "absolute inset-0 bg-gradient-to-br",
+              accentStyle ? "" : "from-emerald-500/30 to-fuchsia-500/20",
+            )}
+              style={accentStyle}
+            />
+          )}
+
           {/* Play/pause overlay */}
           <motion.div
             className="absolute inset-0 flex items-center justify-center"
             initial={false}
-            animate={{
-              backgroundColor: isActive
-                ? "rgba(0,0,0,0.45)"
-                : "rgba(0,0,0,0)",
-            }}
-            whileHover={{
-              backgroundColor: "rgba(0,0,0,0.35)",
-            }}
+            animate={{ backgroundColor: isActive ? "rgba(0,0,0,0.45)" : "rgba(0,0,0,0)" }}
+            whileHover={{ backgroundColor: "rgba(0,0,0,0.35)" }}
           >
             <motion.div
               className="flex h-8 w-8 items-center justify-center rounded-full shadow-lg"
@@ -152,106 +272,131 @@ export function TrackCard({
               )}
             </motion.div>
           </motion.div>
+
+          {/* Fade edge so cover blends into the background panel */}
+          <div className="absolute inset-y-0 right-0 w-6 bg-gradient-to-r from-transparent to-black/40 pointer-events-none" />
         </div>
 
-        {/* ── Track info ── */}
-        <div className="min-w-0 flex-1 overflow-hidden">
-          {/* Title row */}
-          <div className="flex items-center gap-1.5">
-            <span
-              className={cn(
-                "truncate text-sm font-semibold leading-tight transition-colors",
-                isActive ? "text-primary" : "text-foreground",
-              )}
-              data-testid={`text-track-title-${track.id}`}
-            >
-              {track.title}
-            </span>
-          </div>
-
-          {/* Artist row */}
-          <Link
-            href={`/artist/${track.artistSlug}`}
-            className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            data-testid={`link-track-artist-${track.id}`}
-          >
-            <Music2 className="h-3 w-3 shrink-0" />
-            <span className="truncate">{track.artist}</span>
-          </Link>
-
-          {/* Metadata row */}
-          <div className="mt-1.5 flex flex-wrap items-center gap-2">
-            {track.genre && (
-              <Badge
-                variant="secondary"
-                className={cn(
-                  "border px-1.5 py-0 text-[10px] font-normal leading-none",
-                  isActive
-                    ? "border-primary/25 bg-primary/10 text-primary/80"
-                    : "border-white/10 bg-white/5 text-muted-foreground",
-                )}
-              >
-                {track.genre}
-              </Badge>
-            )}
-
-            {/* Play count */}
-            {typeof track.plays === "number" && track.plays > 0 && (
-              <span className="flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground/50">
-                <Headphones className="h-2.5 w-2.5" />
-                {formatCount(track.plays)}
-              </span>
-            )}
-
-            {/* Like count */}
-            {typeof track.likes === "number" && track.likes > 0 && (
-              <span className="flex items-center gap-1 text-[10px] tabular-nums text-muted-foreground/50">
-                <Heart className="h-2.5 w-2.5" />
-                {formatCount(track.likes)}
-              </span>
-            )}
-
-            {/* Published year */}
-            {track.publishedAt && (
-              <span className="text-[10px] text-muted-foreground/40">
-                {new Date(track.publishedAt).getFullYear()}
-              </span>
-            )}
-
-            {/* Duration — bottom right */}
-            {track.audioDuration ? (
-              <span className="ml-auto shrink-0 text-[10px] font-medium tabular-nums text-muted-foreground/50">
-                {formatDuration(track.audioDuration)}
-              </span>
-            ) : null}
-          </div>
-        </div>
-
-        {/* ── Actions menu ── */}
-        <div className="shrink-0 self-start pt-0.5 sm:self-center">
-          {(isAuthenticated || isOwner) ? (
-            <TrackActionsMenu
-              track={track}
-              isOwner={isOwner}
-              size="sm"
-              variant="ghost"
-              onTrackDeleted={onTrackDeleted}
-              onTrackUpdated={onTrackUpdated}
+        {/* ── Content panel with PlayScreen-style background ── */}
+        <div className="relative flex flex-1 min-w-0 overflow-hidden rounded-r-2xl">
+          {/* Blurred cover background */}
+          {track.coverUrl && (
+            <img
+              src={track.coverUrl}
+              alt=""
+              aria-hidden="true"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ filter: "blur(40px) saturate(1.4) brightness(0.5)", transform: "scale(1.15)" }}
             />
-          ) : (
-            <button
-              type="button"
-              onClick={() => onPlay(track)}
-              className={cn(
-                "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200",
-                "opacity-0 group-hover:opacity-100",
-                "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white",
-              )}
-              aria-label={`Play ${track.title}`}
-            >
-              <Play className="h-3.5 w-3.5 ml-0.5 fill-current" />
-            </button>
           )}
+
+          {/* Gradient overlay */}
+          <div
+            className={cn(
+              "absolute inset-0",
+              track.coverGradient ? "opacity-60" : "bg-gradient-to-br from-emerald-500/20 to-fuchsia-500/20",
+            )}
+            style={track.coverGradient ? { backgroundImage: `linear-gradient(135deg, ${track.coverGradient})`, opacity: 0.6 } : undefined}
+          />
+
+          {/* Dark scrim */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-black/40 to-black/60" />
+
+          {/* Content */}
+          <div className="relative z-10 flex items-center gap-4 px-4 py-3 flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
+              {/* Title row */}
+              <span
+                className={cn(
+                  "truncate text-sm font-semibold leading-tight block",
+                  isActive ? "text-primary" : "text-white",
+                )}
+                data-testid={`text-track-title-${track.id}`}
+              >
+                {track.title}
+              </span>
+
+              {/* Artist row */}
+              <Link
+                href={`/artist/${track.artistSlug}`}
+                className="mt-0.5 flex items-center gap-1 text-xs text-white/60 hover:text-white/90 transition-colors"
+                data-testid={`link-track-artist-${track.id}`}
+              >
+                <Music2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">{track.artist}</span>
+              </Link>
+
+              {/* Metadata row */}
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                {track.genre && (
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "border px-1.5 py-0 text-[10px] font-normal leading-none",
+                      isActive
+                        ? "border-primary/25 bg-primary/10 text-primary/80"
+                        : "border-white/10 bg-white/10 text-white/70",
+                    )}
+                  >
+                    {track.genre}
+                  </Badge>
+                )}
+
+                {typeof track.plays === "number" && track.plays > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] tabular-nums text-white/50">
+                    <Headphones className="h-2.5 w-2.5" />
+                    {formatCount(track.plays)}
+                  </span>
+                )}
+
+                {typeof track.likes === "number" && track.likes > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] tabular-nums text-white/50">
+                    <Heart className="h-2.5 w-2.5" />
+                    {formatCount(track.likes)}
+                  </span>
+                )}
+
+                {track.publishedAt && (
+                  <span className="text-[10px] text-white/40">
+                    {new Date(track.publishedAt).getFullYear()}
+                  </span>
+                )}
+
+                {track.audioDuration ? (
+                  <span className="ml-auto shrink-0 text-[10px] font-medium tabular-nums text-white/50">
+                    {formatDuration(track.audioDuration)}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            {/* ── Actions menu ── */}
+            <div className="shrink-0 self-center">
+              {(isAuthenticated || isOwner) ? (
+                <TrackActionsMenu
+                  track={track}
+                  isOwner={isOwner}
+                  size="sm"
+                  variant="ghost"
+                  onTrackDeleted={onTrackDeleted}
+                  onTrackUpdated={onTrackUpdated}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onPlay(track)}
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200",
+                    "opacity-0 group-hover:opacity-100",
+                    "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white",
+                  )}
+                  aria-label={`Play ${track.title}`}
+                >
+                  <Play className="h-3.5 w-3.5 ml-0.5 fill-current" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </motion.div>
