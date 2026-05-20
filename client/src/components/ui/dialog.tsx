@@ -39,12 +39,13 @@ const DialogContent = React.forwardRef<
         // On mobile the bottom nav (--bottom-nav-h) eats into the viewport,
         // so we shift the dialog up by half that amount so it's truly centred
         // in the *visible* area. On lg+ the nav is hidden so no offset needed.
-        "fixed left-[50%] z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg duration-200",
+        "fixed left-[50%] z-50 grid gap-4 border bg-background p-6 shadow-lg duration-200",
+        "max-sm:w-[calc(100%-32px)] w-full max-w-lg",
         "top-[50%] translate-x-[-50%] translate-y-[-50%]",
         "lg:top-[50%] lg:translate-y-[-50%]",
         // Shift centre up on mobile to sit above the bottom nav
         "max-lg:top-[calc(50%-var(--bottom-nav-h)/2)] max-lg:translate-y-[-50%]",
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] rounded-lg",
         "max-h-[90dvh] overflow-y-auto",
         className
       )}

@@ -801,7 +801,7 @@ export default function Upload() {
                             <Globe className="h-3.5 w-3.5" />
                             <div className="text-left">
                               <div className="text-xs font-medium">Public</div>
-                              <div className="text-[10px] opacity-70">Anyone can discover &amp; stream</div>
+                              <div className="hidden sm:block text-[10px] opacity-70">Anyone can discover &amp; stream</div>
                             </div>
                           </button>
                           <button
@@ -818,7 +818,7 @@ export default function Upload() {
                             <Lock className="h-3.5 w-3.5" />
                             <div className="text-left">
                               <div className="text-xs font-medium">Private</div>
-                              <div className="text-[10px] opacity-70">Only shared users can access</div>
+                              <div className="hidden sm:block text-[10px] opacity-70">Only shared users can access</div>
                             </div>
                           </button>
                         </div>

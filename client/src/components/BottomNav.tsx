@@ -52,19 +52,16 @@ function AccountSheet({
 
               {isAuthenticated && user ? (
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-emerald-400/30 to-fuchsia-500/20">
-                      <UserIcon className="h-6 w-6" />
+                  <Link href={`/artist/${user.username}`} onClick={onClose} className="block">
+                    <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-emerald-400/30 to-fuchsia-500/20">
+                        <UserIcon className="h-6 w-6" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-base font-semibold">{user.displayName || user.username}</div>
+                        <div className="truncate text-sm text-muted-foreground">{user.email}</div>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-base font-semibold">{user.displayName || user.username}</div>
-                      <div className="truncate text-sm text-muted-foreground">{user.email}</div>
-                    </div>
-                  </div>
-                  <Link href={`/artist/${user.username}`}>
-                    <Button variant="secondary" className="w-full border-white/10 bg-white/5 h-12 text-base" onClick={onClose}>
-                      <UserIcon className="mr-2 h-5 w-5" /> View artist page
-                    </Button>
                   </Link>
                   <Button variant="ghost" className="w-full justify-start h-12 text-base" onClick={handleLogout}>
                     <LogOut className="mr-2 h-5 w-5" /> Log out

@@ -87,21 +87,21 @@ export default function PlaylistPage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mb-5 bg-muted/30 rounded-lg p-1 w-fit">
+          <div className="flex gap-1 mb-5 bg-muted/30 rounded-lg p-1 w-fit max-w-full">
             <button
               onClick={() => setActiveTab("my")}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors",
                 activeTab === "my"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
               data-testid="tab-my-playlists"
             >
-              <ListMusic className="h-4 w-4" />
-              My Playlists
+              <ListMusic className="h-4 w-4 shrink-0" />
+              <span className="whitespace-nowrap">My Playlists</span>
               {playlists.length > 0 && (
-                <span className="ml-1 bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-xs">
+                <span className="ml-1 bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs">
                   {playlists.length}
                 </span>
               )}
@@ -109,17 +109,17 @@ export default function PlaylistPage() {
             <button
               onClick={() => setActiveTab("shared")}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+                "flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors",
                 activeTab === "shared"
                   ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
               data-testid="tab-shared-playlists"
             >
-              <Users className="h-4 w-4" />
-              Shared with me
+              <Users className="h-4 w-4 shrink-0" />
+              <span className="whitespace-nowrap">Shared with me</span>
               {sharedWithMe.length > 0 && (
-                <span className="ml-1 bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-xs">
+                <span className="ml-1 bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 text-[10px] sm:text-xs">
                   {sharedWithMe.length}
                 </span>
               )}
