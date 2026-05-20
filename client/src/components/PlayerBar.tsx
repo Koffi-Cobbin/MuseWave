@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Play, Pause, Crown, Heart, MoreVertical, Download, Share2, Link2, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1 } from "lucide-react";
+import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -16,10 +16,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { WifiOff } from "lucide-react";
 import { usePlayer } from "@/contexts/player-context";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, API_BASE_URL, downloadTrack } from "@/lib/apiConfig";
+import { useOfflineAudio } from "@/hooks/useOfflineAudio";
+import { useOffline } from "@/contexts/offline-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { PlayScreen } from "@/components/PlayScreen";
 import { QueueSheet } from "@/components/QueueSheet";
@@ -68,6 +71,10 @@ interface OverflowMenuProps {
   onLike: () => void;
   onOpenSupport: () => void;
   onDownload: () => void;
+  isSavedOffline: boolean;
+  isSavingOffline: boolean;
+  isOnline: boolean;
+  onSaveOffline: () => void;
   onShare: () => void;
   onCopyLink: () => void;
   isAuthenticated: boolean;
@@ -84,6 +91,9 @@ function OverflowMenu({
   onLike,
   onOpenSupport,
   onDownload,
+  isSavedOffline,
+  isSavingOffline,
+  onSaveOffline,
   onShare,
   onCopyLink,
   isAuthenticated,
@@ -113,6 +123,31 @@ function OverflowMenu({
           <Crown className="h-4 w-4 shrink-0 text-muted-foreground" />
           Support Artist
         </button>
+        <Separator className="my-1 opacity-50" />
+        {isSavedOffline ? (
+          <button
+            disabled
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground/50 transition-colors"
+            data-testid="button-player-saved-offline"
+          >
+            <CloudDownload className="h-4 w-4 shrink-0" />
+            Saved Offline
+          </button>
+        ) : (
+          <button
+            onClick={onSaveOffline}
+            disabled={isSavingOffline || !isOnline}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-white/8 disabled:opacity-50"
+            data-testid="button-player-save-offline"
+          >
+            {!isOnline ? (
+              <WifiOff className="h-4 w-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <CloudDownload className="h-4 w-4 shrink-0 text-muted-foreground" />
+            )}
+            {isSavingOffline ? "Saving…" : !isOnline ? "Offline" : "Save Offline"}
+          </button>
+        )}
         {isAuthenticated && (
           <>
             <Separator className="my-1 opacity-50" />
@@ -153,7 +188,9 @@ function OverflowMenu({
 function PlayerBar() {
   const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying, playNext, playPrev, hasNext, hasPrev, queueCount, repeatMode, toggleRepeatMode } = usePlayer();
   const { user, isAuthenticated } = useAuth();
+  const { isTrackDownloaded, downloadForOffline, isOnline } = useOffline();
   const { toast } = useToast();
+  const audioSrc = useOfflineAudio(active);
 
   const [playScreenOpen, setPlayScreenOpen] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
@@ -163,6 +200,7 @@ function PlayerBar() {
   const [isLiked, setIsLiked] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSavingOffline, setIsSavingOffline] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -263,6 +301,26 @@ function PlayerBar() {
       playSessionRef.current = null;
     }
   }, [active?.id, recordPlay]);
+
+  // Counter to prevent infinite skip-loop when offline + no downloaded tracks remain
+  const offlineSkipCountRef = useRef(0);
+
+  // When offline and the active track isn't saved, skip to the next one.
+  // Uses playNextRef (not playNext) to avoid re-triggering when playNext's
+  // useCallback deps (queue/queueIndex) change after every skip.
+  useEffect(() => {
+    if (isOnline === false && active && !isTrackDownloaded(active.id)) {
+      offlineSkipCountRef.current += 1;
+      if (offlineSkipCountRef.current > 10) {
+        // Safety valve — stop skipping to avoid an infinite loop
+        offlineSkipCountRef.current = 0;
+        return;
+      }
+      playNextRef.current();
+    } else {
+      offlineSkipCountRef.current = 0;
+    }
+  }, [active?.id, isOnline]);
 
   // Reset state when track changes
   useEffect(() => {
@@ -385,6 +443,21 @@ function PlayerBar() {
     }
   };
 
+  const handleSaveOffline = async () => {
+    if (!active || isSavingOffline) return;
+    setMobileMenuOpen(false);
+    setDesktopMenuOpen(false);
+    setIsSavingOffline(true);
+    try {
+      await downloadForOffline(active);
+      toast({ title: "Saved offline", description: `${active.title} is available offline.` });
+    } catch {
+      toast({ title: "Save failed", description: "Unable to save this track offline.", variant: "destructive" });
+    } finally {
+      setIsSavingOffline(false);
+    }
+  };
+
   const handleShare = async () => {
     setMobileMenuOpen(false);
     setDesktopMenuOpen(false);
@@ -407,12 +480,18 @@ function PlayerBar() {
     toast({ title: "Link copied!", description: "Link copied to clipboard." });
   };
 
+  const isSavedOffline = active ? isTrackDownloaded(active.id) : false;
+
   const sharedMenuProps = {
     isLiked,
     isLiking,
     isDownloading,
     onLike: handleLike,
     onDownload: handleDownload,
+    isSavedOffline,
+    isSavingOffline,
+    isOnline,
+    onSaveOffline: handleSaveOffline,
     onShare: handleShare,
     onCopyLink: handleCopyLink,
   };
@@ -436,7 +515,7 @@ function PlayerBar() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      <audio ref={audioRef} src={active?.audioUrl} preload="metadata" />
+      <audio ref={audioRef} src={audioSrc} preload="metadata" />
 
       {/* ── Queue Sheet ── */}
       <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />

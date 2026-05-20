@@ -6,6 +6,7 @@ import {
   ChevronUp,
   Heart,
   Download,
+  CloudDownload,
   Share2,
   Play,
   Pause,
@@ -22,6 +23,7 @@ import { Link } from "wouter";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/contexts/player-context";
 import { useAuth } from "@/contexts/auth-context";
+import { useOffline } from "@/contexts/offline-context";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL, API_ENDPOINTS, downloadTrack } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
@@ -105,10 +107,12 @@ export function PlayScreen({
 }: PlayScreenProps) {
   const { active, isPlaying, repeatMode, toggleRepeatMode, playNext, playPrev, hasNext, hasPrev } = usePlayer();
   const { isAuthenticated } = useAuth();
+  const { isTrackDownloaded, downloadForOffline, downloadProgress, isOnline } = useOffline();
   const { toast } = useToast();
 
   const [lyricsExpanded, setLyricsExpanded] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [isSavingOffline, setIsSavingOffline] = useState(false);
   const [artistData, setArtistData] = useState<any>(null);
   const [artistTracks, setArtistTracks] = useState<Track[]>([]);
   const [dataLoading, setDataLoading] = useState(false);
@@ -141,6 +145,19 @@ export function PlayScreen({
       toast({ title: "Download failed", variant: "destructive" });
     } finally {
       setIsDownloading(false);
+    }
+  };
+
+  const handleSaveOffline = async () => {
+    if (!active || isSavingOffline || !isOnline) return;
+    setIsSavingOffline(true);
+    try {
+      await downloadForOffline(active);
+      toast({ title: "Saved offline", description: active.title });
+    } catch {
+      toast({ title: "Save failed", description: "Could not save this track offline.", variant: "destructive" });
+    } finally {
+      setIsSavingOffline(false);
     }
   };
 
@@ -484,6 +501,30 @@ export function PlayScreen({
                     <span className="text-[10px]">Download</span>
                   </button>
                 )}
+                {(active && !isTrackDownloaded(active.id)) ? (
+                  <button
+                    type="button"
+                    onClick={handleSaveOffline}
+                    disabled={isSavingOffline || !isOnline}
+                    className="flex flex-col items-center gap-1.5 text-white/60 transition hover:text-white disabled:opacity-40"
+                    data-testid="button-play-screen-save-offline"
+                  >
+                    <CloudDownload className="h-5 w-5" />
+                    <span className="text-[10px]">
+                      {isSavingOffline ? "Saving..." : !isOnline ? "Offline" : "Save Offline"}
+                    </span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    className="flex flex-col items-center gap-1.5 text-white/30"
+                    data-testid="button-play-screen-saved-offline"
+                  >
+                    <CloudDownload className="h-5 w-5" />
+                    <span className="text-[10px]">Saved Offline</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={handleShare}
@@ -695,6 +736,28 @@ export function PlayScreen({
                       >
                         <Download className="h-3.5 w-3.5" />
                         Download
+                      </button>
+                    )}
+                    {active && isTrackDownloaded(active.id) ? (
+                      <button
+                        type="button"
+                        disabled
+                        className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/40"
+                        data-testid="button-play-screen-saved-offline-desktop"
+                      >
+                        <CloudDownload className="h-3.5 w-3.5" />
+                        Saved Offline
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleSaveOffline}
+                        disabled={isSavingOffline || !isOnline}
+                        className="flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs text-white/70 transition hover:bg-white/20 hover:text-white disabled:opacity-40"
+                        data-testid="button-play-screen-save-offline-desktop"
+                      >
+                        <CloudDownload className="h-3.5 w-3.5" />
+                        {isSavingOffline ? "Saving..." : !isOnline ? "Offline" : "Save Offline"}
                       </button>
                     )}
                     <button

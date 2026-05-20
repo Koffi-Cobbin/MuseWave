@@ -35,9 +35,10 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
 import { ShareTrackModal } from "@/components/tracks/ShareTrackModal";
-import { Plus, Music, MoreVertical, Pencil, Trash2, ListMusic, ListEnd, ListOrdered, Users, Globe, Lock } from "lucide-react";
-import { API_ENDPOINTS } from "@/lib/apiConfig";
+import { Plus, Music, MoreVertical, Pencil, Trash2, ListMusic, ListEnd, ListOrdered, Users, Globe, Lock, CloudDownload, Download, WifiOff } from "lucide-react";
+import { API_ENDPOINTS, downloadTrack } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
+import { useOffline } from "@/contexts/offline-context";
 import type { Track } from "../../../../shared/schema";
 
 interface TrackActionsMenuProps {
@@ -62,6 +63,7 @@ export function TrackActionsMenu({
   const { playlists, sharedWithMe, fetchSharedWithMe, addSongToPlaylist, loading } = usePlaylists();
   const { toast } = useToast();
   const { genres } = useGenres();
+  const { isTrackDownloaded, downloadForOffline, downloadProgress, isOnline } = useOffline();
 
   const [open, setOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -185,7 +187,65 @@ export function TrackActionsMenu({
             Add to queue
           </DropdownMenuItem>
 
-          {(isOwner || isAuthenticated) && <DropdownMenuSeparator />}
+          <DropdownMenuSeparator />
+
+          {/* ── Download actions ── */}
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Downloads</DropdownMenuLabel>
+
+          {isTrackDownloaded(track.id) ? (
+            <DropdownMenuItem
+              className="text-muted-foreground/50 cursor-not-allowed"
+              disabled
+              data-testid={`menu-save-offline-${track.id}`}
+            >
+              <CloudDownload className="h-3.5 w-3.5 mr-2" />
+              Saved Offline
+            </DropdownMenuItem>
+          ) : !isOnline ? (
+            <DropdownMenuItem
+              className="text-muted-foreground/50 cursor-not-allowed"
+              disabled
+              data-testid={`menu-save-offline-${track.id}`}
+            >
+              <WifiOff className="h-3.5 w-3.5 mr-2" />
+              Offline — connect to save
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem
+              onClick={async () => {
+                try {
+                  await downloadForOffline(track);
+                  toast({ title: "Saved offline", description: track.title });
+                } catch {
+                  toast({ title: "Download failed", description: "Could not save this track offline.", variant: "destructive" });
+                }
+              }}
+              data-testid={`menu-save-offline-${track.id}`}
+            >
+              <CloudDownload className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+              Save Offline
+              {track.id in downloadProgress && (
+                <span className="ml-auto text-xs">{downloadProgress[track.id]}%</span>
+              )}
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuItem
+            onClick={async () => {
+              try {
+                await downloadTrack(track.id, `${track.artist} - ${track.title}.${track.audioFormat || "mp3"}`);
+                toast({ title: "Download started", description: track.title });
+              } catch {
+                toast({ title: "Download failed", variant: "destructive" });
+              }
+            }}
+            data-testid={`menu-download-file-${track.id}`}
+          >
+            <Download className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+            Download File
+          </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
 
           {/* ── Owner actions ── */}
           {isOwner && (

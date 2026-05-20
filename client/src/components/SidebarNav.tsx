@@ -4,6 +4,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { LoginModal } from "@/components/LoginModal";
 import { useAuth } from "@/contexts/auth-context";
+import { useOffline } from "@/contexts/offline-context";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import {
@@ -11,6 +12,8 @@ import {
   Compass,
   Music2,
   UploadCloud,
+  Download,
+  WifiOff,
   LogOut,
   User as UserIcon,
   X,
@@ -65,12 +68,14 @@ interface SidebarNavProps {
 export function SidebarNav({ onMobileClose }: SidebarNavProps) {
   const [location] = useLocation();
   const { user, logout, isAuthenticated } = useAuth();
+  const { downloads, isOnline } = useOffline();
   const { toast } = useToast();
 
   const items = [
     { href: "/", label: "Home", icon: HomeIcon, testId: "link-nav-home" },
     { href: "/discover", label: "Discover", icon: Compass, testId: "link-nav-discover" },
     { href: "/upload", label: "Upload", icon: UploadCloud, testId: "link-nav-upload" },
+    { href: "/downloads", label: "Downloads", icon: Download, testId: "link-nav-downloads" },
   ];
 
   const authenticatedItems = [
@@ -96,6 +101,14 @@ export function SidebarNav({ onMobileClose }: SidebarNavProps) {
 
       <Separator className="my-4 opacity-60" />
 
+      {/* Offline indicator */}
+      {!isOnline && (
+        <div className="flex items-center justify-center gap-1.5 rounded-lg bg-amber-500/15 px-2 py-1.5 text-xs text-amber-400">
+          <WifiOff className="h-3.5 w-3.5 shrink-0" />
+          Offline
+        </div>
+      )}
+
       <nav className="flex-1 grid gap-1 content-start">
         {items.map((it) => {
           const active = it.href === "/" ? location === "/" : !it.href.includes("#") && location.startsWith(it.href);
@@ -112,7 +125,14 @@ export function SidebarNav({ onMobileClose }: SidebarNavProps) {
                 active && "bg-white/6 border-white/10",
               )}
             >
-              <Icon className="h-5 w-5 shrink-0 text-foreground/80 group-hover:text-foreground" />
+              <div className="relative shrink-0">
+                <Icon className="h-5 w-5 text-foreground/80 group-hover:text-foreground" />
+                {it.href === "/downloads" && downloads.length > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground leading-none">
+                    {downloads.length > 9 ? "9+" : downloads.length}
+                  </span>
+                )}
+              </div>
               <span className="font-medium">{it.label}</span>
             </Link>
           );

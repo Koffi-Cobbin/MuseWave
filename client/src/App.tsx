@@ -7,11 +7,13 @@ import { queryClient } from "./lib/queryClient";
 import { AuthProvider } from "@/contexts/auth-context";
 import { PlayerProvider } from "@/contexts/player-context";
 import { PlaylistProvider } from "@/contexts/playlist-context";
+import { OfflineProvider } from "@/contexts/offline-context";
 import { SidebarNav } from "@/components/SidebarNav";
 import PlayerBar from "@/components/PlayerBar";
 import BottomNav from "@/components/BottomNav";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
+import Downloads from "@/pages/downloads";
 import Upload from "./pages/upload";
 import Artist from "./pages/artist";
 import Discover from "./pages/discover";
@@ -42,6 +44,7 @@ function Router() {
         <Route path="/playlists" component={Playlists} />
         <Route path="/playlists/link/:token" component={SharedPlaylist} />
         <Route path="/playlists/:id" component={PlaylistDetail} />
+        <Route path="/downloads" component={Downloads} />
         <Route path="/reset-password/:uid/:token" component={ResetPassword} />
         <Route path="/verify-email/:uidb64/:token" component={VerifyEmail} />
         <Route component={NotFound} />
@@ -56,6 +59,7 @@ function App() {
       <AuthProvider>
         <PlayerProvider>
           <PlaylistProvider>
+            <OfflineProvider>
             <TooltipProvider>
               {/* Persistent sidebar on desktop */}
               <aside className="fixed left-0 top-0 z-50 hidden h-screen w-64 border-r border-white/10 bg-background p-4 lg:flex lg:flex-col">
@@ -72,6 +76,7 @@ function App() {
               <BottomNav />
               <PlayerBar />
             </TooltipProvider>
+            </OfflineProvider>
           </PlaylistProvider>
         </PlayerProvider>
       </AuthProvider>

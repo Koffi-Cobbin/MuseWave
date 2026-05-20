@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Home as HomeIcon, Compass, UploadCloud, User as UserIcon, LogOut, Music } from "lucide-react";
+import { Home as HomeIcon, Compass, UploadCloud, Download, WifiOff, User as UserIcon, LogOut, Music } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
+import { useOffline } from "@/contexts/offline-context";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { LoginModal } from "@/components/LoginModal";
@@ -94,6 +95,7 @@ function AccountSheet({
 export default function BottomNav() {
   const [location] = useLocation();
   const { isAuthenticated } = useAuth();
+  const { downloads, isOnline } = useOffline();
   const [accountOpen, setAccountOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
 
@@ -101,6 +103,7 @@ export default function BottomNav() {
     { href: "/", label: "Home", icon: HomeIcon, testId: "link-nav-home" },
     { href: "/discover", label: "Discover", icon: Compass, testId: "link-nav-discover" },
     { href: "/upload", label: "Upload", icon: UploadCloud, testId: "link-nav-upload" },
+    { href: "/downloads", label: "Downloads", icon: Download, testId: "link-nav-downloads" },
     ...(isAuthenticated ? [{ href: "/playlists", label: "Playlists", icon: Music, testId: "link-nav-playlists" }] : []),
   ];
 
@@ -119,6 +122,13 @@ export default function BottomNav() {
       >
         {/* Blur backdrop */}
         <div className="absolute inset-0 bg-background/80 backdrop-blur-xl border-t border-white/10" />
+        {/* Offline banner */}
+        {!isOnline && (
+          <div className="relative flex items-center justify-center gap-1.5 bg-amber-500/15 py-1 text-[10px] text-amber-400">
+            <WifiOff className="h-3 w-3" />
+            Offline — only saved tracks are available
+          </div>
+        )}
         {/* Nav items — min height 64px for comfortable tapping */}
         <div className="relative flex items-center justify-around px-1 py-1" style={{ minHeight: 64 }}>
           {items.map((it) => {
@@ -139,7 +149,14 @@ export default function BottomNav() {
                   "flex h-9 w-9 items-center justify-center rounded-xl transition-all",
                   active && "bg-primary/15"
                 )}>
-                  <Icon className={cn("h-5 w-5 transition-all", active && "text-primary")} />
+                  <div className="relative">
+                    <Icon className={cn("h-5 w-5 transition-all", active && "text-primary")} />
+                    {it.href === "/downloads" && downloads.length > 0 && (
+                      <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground leading-none">
+                        {downloads.length > 9 ? "9+" : downloads.length}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <span className="text-xs font-medium">{it.label}</span>
               </Link>

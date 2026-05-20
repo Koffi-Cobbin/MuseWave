@@ -157,6 +157,28 @@ export const downloadTrack = async (trackId: string, filename?: string): Promise
       throw new Error('Download failed');
     }
 
+    const contentType = response.headers.get("Content-Type") || "";
+
+    // Backend may return JSON with a signed URL instead of the raw file
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      const downloadUrl = data.audio_url ?? data.url ?? data.download_url ?? data.downloadUrl;
+
+      if (downloadUrl) {
+        // Navigate directly — the backend's Content-Disposition header triggers
+        // the native download prompt. On mobile this is the only universally
+        // reliable approach (no popup blockers, no trusted-click requirements).
+        window.location.href = downloadUrl;
+        return;
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      throw new Error("Unexpected JSON response from download endpoint");
+    }
+
     const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
