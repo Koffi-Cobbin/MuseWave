@@ -93,6 +93,7 @@ function OverflowMenu({
   onDownload,
   isSavedOffline,
   isSavingOffline,
+  isOnline,
   onSaveOffline,
   onShare,
   onCopyLink,
