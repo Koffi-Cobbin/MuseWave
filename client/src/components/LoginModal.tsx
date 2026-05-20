@@ -56,7 +56,7 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
 
   const reset = () => {
     setView("login");
-    setIdentifier(""); setPassword(""); setDisplayName("");
+    setIdentifier(""); setPassword(""); setUsername("");
     setEmail(""); setConfirmPassword(""); setForgotEmail("");
     setError(""); setShowPw(false); setShowConfirm(false);
   };

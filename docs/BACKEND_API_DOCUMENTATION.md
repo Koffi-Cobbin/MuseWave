@@ -10,6 +10,9 @@ Database is SQLite.
 - **Social Features**: Like tracks, follow artists, comment on tracks
 - **Analytics**: Track plays, downloads, user statistics, and engagement metrics
 - **Search**: Full-text search for tracks and users
+- **Track Visibility**: Every track has a `visibility` field (`public` / `private`) controlling who can view, stream, and discover it
+- **Track Sharing**: Share individual private tracks with specific users by username or email
+- **Playlist Privacy**: Private tracks in playlists respect access control — only visible to users who received a direct share from the track owner
 - **RESTful API**: Clean, well-documented REST endpoints
 
 ## API Endpoints
@@ -73,22 +76,42 @@ Database is SQLite.
 
 ### Tracks
 
-- `GET /api/tracks` - List all tracks (filters: userId, genre, mood, tags, published; sorting: sortBy, sortOrder; pagination: limit, offset)
-- `POST /api/tracks/create` - Create a new track
-- `GET /api/tracks/<track_id>` - Get track by ID
-- `PATCH /api/tracks/<track_id>` - Update track metadata
-- `DELETE /api/tracks/<track_id>` - Delete track
-- `GET /api/tracks/<track_id>/stream/` - Stream audio with range request support
+Track have a `visibility` field controlling access:
+- `"public"` (default) — anyone can view, stream, and discover
+- `"private"` — only the track owner and users with a direct share can access
+
+The `published` Boolean works independently — it controls "released" vs. "draft" status.
+
+**Visibility behaviour:**
+- Listing (`GET /api/tracks`) — authenticated users see their own private + all public tracks; anonymous users see only public
+- Search (`GET /api/search`) — private tracks are excluded from results
+- Detail / stream / download / play endpoints — private tracks return `404` for non-owners and users without a share
+- Artist listing (`GET /api/artists`) — only public tracks count toward artist eligibility
+
+- `GET /api/tracks` - List all tracks (filters: userId, genre, mood, tags, published, visibility; sorting: sortBy, sortOrder; pagination: limit, offset)
+- `POST /api/tracks/create` - Create a new track (optional `visibility` field, defaults to `"public"`)
+- `GET /api/tracks/<track_id>` - Get track by ID (returns 404 for private tracks if not authorized)
+- `PATCH /api/tracks/<track_id>` - Update track metadata (owner only — returns 403 otherwise)
+- `DELETE /api/tracks/<track_id>` - Delete track (owner only — returns 403 otherwise)
+- `GET /api/tracks/<track_id>/stream/` - Stream audio (returns 404 for private tracks if not authorized)
 - `GET /api/tracks/<track_id>/stream-url/` - Get streaming URL for track
 - `GET /api/tracks/<track_id>/download/` - Download track as file attachment
-- `POST /api/tracks/<track_id>/download` - Record a download and increment counter
+- `POST /api/tracks/<track_id>/download` - Record a download and increment counter (returns 404 for private tracks if not authorized)
 - `GET /api/tracks/<track_id>/downloads` - Get all downloads for a track
 - `GET /api/tracks/<track_id>/stats` - Get track statistics (plays, listeners, completion rate, etc.)
-- `POST /api/tracks/<track_id>/play` - Record a play event
+- `POST /api/tracks/<track_id>/play` - Record a play event (returns 404 for private tracks if not authorized)
 - `GET /api/tracks/<track_id>/plays` - Get all plays for a track
 - `POST /api/tracks/<track_id>/like` - Like a track
 - `DELETE /api/tracks/<track_id>/like` - Unlike a track
 - `GET /api/tracks/<track_id>/like/<user_id>` - Check if user liked track
+
+#### Track Sharing
+
+Share individual private tracks with specific users:
+
+- `POST /api/tracks/<track_id>/shares` - Share a private track with a user. Body: `{"username": "..." OR "email": "..."}`. Owner only
+- `GET /api/tracks/<track_id>/shares` - List all shares for a track. Owner only
+- `DELETE /api/tracks/<track_id>/shares/<share_id>` - Revoke a user's access. Owner only
 
 ### Playlists
 
@@ -96,10 +119,10 @@ Database is SQLite.
 
 - `GET /api/playlists` - List own playlists (auth required)
 - `POST /api/playlists` - Create a playlist (auth required)
-- `GET /api/playlists/<playlist_id>` - Get playlist with tracks. Access granted to: owner, directly shared users, anyone with a valid link token (`?token=<uuid>`), or any user if the playlist is public
+- `GET /api/playlists/<playlist_id>` - Get playlist with tracks. Access granted to: owner, directly shared users, anyone with a valid link token (`?token=<uuid>`), or any user if the playlist is public. **Private track filtering:** when accessed via direct share from the playlist owner, the owner's private tracks are visible; when accessed via link or public page, all private tracks are hidden
 - `PATCH /api/playlists/<playlist_id>` - Update playlist metadata. Requires owner or edit permission
 - `DELETE /api/playlists/<playlist_id>` - Delete playlist. Owner only
-- `POST /api/playlists/<playlist_id>/add-track` - Add a track. Requires owner or edit permission
+- `POST /api/playlists/<playlist_id>/add-track` - Add a track. Requires owner or edit permission. **Visibility guard:** returns 404 if the track is private and the caller is not its owner
 - `POST /api/playlists/<playlist_id>/remove-track` - Remove a track. Requires owner or edit permission
 - `POST /api/playlists/<playlist_id>/reorder` - Reorder tracks. Requires owner or edit permission
 
@@ -121,6 +144,16 @@ Database is SQLite.
 - `GET /api/playlists/link/<token>` - Access a playlist via its public share link. No authentication required
 - `GET /api/playlists/shared-with-me` - List all playlists directly shared with the authenticated user (auth required)
 - `GET /api/users/<user_id>/playlists` - List a user's public playlists (visible on their profile, no auth required)
+
+### Featured Tracks
+
+Staff-curated promotion of selected tracks. All management endpoints are staff-only; the list endpoint is public.
+
+- `GET /api/featured-tracks` - List all active featured tracks in order (public). Automatically excludes unpublished, private, and expired tracks
+- `POST /api/featured-tracks` - Feature a track. Body: `{"track_id": "...", "order": 0, "label": "Editor's Pick"}`. Staff only. Runs eligibility validation (must be published, public, have audio, etc.)
+- `PATCH /api/featured-tracks/<id>` - Update a featured entry (order, label, is_active, end_date). Staff only
+- `DELETE /api/featured-tracks/<id>` - Remove a track from featured list. Staff only
+- `POST /api/featured-tracks/reorder` - Batch reorder. Body: `[{"id": "uuid", "order": 0}, ...]`. Staff only
 
 ### Search
 
@@ -304,7 +337,7 @@ Content-Type: application/json
 }
 ```
 
-> `video_url` and `lyrics` are optional. Omit them or pass `null` if not available.
+> `video_url`, `lyrics`, and `visibility` are optional. Omit `visibility` or pass `"public"` for a publicly visible track. Pass `"private"` for owner-only access.
 > The owner's `is_artist` flag is automatically set to `true` on the first track creation.
 
 **Response:**
@@ -324,6 +357,7 @@ Content-Type: application/json
   "likes": 0,
   "downloads": 0,
   "published": true,
+  "visibility": "public",
   "created_at": "2024-02-04T10:30:00Z",
   "updated_at": "2024-02-04T10:30:00Z"
 }
@@ -366,9 +400,70 @@ GET /api/tracks/track-uuid-1
   "shares": 3,
   "published": true,
   "published_at": "2024-02-04T10:30:00Z",
+  "visibility": "public",
   "created_at": "2024-02-04T10:30:00Z",
   "updated_at": "2024-02-04T10:30:00Z"
 }
+```
+
+### Update a Track (visibility, video, lyrics, etc.)
+
+**Request:**
+```bash
+PATCH /api/tracks/track-uuid-1
+Authorization: Bearer <owner-token>
+Content-Type: application/json
+
+{
+  "visibility": "private"
+}
+```
+
+> Only the track owner can PATCH or DELETE a track. Visibility can be toggled between `"public"` and `"private"` at any time.
+
+**Response:** Full updated track object (same shape as GET above).
+
+### Share a Private Track with a User
+
+```bash
+POST /api/tracks/track-uuid-1/shares
+Authorization: Bearer <owner-token>
+Content-Type: application/json
+
+{
+  "username": "bob"
+}
+```
+
+> Use `"username"` or `"email"` to identify the recipient. Only the track owner can manage shares.
+
+**Response:**
+```json
+{
+  "id": "share-uuid",
+  "track_id": "track-uuid-1",
+  "track_title": "Summer Vibes",
+  "shared_by_username": "john_doe",
+  "shared_with_username": "bob",
+  "shared_with_email": "bob@test.com",
+  "shared_with_avatar": "https://...",
+  "permission": "view",
+  "created_at": "..."
+}
+```
+
+### List Shares on a Track
+
+```bash
+GET /api/tracks/track-uuid-1/shares
+Authorization: Bearer <owner-token>
+```
+
+### Revoke a Track Share
+
+```bash
+DELETE /api/tracks/track-uuid-1/shares/SHARE_UUID
+Authorization: Bearer <owner-token>
 ```
 
 ### Update a Track (add/edit video or lyrics)
@@ -649,6 +744,8 @@ Content-Type: application/json
 - Metadata: `bpm`, `key`
 - Stats: `plays`, `likes`, `downloads`, `shares`
 - Status: `published`, `published_at`
+- **Visibility:** `visibility` — `"public"` (default) or `"private"`; controls who can view/stream/discover the track
+- **Indexes:** `(user, published)`, `genre`, `-plays`, `-created_at`, `visibility`
 
 ### Like
 - References: `user`, `track`
@@ -692,6 +789,13 @@ Response fields vary by caller permission:
 - References: `playlist`, `track`
 - Ordering: `order` (integer for track sequence)
 - Timestamp: `added_at`
+
+### TrackShare
+- References: `track`, `shared_by` (granting user), `shared_with` (recipient)
+- Permission: `permission` — always `"view"` (currently the only level)
+- Constraint: one grant per `(track, shared_with)` pair
+- Timestamps: `created_at`, `updated_at`
+- Enables track owners to share individual private tracks with specific users outside of playlists
 
 ---
 
@@ -737,7 +841,7 @@ curl -X POST http://localhost:5000/api/users/login \
 # 3. List genres (use for dropdowns)
 curl http://localhost:5000/api/genres
 
-# 4. Create a track (is_artist on the user flips to true automatically)
+# 4. Create a public track (visibility defaults to "public")
 curl -X POST http://localhost:5000/api/tracks/create \
   -H "Content-Type: application/json" \
   -d '{
@@ -750,6 +854,20 @@ curl -X POST http://localhost:5000/api/tracks/create \
     "published": true,
     "video_url": "https://youtube.com/watch?v=xyz",
     "lyrics": "Verse 1\nHello world"
+  }'
+
+# 4b. Create a private track (owner-only access)
+curl -X POST http://localhost:5000/api/tracks/create \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user-uuid",
+    "title": "Secret Demo",
+    "artist": "Music Fan",
+    "artist_slug": "music-fan",
+    "genre": "Pop",
+    "audio_duration": 180,
+    "published": true,
+    "visibility": "private"
   }'
 
 # 5. Create a playlist
@@ -785,13 +903,33 @@ curl http://localhost:5000/api/users/user-uuid/stats
 # 11. Search tracks and users
 curl "http://localhost:5000/api/search?q=summer&type=all&limit=20"
 
-# 12. Share a playlist with a specific user (view-only)
+# 12. Share a private track with a specific user
+curl -X POST http://localhost:5000/api/tracks/TRACK_UUID/shares \
+  -H "Authorization: Bearer OWNER_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "bob"}'
+
+# 12b. List shares on a track
+curl http://localhost:5000/api/tracks/TRACK_UUID/shares \
+  -H "Authorization: Bearer OWNER_JWT_TOKEN"
+
+# 12c. Revoke a track share
+curl -X DELETE http://localhost:5000/api/tracks/TRACK_UUID/shares/SHARE_UUID \
+  -H "Authorization: Bearer OWNER_JWT_TOKEN"
+
+# 12d. Toggle track visibility from private back to public
+curl -X PATCH http://localhost:5000/api/tracks/TRACK_UUID \
+  -H "Authorization: Bearer OWNER_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"visibility": "public"}'
+
+# 13. Share a playlist with a specific user (view-only)
 curl -X POST http://localhost:5000/api/playlists/PLAYLIST_UUID/shares \
   -H "Authorization: Bearer OWNER_JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"username": "bob", "permission": "view"}'
 
-# 13. Upgrade that user to edit access
+# 13b. Upgrade that user to edit access
 curl -X PATCH http://localhost:5000/api/playlists/PLAYLIST_UUID/shares/SHARE_UUID \
   -H "Authorization: Bearer OWNER_JWT_TOKEN" \
   -H "Content-Type: application/json" \

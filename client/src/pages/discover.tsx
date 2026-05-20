@@ -28,7 +28,7 @@ import type { Track } from "../../../shared/schema";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 10;
 
 const SORT_OPTIONS = [
   { value: "createdAt", label: "Latest", icon: Clock },
@@ -278,8 +278,8 @@ export default function Discover() {
   );
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
-      <div className="mx-auto max-w-5xl overflow-x-hidden px-2 py-4 sm:px-4 sm:py-6 lg:py-8">
+    <div className="flex min-h-screen flex-col bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col overflow-x-hidden px-2 py-4 pb-24 sm:px-4 sm:py-6 sm:pb-24 lg:py-8 lg:pb-8">
 
         {/* ── Header ── */}
         <header className="mb-6 flex items-center justify-between gap-3">
@@ -455,7 +455,7 @@ export default function Discover() {
         {/* ── Track list ── */}
         {/* key=sortBy forces a full re-mount when sort changes, bypassing
             framer-motion layout issues with CSS Grid reordering. */}
-        <div key={sortBy} className="grid gap-2 sm:gap-3 lg:grid-cols-2" data-testid="discover-track-list">
+        <div key={sortBy} className="flex-1 grid gap-2 sm:gap-3 lg:grid-cols-2 content-start" data-testid="discover-track-list">
           {loading ? (
             Array.from({ length: PAGE_SIZE }).map((_, i) => (
               <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/5" />
@@ -495,13 +495,11 @@ export default function Discover() {
         </div>
 
         {/* ── Pagination ── */}
-        {!loading && paged.length > 0 && (
-          <div className="mt-6 sm:mt-8">
-            <Pagination page={page} totalPages={totalPages} onPage={setPage} />
-          </div>
-        )}
+        <div className="mt-auto pt-6 sm:pt-8">
+          <Pagination page={page} totalPages={totalPages} onPage={setPage} />
+        </div>
 
-        <div className="h-24" aria-hidden="true" />
+        <div className="h-8" aria-hidden="true" />
       </div>
     </div>
   );
