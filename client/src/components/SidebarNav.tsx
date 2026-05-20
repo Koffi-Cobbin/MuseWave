@@ -103,7 +103,7 @@ export function SidebarNav({ onMobileClose }: SidebarNavProps) {
 
       {/* Offline indicator */}
       {!isOnline && (
-        <div className="flex items-center justify-center gap-1.5 rounded-lg bg-amber-500/15 px-2 py-1.5 text-xs text-amber-400">
+        <div className="mb-3 flex items-center justify-center gap-1.5 rounded-lg bg-amber-500/15 px-2 py-1.5 text-xs text-amber-400">
           <WifiOff className="h-3.5 w-3.5 shrink-0" />
           Offline
         </div>

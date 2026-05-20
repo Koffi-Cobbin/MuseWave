@@ -4,6 +4,7 @@ import { Home as HomeIcon, Compass, UploadCloud, Download, WifiOff, User as User
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
+import { usePlayer } from "@/contexts/player-context";
 import { useOffline } from "@/contexts/offline-context";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -128,6 +129,7 @@ function AccountSheet({
 export default function BottomNav() {
   const [location] = useLocation();
   const { isAuthenticated } = useAuth();
+  const { active } = usePlayer();
   const { downloads, isOnline } = useOffline();
   const [accountOpen, setAccountOpen] = useState(false);
   const [loginOpen, setLoginOpen] = useState(false);
@@ -154,8 +156,8 @@ export default function BottomNav() {
       >
         {/* Blur backdrop */}
         <div className="absolute inset-0 bg-background/80 backdrop-blur-xl border-t border-white/10" />
-        {/* Offline banner */}
-        {!isOnline && (
+        {/* Offline banner — hidden when a track is playing (shown in PlayerBar instead) */}
+        {!isOnline && !active && (
           <div className="relative flex items-center justify-center gap-1.5 bg-amber-500/15 py-1 text-[10px] text-amber-400">
             <WifiOff className="h-3 w-3" />
             Offline — only saved tracks are available

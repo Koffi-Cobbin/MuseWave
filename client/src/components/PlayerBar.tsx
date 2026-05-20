@@ -555,6 +555,13 @@ function PlayerBar() {
               className="fixed inset-x-0 z-30 lg:hidden"
               style={{ bottom: "calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px))" }}
             >
+              {/* Offline banner */}
+              {!isOnline && (
+                <div className="flex items-center justify-center gap-1.5 bg-amber-500/15 py-1 text-[10px] text-amber-400">
+                  <WifiOff className="h-3 w-3" />
+                  Offline — only saved tracks are available
+                </div>
+              )}
               {/* Hairline progress bar at top of bar */}
               <div className="relative h-[2px] w-full bg-white/10">
                 <div
@@ -678,6 +685,13 @@ function PlayerBar() {
               transition={{ type: "spring", stiffness: 400, damping: 35 }}
               className="fixed inset-x-0 bottom-0 z-40 hidden border-t border-white/8 bg-background/85 backdrop-blur-2xl lg:block lg:pl-64"
             >
+              {/* Offline banner */}
+              {!isOnline && (
+                <div className="flex items-center justify-center gap-1.5 bg-amber-500/15 py-1.5 text-xs text-amber-400">
+                  <WifiOff className="h-3.5 w-3.5" />
+                  Offline — only saved tracks are available
+                </div>
+              )}
               {/* Hairline progress bar with time-on-hover + seek */}
               <div className="group/progress relative h-5 w-full">
                 {/* Thin animated fill line at bottom edge */}
