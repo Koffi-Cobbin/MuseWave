@@ -379,7 +379,7 @@ function PlayerBar() {
       await downloadTrack(active.id, `${active.artist} - ${active.title}.${active.audioFormat || "mp3"}`);
       toast({ title: "Download started", description: `${active.title} is downloading.` });
     } catch {
-      toast({ title: "Download failed", description: "Unable to download this track.", variant: "destructive" });
+      toast({ title: "Download failed", description: "Unable to download this track. It may be private.", variant: "destructive" });
     } finally {
       setIsDownloading(false);
     }

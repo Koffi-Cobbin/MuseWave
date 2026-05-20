@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Music2, Pause, Play, Heart, Headphones } from "lucide-react";
+import { Music2, Pause, Play, Heart, Headphones, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/contexts/player-context";
@@ -193,6 +193,12 @@ export function TrackCard({
                 <Music2 className="h-3 w-3 shrink-0" />
                 <span className="truncate">{track.artist}</span>
               </Link>
+              {(track as any).visibility === "private" && (
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-fuchsia-300/70 mt-0.5">
+                  <Lock className="h-2.5 w-2.5" />
+                  Private
+                </span>
+              )}
             </div>
 
             {/* Actions button */}
@@ -328,6 +334,16 @@ export function TrackCard({
 
               {/* Metadata row */}
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                {(track as any).visibility === "private" && (
+                  <Badge
+                    variant="secondary"
+                    className="border-fuchsia-500/30 bg-fuchsia-500/10 text-fuchsia-300/80 px-1.5 py-0 text-[10px] font-normal leading-none"
+                  >
+                    <Lock className="h-2.5 w-2.5 mr-0.5" />
+                    Private
+                  </Badge>
+                )}
+
                 {track.genre && (
                   <Badge
                     variant="secondary"

@@ -8,9 +8,11 @@ import {
   CheckCircle2,
   CloudUpload,
   ExternalLink,
+  Globe,
   ImageIcon,
   Link2,
   Loader2,
+  Lock,
   Music2,
   Sparkles,
   User as UserIcon,
@@ -43,6 +45,7 @@ interface UploadDraft {
   videoUrl: string;
   audioFile: File | null;
   coverFile: File | null;
+  visibility: "public" | "private";
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -326,6 +329,7 @@ export default function Upload() {
     videoUrl: "",
     audioFile: null,
     coverFile: null,
+    visibility: "public",
   });
 
   const [step, setStep] = useState(0); // 0 = track info, 1 = files, 2 = done
@@ -460,6 +464,7 @@ export default function Upload() {
       }
       formData.append("cover_gradient", coverGradient);
       formData.append("published", "true");
+      formData.append("visibility", draft.visibility);
       if (draft.videoUrl.trim()) formData.append("video_url", draft.videoUrl.trim());
       if (draft.lyrics.trim()) formData.append("lyrics", draft.lyrics.trim());
 
@@ -574,6 +579,7 @@ export default function Upload() {
                       videoUrl: "",
                       audioFile: null,
                       coverFile: null,
+                      visibility: "public",
                     });
                     setPreviewUrl(null);
                     setAudioPreviewUrl(null);
@@ -774,6 +780,47 @@ export default function Upload() {
                               {m}
                             </button>
                           ))}
+                        </div>
+                      </div>
+
+                      {/* ── Visibility toggle ── */}
+                      <div className="grid gap-1.5">
+                        <Label className="text-xs">Visibility</Label>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => update("visibility", "public")}
+                            className={cn(
+                              "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs transition-all",
+                              draft.visibility === "public"
+                                ? "border-primary/50 bg-primary/15 text-primary"
+                                : "border-white/10 bg-white/4 text-muted-foreground hover:border-white/20"
+                            )}
+                            data-testid="button-visibility-public"
+                          >
+                            <Globe className="h-3.5 w-3.5" />
+                            <div className="text-left">
+                              <div className="text-xs font-medium">Public</div>
+                              <div className="text-[10px] opacity-70">Anyone can discover &amp; stream</div>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => update("visibility", "private")}
+                            className={cn(
+                              "flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs transition-all",
+                              draft.visibility === "private"
+                                ? "border-fuchsia-500/50 bg-fuchsia-500/15 text-fuchsia-300"
+                                : "border-white/10 bg-white/4 text-muted-foreground hover:border-white/20"
+                            )}
+                            data-testid="button-visibility-private"
+                          >
+                            <Lock className="h-3.5 w-3.5" />
+                            <div className="text-left">
+                              <div className="text-xs font-medium">Private</div>
+                              <div className="text-[10px] opacity-70">Only shared users can access</div>
+                            </div>
+                          </button>
                         </div>
                       </div>
 

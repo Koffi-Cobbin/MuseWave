@@ -3,6 +3,10 @@
 A Django REST Framework backend for a music streaming platform, providing a complete API for user management, track management, social features (likes, follows), and analytics.
 Database is SQLite.
 
+> **Base URL:** The production API is deployed at `https://kofficobbin.pythonanywhere.com`.  
+> For local development, the backend runs on `http://localhost:5000`.  
+> All example requests below use the local dev URL; replace with the production URL in deployed environments.
+
 ## Features
 
 - **User Management**: Create, read, update users with profiles and social links
@@ -16,6 +20,8 @@ Database is SQLite.
 - **RESTful API**: Clean, well-documented REST endpoints
 
 ## API Endpoints
+
+> **Case transformation note:** The frontend API client automatically converts between **camelCase** (JavaScript standard) and **snake_case** (Django standard). For example, `userId` in the frontend becomes `user_id` in API requests. When using curl or direct API calls, always use **snake_case** field names as shown in the examples below.
 
 ### Authentication
 
@@ -41,8 +47,7 @@ Database is SQLite.
 - `GET /api/users` - List all users (with pagination: limit, offset)
 - `POST /api/users/create` - Create a new user
 - `GET /api/users/<user_id>` - Get user by ID (public profile)
-- `GET /api/users/<user_id>/me` - Get own full profile (auth required)
-- `PATCH /api/users/<user_id>/update` - Update user profile
+- `PATCH /api/users/<user_id>/update` - Update user profile (auth required; supports multipart/form-data for avatar upload)
 - `GET /api/users/username/<username>` - Get user by username
 - `GET /api/users/<user_id>/stats` - Get user statistics (plays, likes, downloads, followers, etc.)
 - `GET /api/users/<user_id>/likes` - Get user's liked tracks
@@ -51,9 +56,9 @@ Database is SQLite.
 - `GET /api/users/<user_id>/playlists` - Get user's public playlists (visible on their profile)
 - `GET /api/users/<user_id>/followers` - Get user's followers
 - `GET /api/users/<user_id>/following` - Get users being followed
-- `POST /api/users/<user_id>/follow` - Follow a user
-- `DELETE /api/users/<user_id>/follow` - Unfollow a user
-- `GET /api/users/<user_id>/follow/<follower_id>` - Check if user is following
+- `POST /api/users/<user_id>/follow` - Follow a user. Body: `{"followerId": "<your_user_id>"}`
+- `DELETE /api/users/<user_id>/follow` - Unfollow a user. Body: `{"followerId": "<your_user_id>"}`
+- `GET /api/users/<user_id>/follow/<follower_id>` - Check if user is following. Response: `{"isFollowing": true|false}`
 
 ### Artists
 
@@ -61,7 +66,7 @@ Database is SQLite.
 
 ### Genres
 
-- `GET /api/genres` - List all active genres (public). Pass `?all=true` as staff to include inactive genres.
+- `GET /api/genres` - List all active genres (public). Pass `?all=true` as staff to include inactive genres. The frontend filters inactive genres client-side.
 - `POST /api/genres/create` - Create a new genre (staff only)
 - `GET /api/genres/<genre_id>` - Get genre by ID (public)
 - `PATCH /api/genres/<genre_id>` - Update genre (staff only)
@@ -103,7 +108,7 @@ The `published` Boolean works independently — it controls "released" vs. "draf
 - `GET /api/tracks/<track_id>/plays` - Get all plays for a track
 - `POST /api/tracks/<track_id>/like` - Like a track
 - `DELETE /api/tracks/<track_id>/like` - Unlike a track
-- `GET /api/tracks/<track_id>/like/<user_id>` - Check if user liked track
+- `GET /api/tracks/<track_id>/like/<user_id>` - Check if user liked track. Response: `{"hasLiked": true|false}`
 
 #### Track Sharing
 
@@ -318,27 +323,94 @@ Content-Type: application/json
 
 ### Create a Track
 
+Track creation uses **multipart/form-data** to support audio and cover image file uploads.
+
 **Request:**
 ```bash
 POST /api/tracks/create
-Content-Type: application/json
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
 
-{
-  "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "title": "Summer Vibes",
-  "artist": "John Doe",
-  "artist_slug": "john-doe",
-  "genre": "Electronic",
-  "audio_duration": 240.5,
-  "audio_format": "mp3",
-  "published": true,
-  "video_url": "https://youtube.com/watch?v=abc123",
-  "lyrics": "Verse 1\nLine one\nLine two\n\nChorus\nSummer in the air"
-}
+------WebKitFormBoundary
+Content-Disposition: form-data; name="user_id"
+
+550e8400-e29b-41d4-a716-446655440000
+------WebKitFormBoundary
+Content-Disposition: form-data; name="title"
+
+Summer Vibes
+------WebKitFormBoundary
+Content-Disposition: form-data; name="artist"
+
+John Doe
+------WebKitFormBoundary
+Content-Disposition: form-data; name="artist_slug"
+
+john-doe
+------WebKitFormBoundary
+Content-Disposition: form-data; name="genre"
+
+Electronic
+------WebKitFormBoundary
+Content-Disposition: form-data; name="mood"
+
+Energetic
+------WebKitFormBoundary
+Content-Disposition: form-data; name="tags"
+
+["summer","dance"]
+------WebKitFormBoundary
+Content-Disposition: form-data; name="audio_file"; filename="track.mp3"
+Content-Type: audio/mpeg
+
+<binary audio data>
+------WebKitFormBoundary
+Content-Disposition: form-data; name="audio_file_size"
+
+5242880
+------WebKitFormBoundary
+Content-Disposition: form-data; name="audio_duration"
+
+240
+------WebKitFormBoundary
+Content-Disposition: form-data; name="audio_format"
+
+mp3
+------WebKitFormBoundary
+Content-Disposition: form-data; name="cover_file"; filename="cover.jpg"
+Content-Type: image/jpeg
+
+<binary image data>
+------WebKitFormBoundary
+Content-Disposition: form-data; name="cover_gradient"
+
+from-emerald-500/40 to-cyan-500/30
+------WebKitFormBoundary
+Content-Disposition: form-data; name="published"
+
+true
+------WebKitFormBoundary
+Content-Disposition: form-data; name="video_url"
+
+https://youtube.com/watch?v=abc123
+------WebKitFormBoundary
+Content-Disposition: form-data; name="lyrics"
+
+Verse 1\nLine one\nLine two\n\nChorus\nSummer in the air
+------WebKitFormBoundary--
 ```
 
-> `video_url`, `lyrics`, and `visibility` are optional. Omit `visibility` or pass `"public"` for a publicly visible track. Pass `"private"` for owner-only access.
-> The owner's `is_artist` flag is automatically set to `true` on the first track creation.
+> **Field notes:**
+> - `audio_file` (required) — the audio file (MP3, WAV, FLAC, MP4, etc.)
+> - `cover_file` (required) — cover art image (JPG, PNG, WebP)
+> - `user_id` (required) — the owning user's UUID
+> - `title`, `artist`, `artist_slug`, `genre` (required) — basic track metadata
+> - `published` — `"true"` or `"false"` (string); defaults to unpublished
+> - `video_url`, `lyrics`, `mood`, `description`, `tags`, `cover_gradient` — optional
+> - `visibility` — optional; omit or pass `"public"` for public track, `"private"` for owner-only access
+> - `audio_duration` — track length in seconds (integer)
+> - `audio_file_size` — file size in bytes
+> - `audio_format` — e.g. `"mp3"`, `"wav"`, `"mpeg"`, `"mp4"`
+> - The owner's `is_artist` flag is automatically set to `true` on the first track creation.
 
 **Response:**
 ```json
@@ -348,15 +420,22 @@ Content-Type: application/json
   "album_id": null,
   "title": "Summer Vibes",
   "artist": "John Doe",
+  "artist_slug": "john-doe",
   "genre": "Electronic",
+  "mood": "Energetic",
+  "tags": ["summer", "dance"],
   "audio_duration": 240.5,
   "audio_format": "mp3",
+  "cover_url": "https://cdn.example.com/covers/summer-vibes.jpg",
+  "cover_gradient": "from-emerald-500/40 to-cyan-500/30",
   "video_url": "https://youtube.com/watch?v=abc123",
   "lyrics": "Verse 1\nLine one\nLine two\n\nChorus\nSummer in the air",
   "plays": 0,
   "likes": 0,
   "downloads": 0,
+  "shares": 0,
   "published": true,
+  "published_at": "2024-02-04T10:30:00Z",
   "visibility": "public",
   "created_at": "2024-02-04T10:30:00Z",
   "updated_at": "2024-02-04T10:30:00Z"
@@ -466,23 +545,6 @@ DELETE /api/tracks/track-uuid-1/shares/SHARE_UUID
 Authorization: Bearer <owner-token>
 ```
 
-### Update a Track (add/edit video or lyrics)
-
-**Request:**
-```bash
-PATCH /api/tracks/track-uuid-1
-Content-Type: application/json
-
-{
-  "video_url": "https://vimeo.com/123456789",
-  "lyrics": "Updated verse\nNew line"
-}
-```
-
-> Pass `"video_url": null` or `"lyrics": null` to clear either field.
-
-**Response:** Full updated track object (same shape as GET above).
-
 ### Create an Album
 
 **Request:**
@@ -538,6 +600,10 @@ Content-Type: application/json
   "user_id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "My Favorite Tracks",
   "description": "A collection of my favorite songs",
+  "public": false,
+  "my_permission": "owner",
+  "share_token": null,
+  "shares_count": 0,
   "created_at": "2024-02-04T10:30:00Z",
   "updated_at": "2024-02-04T10:30:00Z"
 }
@@ -654,9 +720,10 @@ GET /api/search?q=summer&type=all&limit=20
       "id": "track-uuid-1",
       "title": "Summer Vibes",
       "artist": "John Doe",
+      "artist_slug": "john-doe",
       "genre": "Electronic",
-      "video_url": "https://youtube.com/watch?v=abc123",
-      "lyrics": "Verse 1\n...",
+      "cover_url": "https://cdn.example.com/covers/summer-vibes.jpg",
+      "audio_duration": 240.5,
       "plays": 150,
       "likes": 45
     }
@@ -674,17 +741,18 @@ GET /api/search?q=summer&type=all&limit=20
 
 ### Stream Audio
 
+Returns a redirect to the audio file or the binary audio stream directly.
+
 **Request:**
 ```bash
 GET /api/tracks/track-uuid-1/stream/
 ```
 
-**Response:**
-```json
-{
-  "audio_url": "https://cdn.example.com/tracks/summer-vibes.mp3"
-}
-```
+**Response:** Binary audio data (the track's audio file) or a redirect to the CDN URL.
+
+> For the streaming URL without downloading, use `GET /api/tracks/<track_id>/stream-url/` which returns `{"audio_url": "https://cdn.example.com/tracks/summer-vibes.mp3"}`.
+>
+> The frontend typically reads the `audio_url` field from the track object directly and streams from there, bypassing the `/stream/` endpoint.
 
 ### Like a Track
 
@@ -694,9 +762,11 @@ POST /api/tracks/track-uuid-1/like
 Content-Type: application/json
 
 {
-  "userId": "user-uuid-1"
+  "user_id": "user-uuid-1"
 }
 ```
+
+> The frontend sends `userId` (camelCase) which is automatically converted to `user_id` (snake_case) by the API client. For raw curl requests, use `user_id` directly.
 
 **Response:**
 ```json
@@ -707,6 +777,8 @@ Content-Type: application/json
   "created_at": "2024-02-04T10:30:00Z"
 }
 ```
+
+> To check if a user has liked a track: `GET /api/tracks/<track_id>/like/<user_id>` → `{"hasLiked": true|false}`
 
 ---
 
@@ -889,13 +961,16 @@ curl -X POST http://localhost:5000/api/playlists/PLAYLIST_UUID/add-track \
 curl -X GET http://localhost:5000/api/playlists/PLAYLIST_UUID \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
 
-# 8. Stream track audio
+# 8. Get streaming URL for a track (returns JSON)
+curl -X GET http://localhost:5000/api/tracks/TRACK_UUID/stream-url/
+
+# 8b. Stream track audio directly (binary response)
 curl -X GET http://localhost:5000/api/tracks/TRACK_UUID/stream/
 
 # 9. Like a track
 curl -X POST http://localhost:5000/api/tracks/TRACK_UUID/like \
   -H "Content-Type: application/json" \
-  -d '{"userId": "user-uuid"}'
+  -d '{"user_id": "user-uuid"}'
 
 # 10. Get user statistics
 curl http://localhost:5000/api/users/user-uuid/stats

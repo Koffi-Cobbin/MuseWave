@@ -5,7 +5,7 @@
  */
 
 import { QueryClient } from "@tanstack/react-query";
-import { API_BASE_URL } from "./apiConfig";
+import { API_BASE_URL, API_ENDPOINTS } from "./apiConfig";
 import {
   toSnakeCaseObject,
   toCamelCaseObject,
@@ -15,6 +15,8 @@ import {
 // ---------------------------------------------------------------------------
 // QueryClient
 // ---------------------------------------------------------------------------
+
+import type { TrackShare } from "@shared/schema";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -105,6 +107,31 @@ export async function apiRequestFormData<T = unknown>(
  * Stores the new token(s) on success.
  * Returns `true` if a new access token was obtained.
  */
+// ---------------------------------------------------------------------------
+// Track shares
+// ---------------------------------------------------------------------------
+
+/** List all shares for a track (owner only). */
+export async function listTrackShares(trackId: string): Promise<TrackShare[]> {
+  return apiRequestJson<TrackShare[]>("GET", API_ENDPOINTS.tracks.shares(trackId));
+}
+
+/** Share a private track with a user by username or email. */
+export async function shareTrackWithUser(
+  trackId: string,
+  payload: { username?: string; email?: string }
+): Promise<TrackShare> {
+  return apiRequestJson<TrackShare>("POST", API_ENDPOINTS.tracks.shares(trackId), payload);
+}
+
+/** Revoke a user's access to a private track. */
+export async function revokeTrackShare(
+  trackId: string,
+  shareId: string
+): Promise<void> {
+  await apiRequestJson("DELETE", API_ENDPOINTS.tracks.shareById(trackId, shareId));
+}
+
 async function attemptTokenRefresh(): Promise<boolean> {
   const refreshToken = localStorage.getItem("refreshToken");
   if (!refreshToken) return false;

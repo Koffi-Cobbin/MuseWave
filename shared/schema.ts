@@ -111,6 +111,7 @@ export const trackSchema = z.object({
   // Status
   published: z.boolean().default(false),
   publishedAt: z.string().optional(),
+  visibility: z.enum(["public", "private"]).default("public"),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -210,6 +211,22 @@ export const playlistShareSchema = z.object({
 });
 
 export type PlaylistShare = z.infer<typeof playlistShareSchema>;
+
+// ============================================================================
+// TRACK SHARE SCHEMAS
+// ============================================================================
+
+export const trackShareSchema = z.object({
+  id: z.string(),
+  trackId: z.string(),
+  sharedByUsername: z.string(),
+  sharedWithUsername: z.string().optional(),
+  sharedWithEmail: z.string().optional(),
+  sharedWithAvatar: z.string().optional(),
+  createdAt: z.string(),
+});
+
+export type TrackShare = z.infer<typeof trackShareSchema>;
 
 export const playlistSchema = z.object({
   id: z.string(),

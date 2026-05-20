@@ -47,6 +47,8 @@ export const API_ENDPOINTS = {
     stream: (id: string) => `/api/tracks/${id}/stream/`,
     streamUrl: (id: string) => `/api/tracks/${id}/stream-url/`,
     download: (id: string) => `/api/tracks/${id}/download/`,
+    shares: (id: string) => `/api/tracks/${id}/shares`,
+    shareById: (id: string, shareId: string) => `/api/tracks/${id}/shares/${shareId}`,
   },
   
   // Albums

@@ -3,7 +3,6 @@ import { Playlist } from "@shared/schema";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -71,12 +70,9 @@ export function RenamePlaylistModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-sm:w-[calc(100%-1.5rem)] sm:mx-0 rounded-lg">
         <DialogHeader>
           <DialogTitle>Rename Playlist</DialogTitle>
-          <DialogDescription>
-            Update the name and description of your playlist
-          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -219,7 +219,7 @@ export function SharePlaylistModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="!fixed !left-1/2 !-translate-x-1/2 !w-[calc(100%-32px)] !max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden !p-4 sm:!p-6 rounded-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -227,37 +227,39 @@ export function SharePlaylistModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5 py-1">
+        <div className="space-y-5 py-1 overflow-x-hidden w-full">
 
           {/* ── Add person ───────────────────────────────────────────────── */}
           <div className="space-y-3">
             <Label className="text-sm font-semibold">Add people</Label>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2">
               <Input
                 placeholder="Username or email address"
                 value={addInput}
                 onChange={(e) => setAddInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleAddPerson()}
-                className="flex-1"
+                className="w-full"
                 data-testid="input-share-person"
               />
-              <Select value={addPermission} onValueChange={(v) => setAddPermission(v as Permission)}>
-                <SelectTrigger className="w-[100px]" data-testid="select-share-permission">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="view">Viewer</SelectItem>
-                  <SelectItem value="edit">Editor</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button
-                onClick={handleAddPerson}
-                disabled={addLoading || !addInput.trim()}
-                size="sm"
-                data-testid="button-share-add"
-              >
-                {addLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-              </Button>
+              <div className="flex gap-2 w-full overflow-hidden">
+                <Select value={addPermission} onValueChange={(v) => setAddPermission(v as Permission)}>
+                  <SelectTrigger className="flex-1 min-w-0 h-10" data-testid="select-share-permission">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="view">Viewer</SelectItem>
+                    <SelectItem value="edit">Editor</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  onClick={handleAddPerson}
+                  disabled={addLoading || !addInput.trim()}
+                  className="h-10 w-10 p-0 shrink-0"
+                  data-testid="button-share-add"
+                >
+                  {addLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -291,16 +293,16 @@ export function SharePlaylistModal({
             <Label className="text-sm font-semibold">Link sharing</Label>
 
             <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-3">
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 text-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-sm min-w-0">
                   <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                  <span className="text-muted-foreground">
+                  <span className="text-muted-foreground truncate text-xs sm:text-sm">
                     {shareToken ? "Anyone with the link" : "No link generated"}
                   </span>
                 </div>
                 {shareToken && (
                   <Select value={linkPermission} onValueChange={(v) => handleChangeLinkPermission(v as Permission)}>
-                    <SelectTrigger className="w-[100px] h-7 text-xs" data-testid="select-link-permission">
+                    <SelectTrigger className="w-[90px] h-7 text-xs shrink-0" data-testid="select-link-permission">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -312,17 +314,17 @@ export function SharePlaylistModal({
               </div>
 
               {shareToken && shareUrl && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                   <Input
                     value={shareUrl}
                     readOnly
-                    className="flex-1 h-8 text-xs bg-background"
+                    className="flex-1 h-8 text-xs bg-background min-w-0"
                     data-testid="input-share-link"
                   />
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-8 shrink-0"
+                    className="h-8 w-8 p-0 shrink-0"
                     onClick={handleCopyLink}
                     data-testid="button-copy-link"
                   >
@@ -336,14 +338,14 @@ export function SharePlaylistModal({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 text-xs sm:text-sm"
                     onClick={handleGenerateLink}
                     disabled={linkLoading}
                     data-testid="button-generate-link"
                   >
                     {linkLoading
-                      ? <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                      : <Link2 className="h-4 w-4 mr-2" />}
+                      ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                      : <Link2 className="h-4 w-4 mr-1.5" />}
                     Generate link
                   </Button>
                 ) : (
@@ -351,18 +353,18 @@ export function SharePlaylistModal({
                     <Button
                       size="sm"
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 text-xs sm:text-sm"
                       onClick={handleGenerateLink}
                       disabled={linkLoading}
                       data-testid="button-regenerate-link"
                     >
-                      {linkLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                      Regenerate link
+                      {linkLoading ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
+                      Regenerate
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      className="text-destructive hover:text-destructive hover:bg-destructive/10 shrink-0 px-2"
                       onClick={handleRevokeLink}
                       disabled={linkLoading}
                       data-testid="button-revoke-link"
@@ -379,13 +381,13 @@ export function SharePlaylistModal({
 
           {/* ── Public visibility ────────────────────────────────────────── */}
           <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
+            <div className="flex items-start gap-2 min-w-0">
               {isPublic
-                ? <Globe className="h-4 w-4 text-primary" />
-                : <Lock className="h-4 w-4 text-muted-foreground" />}
-              <div>
+                ? <Globe className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                : <Lock className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />}
+              <div className="min-w-0">
                 <p className="text-sm font-medium">{isPublic ? "Public playlist" : "Private playlist"}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground leading-snug">
                   {isPublic
                     ? "Appears on your profile for everyone to see"
                     : "Only visible to people you share it with"}
@@ -396,6 +398,7 @@ export function SharePlaylistModal({
               checked={isPublic}
               onCheckedChange={handleTogglePublic}
               disabled={publicLoading}
+              className="shrink-0"
               data-testid="switch-playlist-public"
             />
           </div>
@@ -420,8 +423,8 @@ function ShareRow({ share, onChangePermission, onRevoke }: ShareRowProps) {
     .toUpperCase();
 
   return (
-    <div className="flex items-center gap-3 py-1.5 px-1 rounded-lg hover:bg-muted/30 transition-colors" data-testid={`row-share-${share.id}`}>
-      <Avatar className="h-8 w-8 shrink-0">
+    <div className="flex items-center gap-2 py-1.5 px-1 rounded-lg hover:bg-muted/30 transition-colors" data-testid={`row-share-${share.id}`}>
+      <Avatar className="h-7 w-7 shrink-0">
         {share.sharedWithAvatar && <AvatarImage src={share.sharedWithAvatar} />}
         <AvatarFallback className="text-xs bg-gradient-to-br from-purple-500/20 to-pink-500/20">
           {initials}
@@ -429,7 +432,7 @@ function ShareRow({ share, onChangePermission, onRevoke }: ShareRowProps) {
       </Avatar>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">
+        <p className="text-xs font-medium truncate">
           {share.sharedWithUsername ?? share.sharedWithEmail ?? "Unknown user"}
         </p>
         {share.sharedWithUsername && share.sharedWithEmail && (
@@ -442,7 +445,7 @@ function ShareRow({ share, onChangePermission, onRevoke }: ShareRowProps) {
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 px-2 text-xs gap-1 text-muted-foreground"
+            className="h-7 w-16 px-1.5 text-xs gap-0.5 text-muted-foreground shrink-0 justify-between"
             data-testid={`button-share-permission-${share.id}`}
           >
             {share.permission === "edit" ? "Editor" : "Viewer"}
@@ -454,13 +457,13 @@ function ShareRow({ share, onChangePermission, onRevoke }: ShareRowProps) {
             onClick={() => onChangePermission(share.id, "view")}
             className={cn(share.permission === "view" && "font-medium text-primary")}
           >
-            Viewer — can only view
+            Viewer
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => onChangePermission(share.id, "edit")}
             className={cn(share.permission === "edit" && "font-medium text-primary")}
           >
-            Editor — can add/remove tracks
+            Editor
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => onRevoke(share.id)}
