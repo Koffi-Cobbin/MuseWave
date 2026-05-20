@@ -219,7 +219,7 @@ export function SharePlaylistModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!fixed !left-1/2 !-translate-x-1/2 !w-[calc(100%-32px)] !max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden !p-4 sm:!p-6 rounded-lg">
+      <DialogContent className="!fixed !left-1/2 !-translate-x-1/2 !w-[calc(100%-32px)] !max-w-md max-h-[90vh] overflow-y-auto !p-4 sm:!p-6 rounded-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Users className="h-5 w-5" />
@@ -227,7 +227,7 @@ export function SharePlaylistModal({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5 py-1 overflow-x-hidden w-full">
+        <div className="space-y-5 py-1 w-full">
 
           {/* ── Add person ───────────────────────────────────────────────── */}
           <div className="space-y-3">
