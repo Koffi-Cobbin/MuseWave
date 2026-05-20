@@ -8,6 +8,7 @@ import { useOffline } from "@/contexts/offline-context";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { LoginModal } from "@/components/LoginModal";
+import { Separator } from "@/components/ui/separator";
 
 // ─── Account Sheet (Mobile) ───────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ function AccountSheet({
   onOpenLogin: () => void;
 }) {
   const { user, logout, isAuthenticated } = useAuth();
+  const { downloads } = useOffline();
   const { toast } = useToast();
 
   const handleLogout = () => {
@@ -64,22 +66,53 @@ function AccountSheet({
                       </div>
                     </div>
                   </Link>
+                  <Separator className="opacity-20" />
+                  <Link href="/downloads" onClick={onClose} className="block">
+                    <div className="flex items-center gap-3 rounded-xl px-3 py-3 transition hover:bg-white/8">
+                      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5">
+                        <Download className="h-5 w-5 text-muted-foreground" />
+                        {downloads.length > 0 && (
+                          <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground leading-none">
+                            {downloads.length > 9 ? "9+" : downloads.length}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-base font-medium">Downloads</span>
+                    </div>
+                  </Link>
+                  <Separator className="opacity-20" />
                   <Button variant="ghost" className="w-full justify-start h-12 text-base" onClick={handleLogout}>
                     <LogOut className="mr-2 h-5 w-5" /> Log out
                   </Button>
                 </div>
               ) : (
-                <div className="space-y-4 text-center">
-                  <p className="text-base text-muted-foreground">Sign in to access your account</p>
-                  <Button
-                    className="w-full glow h-12 text-base"
-                    onClick={() => {
-                      onClose();
-                      onOpenLogin();
-                    }}
-                  >
-                    Log in
-                  </Button>
+                <div className="space-y-4">
+                  <Link href="/downloads" onClick={onClose} className="block">
+                    <div className="flex items-center gap-3 rounded-xl px-3 py-3 transition hover:bg-white/8">
+                      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5">
+                        <Download className="h-5 w-5 text-muted-foreground" />
+                        {downloads.length > 0 && (
+                          <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground leading-none">
+                            {downloads.length > 9 ? "9+" : downloads.length}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-base font-medium">Downloads</span>
+                    </div>
+                  </Link>
+                  <Separator className="opacity-20" />
+                  <div className="space-y-3 text-center">
+                    <p className="text-base text-muted-foreground">Sign in to access your account</p>
+                    <Button
+                      className="w-full glow h-12 text-base"
+                      onClick={() => {
+                        onClose();
+                        onOpenLogin();
+                      }}
+                    >
+                      Log in
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -103,7 +136,6 @@ export default function BottomNav() {
     { href: "/", label: "Home", icon: HomeIcon, testId: "link-nav-home" },
     { href: "/discover", label: "Discover", icon: Compass, testId: "link-nav-discover" },
     { href: "/upload", label: "Upload", icon: UploadCloud, testId: "link-nav-upload" },
-    { href: "/downloads", label: "Downloads", icon: Download, testId: "link-nav-downloads" },
     ...(isAuthenticated ? [{ href: "/playlists", label: "Playlists", icon: Music, testId: "link-nav-playlists" }] : []),
   ];
 
