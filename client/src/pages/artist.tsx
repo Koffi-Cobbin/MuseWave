@@ -908,6 +908,12 @@ export default function ArtistPage() {
 
   const displayName = artist?.displayName || artist?.username || slug;
 
+  const visFilteredTracks = useMemo(() => {
+    if (!isOwner || trackVisFilter === "all") return tracks;
+    if (trackVisFilter === "public") return tracks.filter((t) => (t as any).visibility !== "private");
+    return tracks.filter((t) => (t as any).visibility === "private");
+  }, [tracks, isOwner, trackVisFilter]);
+
   // ── Loading skeleton ──
   if (loading) {
     return (
@@ -933,12 +939,6 @@ export default function ArtistPage() {
       </div>
     );
   }
-
-  const visFilteredTracks = useMemo(() => {
-    if (!isOwner || trackVisFilter === "all") return tracks;
-    if (trackVisFilter === "public") return tracks.filter((t) => (t as any).visibility !== "private");
-    return tracks.filter((t) => (t as any).visibility === "private");
-  }, [tracks, isOwner, trackVisFilter]);
 
   const tabs: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
     { key: "tracks", label: "Tracks", icon: Music2, count: tracks.length },
