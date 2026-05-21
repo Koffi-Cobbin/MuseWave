@@ -39,6 +39,7 @@ import {
   MapPin,
   Globe,
   Link2,
+  Lock,
 } from "lucide-react";
 import { SiSpotify, SiSoundcloud, SiX, SiInstagram } from "react-icons/si";
 import { Button } from "@/components/ui/button";
