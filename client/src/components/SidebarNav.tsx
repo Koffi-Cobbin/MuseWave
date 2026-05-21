@@ -17,6 +17,7 @@ import {
   LogOut,
   User as UserIcon,
   X,
+  LayoutDashboard,
 } from "lucide-react";
 
 // ─── Logo ────────────────────────────────────────────────────────────────────
@@ -80,6 +81,7 @@ export function SidebarNav({ onMobileClose }: SidebarNavProps) {
 
   const authenticatedItems = [
     { href: "/playlists", label: "My Playlists", icon: Music2, testId: "link-nav-playlists" },
+    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "link-nav-dashboard" },
   ];
 
   const handleLogout = () => {

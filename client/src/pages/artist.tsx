@@ -619,6 +619,9 @@ export default function ArtistPage() {
 
   const isOwner = authUser?.id === artist?.id;
 
+  type TrackVisFilter = "all" | "public" | "private";
+  const [trackVisFilter, setTrackVisFilter] = useState<TrackVisFilter>("all");
+
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
     setCopied(type);
@@ -739,10 +742,11 @@ export default function ArtistPage() {
 
         setArtistUserId(userData.id);
 
+        const isViewerOwner = authUser?.id === userData.id;
         const [tracksData, albumsData] = await Promise.all([
           apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, {
             userId: userData.id,
-            published: true,
+            ...(isViewerOwner ? {} : { published: true }),
           }),
           apiRequestJson<Album[]>("GET", API_ENDPOINTS.albums.byUser(userData.id)).catch(() => []),
         ]);
@@ -929,6 +933,12 @@ export default function ArtistPage() {
       </div>
     );
   }
+
+  const visFilteredTracks = useMemo(() => {
+    if (!isOwner || trackVisFilter === "all") return tracks;
+    if (trackVisFilter === "public") return tracks.filter((t) => (t as any).visibility !== "private");
+    return tracks.filter((t) => (t as any).visibility === "private");
+  }, [tracks, isOwner, trackVisFilter]);
 
   const tabs: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
     { key: "tracks", label: "Tracks", icon: Music2, count: tracks.length },
@@ -1280,22 +1290,75 @@ export default function ArtistPage() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              {tracks.length === 0 ? (
+              {/* Owner-only visibility sub-filter */}
+              {isOwner && tracks.length > 0 && (
+                <div className="mb-3 flex gap-1 rounded-xl border border-white/8 bg-white/3 p-1">
+                  {(
+                    [
+                      { key: "all" as const, label: "All", count: tracks.length },
+                      { key: "public" as const, label: "Public", count: tracks.filter((t) => (t as any).visibility !== "private").length },
+                      { key: "private" as const, label: "Private", count: tracks.filter((t) => (t as any).visibility === "private").length },
+                    ] as const
+                  ).map((f) => (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => setTrackVisFilter(f.key)}
+                      data-testid={`tab-vis-filter-${f.key}`}
+                      className={cn(
+                        "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all",
+                        trackVisFilter === f.key
+                          ? "bg-white/10 text-foreground"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {f.key === "private" && <Lock className="h-3 w-3 shrink-0" />}
+                      {f.key === "public" && <Globe className="h-3 w-3 shrink-0" />}
+                      {f.label}
+                      {f.count > 0 && (
+                        <span className={cn(
+                          "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
+                          trackVisFilter === f.key ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground",
+                        )}>
+                          {f.count}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {visFilteredTracks.length === 0 ? (
                 <div className="py-16 text-center">
                   <Music2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No tracks yet.</p>
-                  {isOwner && (
-                    <Link href="/upload">
-                      <Button type="button" className="glow mt-4">
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Upload your first track
-                      </Button>
-                    </Link>
+                  {tracks.length === 0 ? (
+                    <>
+                      <p className="text-sm text-muted-foreground">No tracks yet.</p>
+                      {isOwner && (
+                        <Link href="/upload">
+                          <Button type="button" className="glow mt-4">
+                            <Sparkles className="mr-2 h-4 w-4" />
+                            Upload your first track
+                          </Button>
+                        </Link>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground">No {trackVisFilter} tracks.</p>
+                      <button
+                        type="button"
+                        onClick={() => setTrackVisFilter("all")}
+                        className="mt-2 text-xs text-primary hover:underline"
+                      >
+                        View all tracks
+                      </button>
+                    </>
                   )}
                 </div>
               ) : (
                 <div className="grid gap-2 sm:gap-3">
-                  {tracks.map((t, idx) => (
+                  {visFilteredTracks.map((t, idx) => (
                     <TrackCard
                       key={t.id}
                       track={t}

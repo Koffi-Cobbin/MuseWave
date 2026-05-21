@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation, Link } from "wouter";
-import { Home as HomeIcon, Compass, UploadCloud, Download, WifiOff, User as UserIcon, LogOut, Music } from "lucide-react";
+import { Home as HomeIcon, Compass, UploadCloud, Download, WifiOff, User as UserIcon, LogOut, Music, LayoutDashboard } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -68,6 +68,14 @@ function AccountSheet({
                     </div>
                   </Link>
                   <Separator className="opacity-20" />
+                  <Link href="/dashboard" onClick={onClose} className="block" data-testid="link-account-dashboard">
+                    <div className="flex items-center gap-3 rounded-xl px-3 py-3 transition hover:bg-white/8">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5">
+                        <LayoutDashboard className="h-5 w-5 text-muted-foreground" />
+                      </div>
+                      <span className="text-base font-medium">Dashboard</span>
+                    </div>
+                  </Link>
                   <Link href="/downloads" onClick={onClose} className="block">
                     <div className="flex items-center gap-3 rounded-xl px-3 py-3 transition hover:bg-white/8">
                       <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5">
