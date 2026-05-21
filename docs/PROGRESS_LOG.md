@@ -2,7 +2,70 @@
 
 **Project:** MuseWave (indie music streaming/sharing platform)  
 **Stack:** React 19 + TypeScript (Vite), Express server, Django REST API (`https://kofficobbin.pythonanywhere.com`), JWT auth in localStorage  
-**Last updated:** 2026-05-21
+**Last updated:** 2026-05-21 (Session 4)
+
+---
+
+## Session 4 — Artist Page: Search, Sort, Pagination + About Tab Overhaul
+
+**File:** `client/src/pages/artist.tsx`
+
+### Tracks Tab — Replaced owner-only visibility filter tabs with Search + Sort + Pagination
+
+**Removed:**
+- `trackVisFilter` state (`"all" | "public" | "private"`)
+- `visFilteredTracks` useMemo
+- The three-button owner-only filter bar UI (All / Public / Private sub-tabs under Tracks)
+
+**Added state:**
+- `trackSearch: string` — real-time search query
+- `trackSort: "latest" | "oldest" | "az" | "za" | "plays" | "likes"` — active sort key, defaults to `"latest"`
+- `trackPage: number` — current page, defaults to 1
+- `TRACKS_PER_PAGE = 10` — constant
+
+**Added logic (`processedTracks` useMemo, before early returns):**
+- Filters `tracks` by `trackSearch` against `title`, `genre`, and `artist` fields (case-insensitive)
+- Sorts by: newest `createdAt` (latest), oldest `createdAt`, most `plays`, most `likes`, A→Z title, Z→A title
+- `totalPages` and `pagedTracks` derived from `processedTracks` after memoization
+
+**New UI (toolbar above track list):**
+- Full-width search input with `Search` icon prefix; clears page to 1 on change
+- `SlidersHorizontal` icon + `<select>` dropdown for sort; resets page to 1 on change
+- Live result count: `"11 tracks"` or `"3 results for "amapiano" · page 1 of 2"`
+- Empty-search state with a "Clear search" link
+
+**New pagination controls (below track list, only when `totalPages > 1`):**
+- ← Prev / Next → buttons with disabled state at edges
+- Page number pills highlighting the active page
+- Index passed to `TrackCard` accounts for page offset: `(trackPage - 1) * TRACKS_PER_PAGE + idx`
+
+**Imports added:** `Search`, `ChevronLeft`, `SlidersHorizontal` from `lucide-react`
+
+---
+
+### About Tab — Visitor-focused redesign
+
+**Removed:**
+- "Growth snapshot" section — the data (Saves, Shares, Monthly Growth) was entirely derived from unrelated fields and misleading to visitors
+
+**Added — Latest Release card (top of About tab):**
+- Picks the track with the most recent `createdAt` date
+- Shows blurred cover as backdrop + gradient overlay
+- Displays: track cover thumbnail, "Latest Release" label, title, genre, year, duration
+- Clicking the card plays the track and switches to the Tracks tab
+- Falls back to a gradient placeholder when no cover image is present
+
+**Added — Stats at a glance grid (2×2 on mobile, 4-up on desktop):**
+- Monthly listeners, Followers, Track count, Total plays (summed from all loaded tracks)
+- Uses real data from existing `artist.*` and `tracks` state — no fake derivations
+
+**Improved — Bio card:**
+- Title now reads "About {displayName}" for a more personal feel
+- Bio text supports `whitespace-pre-line` for multi-paragraph bios
+- Empty-state placeholder shown to visitors when no bio is set ("hasn't added a bio yet")
+
+**Improved — Social links:**
+- Section title now reads "Find {displayName} online" for a visitor-centric framing
 
 ---
 

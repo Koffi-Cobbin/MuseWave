@@ -40,6 +40,9 @@ import {
   Globe,
   Link2,
   Lock,
+  Search,
+  ChevronLeft,
+  SlidersHorizontal,
 } from "lucide-react";
 import { SiSpotify, SiSoundcloud, SiX, SiInstagram } from "react-icons/si";
 import { Button } from "@/components/ui/button";
@@ -620,8 +623,10 @@ export default function ArtistPage() {
 
   const isOwner = authUser?.id === artist?.id;
 
-  type TrackVisFilter = "all" | "public" | "private";
-  const [trackVisFilter, setTrackVisFilter] = useState<TrackVisFilter>("all");
+  const TRACKS_PER_PAGE = 10;
+  const [trackSearch, setTrackSearch] = useState("");
+  const [trackSort, setTrackSort] = useState<"latest" | "oldest" | "az" | "za" | "plays" | "likes">("latest");
+  const [trackPage, setTrackPage] = useState(1);
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -909,11 +914,42 @@ export default function ArtistPage() {
 
   const displayName = artist?.displayName || artist?.username || slug;
 
-  const visFilteredTracks = useMemo(() => {
-    if (!isOwner || trackVisFilter === "all") return tracks;
-    if (trackVisFilter === "public") return tracks.filter((t) => (t as any).visibility !== "private");
-    return tracks.filter((t) => (t as any).visibility === "private");
-  }, [tracks, isOwner, trackVisFilter]);
+  const processedTracks = useMemo(() => {
+    let result = [...tracks];
+    if (trackSearch.trim()) {
+      const q = trackSearch.toLowerCase();
+      result = result.filter(
+        (t) =>
+          t.title.toLowerCase().includes(q) ||
+          (t.genre ?? "").toLowerCase().includes(q) ||
+          (t.artist ?? "").toLowerCase().includes(q),
+      );
+    }
+    switch (trackSort) {
+      case "oldest":
+        result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        break;
+      case "az":
+        result.sort((a, b) => a.title.localeCompare(b.title));
+        break;
+      case "za":
+        result.sort((a, b) => b.title.localeCompare(a.title));
+        break;
+      case "plays":
+        result.sort((a, b) => (b.plays ?? 0) - (a.plays ?? 0));
+        break;
+      case "likes":
+        result.sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
+        break;
+      default: // "latest" — sort newest first
+        result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        break;
+    }
+    return result;
+  }, [tracks, trackSearch, trackSort]);
+
+  const totalPages = Math.max(1, Math.ceil(processedTracks.length / TRACKS_PER_PAGE));
+  const pagedTracks = processedTracks.slice((trackPage - 1) * TRACKS_PER_PAGE, trackPage * TRACKS_PER_PAGE);
 
   // ── Loading skeleton ──
   if (loading) {
@@ -1291,86 +1327,140 @@ export default function ArtistPage() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
             >
-              {/* Owner-only visibility sub-filter */}
-              {isOwner && tracks.length > 0 && (
-                <div className="mb-3 flex gap-1 rounded-xl border border-white/8 bg-white/3 p-1">
-                  {(
-                    [
-                      { key: "all" as const, label: "All", count: tracks.length },
-                      { key: "public" as const, label: "Public", count: tracks.filter((t) => (t as any).visibility !== "private").length },
-                      { key: "private" as const, label: "Private", count: tracks.filter((t) => (t as any).visibility === "private").length },
-                    ] as const
-                  ).map((f) => (
-                    <button
-                      key={f.key}
-                      type="button"
-                      onClick={() => setTrackVisFilter(f.key)}
-                      data-testid={`tab-vis-filter-${f.key}`}
-                      className={cn(
-                        "flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all",
-                        trackVisFilter === f.key
-                          ? "bg-white/10 text-foreground"
-                          : "text-muted-foreground hover:text-foreground",
-                      )}
+              {/* Search + Sort toolbar */}
+              {tracks.length > 0 && (
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  {/* Search */}
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={trackSearch}
+                      onChange={(e) => { setTrackSearch(e.target.value); setTrackPage(1); }}
+                      placeholder="Search tracks, genres…"
+                      data-testid="input-track-search"
+                      className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
+                    />
+                  </div>
+                  {/* Sort */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <select
+                      value={trackSort}
+                      onChange={(e) => { setTrackSort(e.target.value as typeof trackSort); setTrackPage(1); }}
+                      data-testid="select-track-sort"
+                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-foreground focus:outline-none focus:border-white/20 transition cursor-pointer"
                     >
-                      {f.key === "private" && <Lock className="h-3 w-3 shrink-0" />}
-                      {f.key === "public" && <Globe className="h-3 w-3 shrink-0" />}
-                      {f.label}
-                      {f.count > 0 && (
-                        <span className={cn(
-                          "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
-                          trackVisFilter === f.key ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground",
-                        )}>
-                          {f.count}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                      <option value="latest">Latest</option>
+                      <option value="oldest">Oldest</option>
+                      <option value="plays">Most Played</option>
+                      <option value="likes">Most Liked</option>
+                      <option value="az">A → Z</option>
+                      <option value="za">Z → A</option>
+                    </select>
+                  </div>
                 </div>
               )}
 
-              {visFilteredTracks.length === 0 ? (
+              {/* Result count */}
+              {tracks.length > 0 && (
+                <p className="mb-3 text-xs text-muted-foreground/60">
+                  {trackSearch.trim()
+                    ? `${processedTracks.length} result${processedTracks.length !== 1 ? "s" : ""} for "${trackSearch}"`
+                    : `${processedTracks.length} track${processedTracks.length !== 1 ? "s" : ""}`}
+                  {totalPages > 1 && ` · page ${trackPage} of ${totalPages}`}
+                </p>
+              )}
+
+              {/* Track list */}
+              {tracks.length === 0 ? (
                 <div className="py-16 text-center">
                   <Music2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
-                  {tracks.length === 0 ? (
-                    <>
-                      <p className="text-sm text-muted-foreground">No tracks yet.</p>
-                      {isOwner && (
-                        <Link href="/upload">
-                          <Button type="button" className="glow mt-4">
-                            <Sparkles className="mr-2 h-4 w-4" />
-                            Upload your first track
-                          </Button>
-                        </Link>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-sm text-muted-foreground">No {trackVisFilter} tracks.</p>
-                      <button
-                        type="button"
-                        onClick={() => setTrackVisFilter("all")}
-                        className="mt-2 text-xs text-primary hover:underline"
-                      >
-                        View all tracks
-                      </button>
-                    </>
+                  <p className="text-sm text-muted-foreground">No tracks yet.</p>
+                  {isOwner && (
+                    <Link href="/upload">
+                      <Button type="button" className="glow mt-4">
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Upload your first track
+                      </Button>
+                    </Link>
                   )}
+                </div>
+              ) : pagedTracks.length === 0 ? (
+                <div className="py-12 text-center">
+                  <Search className="mx-auto mb-3 h-7 w-7 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">No tracks match "{trackSearch}"</p>
+                  <button
+                    type="button"
+                    onClick={() => { setTrackSearch(""); setTrackPage(1); }}
+                    className="mt-2 text-xs text-primary hover:underline"
+                    data-testid="button-clear-search"
+                  >
+                    Clear search
+                  </button>
                 </div>
               ) : (
                 <div className="grid gap-2 sm:gap-3">
-                  {visFilteredTracks.map((t, idx) => (
+                  {pagedTracks.map((t, idx) => (
                     <TrackCard
                       key={t.id}
                       track={t}
                       onPlay={handlePlayTrack}
                       isActive={active?.id === t.id}
-                      index={idx}
+                      index={(trackPage - 1) * TRACKS_PER_PAGE + idx}
                       isOwner={isOwner}
                       onTrackDeleted={handleTrackDeleted}
                       onTrackUpdated={handleTrackUpdated}
                     />
                   ))}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="mt-5 flex items-center justify-between gap-3">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={trackPage <= 1}
+                    onClick={() => setTrackPage((p) => Math.max(1, p - 1))}
+                    data-testid="button-tracks-prev"
+                    className="border-white/10 bg-white/5 disabled:opacity-40"
+                  >
+                    <ChevronLeft className="mr-1 h-3.5 w-3.5" />
+                    Prev
+                  </Button>
+                  <div className="flex gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setTrackPage(p)}
+                        data-testid={`button-page-${p}`}
+                        className={cn(
+                          "h-8 min-w-[32px] rounded-lg px-2 text-xs font-medium transition",
+                          p === trackPage
+                            ? "bg-primary/20 text-primary"
+                            : "text-muted-foreground hover:bg-white/8 hover:text-foreground",
+                        )}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={trackPage >= totalPages}
+                    onClick={() => setTrackPage((p) => Math.min(totalPages, p + 1))}
+                    data-testid="button-tracks-next"
+                    className="border-white/10 bg-white/5 disabled:opacity-40"
+                  >
+                    Next
+                    <ChevronRight className="ml-1 h-3.5 w-3.5" />
+                  </Button>
                 </div>
               )}
             </motion.div>
@@ -1507,50 +1597,101 @@ export default function ArtistPage() {
           {activeTab === "about" && (
             <motion.div key="about" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
 
+              {/* Latest Release */}
+              {tracks.length > 0 && (() => {
+                const latest = [...tracks].sort(
+                  (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                )[0];
+                return (
+                  <div
+                    className="relative overflow-hidden rounded-2xl border border-white/10 cursor-pointer group"
+                    onClick={() => { handlePlayTrack(latest); setActiveTab("tracks"); }}
+                    data-testid="card-latest-release"
+                  >
+                    {/* Blurred cover backdrop */}
+                    {latest.coverUrl && (
+                      <img
+                        src={latest.coverUrl}
+                        alt=""
+                        aria-hidden="true"
+                        className="absolute inset-0 h-full w-full object-cover opacity-20 blur-xl scale-110"
+                      />
+                    )}
+                    <div className={cn("absolute inset-0 bg-gradient-to-br opacity-60", artist.accent)} />
+                    <div className="absolute inset-0 bg-black/40" />
+
+                    <div className="relative flex items-center gap-4 p-4 sm:p-5">
+                      {/* Cover */}
+                      <div className={cn(
+                        "h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/15 shadow-lg sm:h-20 sm:w-20",
+                        !latest.coverUrl && "bg-gradient-to-br from-primary/30 to-fuchsia-500/20 flex items-center justify-center",
+                      )}>
+                        {latest.coverUrl
+                          ? <img src={latest.coverUrl} alt={latest.title} className="h-full w-full object-cover" />
+                          : <Music2 className="h-7 w-7 text-white/30" />}
+                      </div>
+
+                      {/* Info */}
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">Latest Release</div>
+                        <div className="truncate text-base font-bold sm:text-lg" data-testid="text-latest-release-title">{latest.title}</div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-white/50">
+                          {latest.genre && <span>{latest.genre}</span>}
+                          {latest.genre && <span>·</span>}
+                          <span>{new Date(latest.createdAt).getFullYear()}</span>
+                          {latest.audioDuration > 0 && <><span>·</span><span>{time(latest.audioDuration)}</span></>}
+                        </div>
+                      </div>
+
+                      {/* Play button */}
+                      <div className="shrink-0">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary shadow-[0_4px_20px_-4px_rgba(16,185,129,.7)] transition group-hover:scale-105 group-hover:shadow-[0_6px_28px_-4px_rgba(16,185,129,.85)]">
+                          <Play className="h-5 w-5 translate-x-px text-white" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Bio */}
-              {artist.bio && (
+              {artist.bio ? (
                 <div className="glass rounded-2xl border border-white/10 p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <UserIcon className="h-4 w-4 text-primary" />
-                    <h2 className="text-sm font-semibold">About</h2>
+                    <h2 className="text-sm font-semibold">About {displayName}</h2>
                   </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed" data-testid="text-artist-bio">{artist.bio}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line" data-testid="text-artist-bio">{artist.bio}</p>
+                </div>
+              ) : !isOwner && (
+                <div className="glass rounded-2xl border border-white/10 p-5 text-center">
+                  <UserIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/30" />
+                  <p className="text-sm text-muted-foreground">{displayName} hasn't added a bio yet.</p>
                 </div>
               )}
 
-              {/* Location / Website */}
-              {(artist.location || artist.website) && (
-                <div className="glass rounded-2xl border border-white/10 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <h2 className="text-sm font-semibold">Details</h2>
+              {/* Stats at a glance */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {[
+                  { icon: Headphones, label: "Monthly listeners", value: formatCount(artist.monthlyListeners) },
+                  { icon: Users, label: "Followers", value: formatCount(followCount) },
+                  { icon: Music2, label: "Tracks", value: tracks.length },
+                  { icon: TrendingUp, label: "Total plays", value: formatCount(tracks.reduce((s, t) => s + (t.plays ?? 0), 0)) },
+                ].map((s) => (
+                  <div key={s.label} className="glass rounded-2xl border border-white/8 p-4 text-center" data-testid={`stat-${s.label.replace(/\s+/g, "-").toLowerCase()}`}>
+                    <s.icon className="mx-auto mb-1.5 h-4 w-4 text-primary/70" />
+                    <div className="text-lg font-black tabular-nums">{s.value}</div>
+                    <div className="text-[10px] text-muted-foreground">{s.label}</div>
                   </div>
-                  <div className="space-y-2">
-                    {artist.location && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="text-artist-location">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {artist.location}
-                      </div>
-                    )}
-                    {artist.website && (
-                      <a href={artist.website} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-primary hover:underline"
-                        data-testid="link-artist-website"
-                      >
-                        <Globe className="h-3.5 w-3.5 shrink-0" />
-                        {artist.website.replace(/^https?:\/\//, "")}
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
+                ))}
+              </div>
 
               {/* Social Links */}
               {artist.socialLinks && Object.values(artist.socialLinks).some(Boolean) && (
                 <div className="glass rounded-2xl border border-white/10 p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <Link2 className="h-4 w-4 text-primary" />
-                    <h2 className="text-sm font-semibold">Social</h2>
+                    <h2 className="text-sm font-semibold">Find {displayName} online</h2>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {artist.socialLinks.twitter && (
@@ -1589,33 +1730,32 @@ export default function ArtistPage() {
                 </div>
               )}
 
-              {/* Growth snapshot */}
-              <div className="relative overflow-hidden rounded-2xl border border-white/10 p-5">
-                <div className={cn("absolute inset-0 bg-gradient-to-br", artist.accent)} />
-                <div className="absolute inset-0 opacity-60 blur-3xl" />
-                <div className="relative">
+              {/* Location / Website */}
+              {(artist.location || artist.website) && (
+                <div className="glass rounded-2xl border border-white/10 p-5">
                   <div className="flex items-center gap-2 mb-3">
-                    <BarChart3 className="h-4 w-4 text-foreground/90" />
-                    <h2 className="text-sm font-semibold" data-testid="text-growth-title">Growth snapshot</h2>
-                    <Button type="button" size="sm" variant="secondary" className="ml-auto border-white/10 bg-white/5 h-7 text-xs" data-testid="button-growth-export">
-                      <ExternalLink className="mr-1 h-3 w-3" />Export
-                    </Button>
+                    <MapPin className="h-4 w-4 text-primary" />
+                    <h2 className="text-sm font-semibold">Details</h2>
                   </div>
-                  <div className="grid gap-2">
-                    {[
-                      { label: "Saves", value: formatCount(artist.monthlyListeners / 10) },
-                      { label: "Shares", value: formatCount(artist.followers / 5) },
-                      { label: "Monthly Growth", value: "+12%" },
-                      { label: "Track Count", value: tracks.length },
-                    ].map((r) => (
-                      <div key={r.label} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/6 px-3 py-2" data-testid={`row-growth-${r.label.replace(/\s+/g, "-").toLowerCase()}`}>
-                        <div className="text-sm text-foreground/90">{r.label}</div>
-                        <div className="text-sm font-semibold">{r.value}</div>
+                  <div className="space-y-2">
+                    {artist.location && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="text-artist-location">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        {artist.location}
                       </div>
-                    ))}
+                    )}
+                    {artist.website && (
+                      <a href={artist.website} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 text-sm text-primary hover:underline"
+                        data-testid="link-artist-website"
+                      >
+                        <Globe className="h-3.5 w-3.5 shrink-0" />
+                        {artist.website.replace(/^https?:\/\//, "")}
+                      </a>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Contact */}
               {artist.email && (
