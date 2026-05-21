@@ -1,4 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+# -*- coding: utf-8 -*-
+import os
+
+path = r'D:\Koffi Cobbin\Volume A\Black Box\NextJS\Ghost Town\MuseWave\client\src\pages\downloads.tsx'
+
+content = """import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { usePlayer } from "@/contexts/player-context";
 import { useOffline } from "@/contexts/offline-context";
@@ -13,12 +18,12 @@ import {
   Music,
   Play,
   Trash2,
+  ListEnd,
   AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { TrackActionsMenu } from "@/components/playlists/TrackActionsMenu";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -42,13 +47,14 @@ function formatBytes(bytes: number): string {
 export default function Downloads() {
   const {
     downloads,
+    removeDownload,
     downloadProgress,
     storageUsed,
     storageQuota,
     clearAllDownloads,
     reorderDownloads,
   } = useOffline();
-  const { setQueue, active } = usePlayer();
+  const { setQueue, insertNext, active } = usePlayer();
   const { toast } = useToast();
 
   const [coverBlobUrls, setCoverBlobUrls] = useState<Record<string, string>>({});
@@ -211,7 +217,22 @@ export default function Downloads() {
     setQueue([track], 0);
   }, [setQueue]);
 
+  const handlePlayNext = useCallback((track: Track) => {
+    insertNext(track);
+    toast({ title: "Playing next", description: track.title });
+  }, [insertNext, toast]);
 
+  const handleRemove = useCallback(async (track: Track) => {
+    await removeDownload(track.id);
+    setCoverBlobUrls((prev) => {
+      const url = prev[track.id];
+      if (url) URL.revokeObjectURL(url);
+      const next = { ...prev };
+      delete next[track.id];
+      return next;
+    });
+    toast({ title: "Removed", description: '"' + track.title + '" removed from offline storage.' });
+  }, [removeDownload, toast]);
 
   const storagePercent =
     storageQuota && storageQuota > 0
@@ -419,7 +440,24 @@ export default function Downloads() {
                       >
                         <Play className="h-3.5 w-3.5 fill-current" />
                       </button>
-                      <TrackActionsMenu track={track} />
+                      <button
+                        type="button"
+                        onClick={() => handlePlayNext(track)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-muted-foreground transition hover:bg-white/8 hover:text-foreground"
+                        title="Play next"
+                        data-testid={"button-download-play-next-" + track.id}
+                      >
+                        <ListEnd className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleRemove(track)}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-muted-foreground transition hover:border-red-500/30 hover:text-red-400"
+                        title="Remove from offline storage"
+                        data-testid={"button-download-remove-" + track.id}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -482,3 +520,8 @@ export default function Downloads() {
     </div>
   );
 }
+"""
+
+with open(path, 'w', encoding='utf-8') as f:
+    f.write(content)
+print("Written successfully, length:", len(content))

@@ -25,6 +25,8 @@ import {
   updateDownloadMeta,
   getStorageInfo,
   requestPersistentStorage,
+  clearAll as clearAllFromStorage,
+  reorderTracks,
   type TrackMeta,
 } from "@/lib/offlineStorage";
 
@@ -54,6 +56,16 @@ interface OfflineContextType {
 
   /** Delete a previously saved offline track from IndexedDB. */
   removeDownload: (trackId: string) => Promise<void>;
+
+  /** Remove every offline track and wipe all stored data. */
+  clearAllDownloads: () => Promise<void>;
+
+  /**
+   * Reorder tracks in the downloads list.
+   * Accepts an array of track IDs in the desired display order.
+   * Persists the order to IndexedDB so it survives page reloads.
+   */
+  reorderDownloads: (trackIds: string[]) => Promise<void>;
 }
 
 const OfflineContext = createContext<OfflineContextType | undefined>(undefined);
@@ -135,6 +147,17 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       });
 
       try {
+        // ── Storage quota check ─────────────────────────────────
+        const { used, quota } = await getStorageInfo();
+        if (quota !== null) {
+          const available = quota - used;
+          if (track.audioFileSize > available) {
+            throw new Error(
+              `Not enough storage. Need ${(track.audioFileSize / 1_048_576).toFixed(1)} MB but only ${(available / 1_048_576).toFixed(1)} MB available. Remove some downloads and try again.`,
+            );
+          }
+        }
+
         // ── Fetch audio stream ──────────────────────────────────────
         const response = await fetch(track.audioUrl);
         if (!response.ok)
@@ -241,6 +264,26 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     [refreshStorageInfo],
   );
 
+  // ── Clear all downloads ───────────────────────────────────────────────
+
+  const clearAllDownloads = useCallback(async () => {
+    await clearAllFromStorage();
+    setDownloads([]);
+    setDownloadedIds(new Set());
+    setDownloadProgress({});
+    await refreshStorageInfo();
+  }, [refreshStorageInfo]);
+
+  // ── Reorder downloads ─────────────────────────────────────────────────
+
+  const reorderDownloads = useCallback(
+    async (trackIds: string[]) => {
+      await reorderTracks(trackIds);
+      await refreshDownloads();
+    },
+    [refreshDownloads],
+  );
+
   // ── Context value ─────────────────────────────────────────────────────
 
   return (
@@ -254,6 +297,8 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
         storageQuota,
         downloadForOffline,
         removeDownload,
+        clearAllDownloads,
+        reorderDownloads,
       }}
     >
       {children}

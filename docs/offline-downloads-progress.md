@@ -1,8 +1,8 @@
 # Offline Downloads — Implementation Progress
 
-**Updated**: 2026-05-20  
+**Updated**: 2026-05-21  
 **Plan**: See [`docs/offline-downloads-plan.md`](./offline-downloads-plan.md)  
-**Status**: Phase 5 complete — offline indicators, button disable logic, and queue skip behavior all wired in
+**Status**: All 6 phases complete — offline storage, context, playback, UI, connectivity awareness, and storage management all implemented
 
 ---
 
@@ -224,11 +224,18 @@ The hook queries IndexedDB for the track's blob. If found, it creates a `URL.cre
 
 ---
 
-## Phase 6 — Storage Management 🔜
+## Phase 6 — Storage Management ✅
 
-**Status**: Not started  
-**Files**: Same as Phase 5 (bundled)  
+**Status**: Complete  
+**Files**: `offline-context.tsx`, `downloads.tsx`  
 **Goal**: Quota check before download, track removal, clear-all.
+
+### Deliverables
+
+| File | Change |
+|------|--------|
+| `client/src/contexts/offline-context.tsx` | **Edited** — added pre-download quota check in `downloadForOffline()` (throws descriptive error if `track.audioFileSize > available`); added `clearAllDownloads()` method to context interface + provider |
+| `client/src/pages/downloads.tsx` | **Edited** — added "Clear All" button in header (visible when downloads > 0) with `AlertDialog` confirmation, revokes cover blob URLs on clear, shows toast on completion |
 
 ---
 
@@ -247,3 +254,5 @@ The hook queries IndexedDB for the track's blob. If found, it creates a `URL.cre
 | `client/src/components/playlists/TrackActionsMenu.tsx` | 4/5 | ✅ Edited (Save Offline + Download File; offline disable) |
 | `client/src/components/BottomNav.tsx` | 4/5 | ✅ Edited (Downloads nav item + badge; offline banner) |
 | `client/src/components/SidebarNav.tsx` | 4/5 | ✅ Edited (Downloads nav item + badge; offline chip) |
+| `client/src/contexts/offline-context.tsx` | 6 | ✅ Edited (quota check + clearAllDownloads) |
+| `client/src/pages/downloads.tsx` | 6 | ✅ Edited (Clear All button + AlertDialog) |

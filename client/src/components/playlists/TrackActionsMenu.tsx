@@ -63,7 +63,7 @@ export function TrackActionsMenu({
   const { playlists, sharedWithMe, fetchSharedWithMe, addSongToPlaylist, loading } = usePlaylists();
   const { toast } = useToast();
   const { genres } = useGenres();
-  const { isTrackDownloaded, downloadForOffline, downloadProgress, isOnline } = useOffline();
+  const { isTrackDownloaded, downloadForOffline, downloadProgress, isOnline, removeDownload } = useOffline();
 
   const [open, setOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -193,6 +193,7 @@ export function TrackActionsMenu({
           <DropdownMenuLabel className="text-xs text-muted-foreground">Downloads</DropdownMenuLabel>
 
           {isTrackDownloaded(track.id) ? (
+            <>
             <DropdownMenuItem
               className="text-muted-foreground/50 cursor-not-allowed"
               disabled
@@ -201,6 +202,21 @@ export function TrackActionsMenu({
               <CloudDownload className="h-3.5 w-3.5 mr-2" />
               Saved Offline
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={async () => {
+                try {
+                  await removeDownload(track.id);
+                  toast({ title: "Removed from offline", description: "\"" + track.title + "\" removed from offline storage." });
+                } catch {
+                  toast({ title: "Failed to remove", description: "Could not remove this track from offline storage.", variant: "destructive" });
+                }
+              }}
+              data-testid={`menu-remove-offline-${track.id}`}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+              Remove from offline
+            </DropdownMenuItem>
+            </>
           ) : !isOnline ? (
             <DropdownMenuItem
               className="text-muted-foreground/50 cursor-not-allowed"

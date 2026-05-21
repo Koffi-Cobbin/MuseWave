@@ -279,7 +279,7 @@ export default function Discover() {
 
   return (
     <div className="flex min-h-screen flex-col bg-[radial-gradient(100vw_60vh_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(90vw_70vh_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(80vw_50vh_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
-      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col overflow-x-hidden px-2 py-4 pb-44 sm:px-4 sm:py-6 sm:pb-36 lg:py-8 lg:pb-8">
+      <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col overflow-x-hidden px-2 py-4 pb-44 sm:px-4 sm:py-6 sm:pb-36 lg:py-8 lg:pb-24">
 
         {/* ── Header ── */}
         <header className="mb-6 flex items-center justify-between gap-3">
@@ -495,7 +495,7 @@ export default function Discover() {
         </div>
 
         {/* ── Pagination ── */}
-        <div className="mt-auto pt-6 sm:pt-8">
+        <div className="mt-auto pt-4 sm:pt-6">
           <Pagination page={page} totalPages={totalPages} onPage={setPage} />
         </div>
 

@@ -24,6 +24,8 @@ interface StoredTrack {
   coverBlob: Blob | null;
   savedAt: string;
   audioUrl: string;
+  /** User-defined display order (0-based). Legacy entries default to savedAt order. */
+  order: number;
 }
 
 /** Value stored in the `downloads_meta` object store. */
@@ -77,11 +79,24 @@ async function getDb(): Promise<IDBPDatabase<OfflineDBSchema>> {
   return dbPromise;
 }
 
+/** Auto-assign the next order value by finding the max existing order. */
+async function nextOrder(): Promise<number> {
+  try {
+    const db = await getDb();
+    const all = await db.getAll("tracks");
+    if (all.length === 0) return 0;
+    const max = Math.max(...all.map((t) => t.order ?? 0));
+    return max + 1;
+  } catch {
+    return 0;
+  }
+}
+
 // ─── Tracks CRUD ────────────────────────────────────────────────────────────
 
 /**
  * Save a fully-downloaded track (audio blob + metadata) into IndexedDB.
- * Called by the offline context when a download finishes.
+ * The track is appended at the end of the user-defined order.
  */
 export async function saveTrack(
   track: Track,
@@ -89,6 +104,7 @@ export async function saveTrack(
   coverBlob?: Blob | null,
 ): Promise<void> {
   const db = await getDb();
+  const order = await nextOrder();
   const value: StoredTrack = {
     id: track.id,
     track,
@@ -96,6 +112,7 @@ export async function saveTrack(
     coverBlob: coverBlob ?? null,
     savedAt: new Date().toISOString(),
     audioUrl: track.audioUrl,
+    order,
   };
   await db.put("tracks", value);
 }
@@ -132,13 +149,21 @@ export async function getTrackMeta(trackId: string): Promise<TrackMeta | undefin
 
 /**
  * List every track saved offline. Returns metadata only (no audio blobs)
- * to keep memory usage predictable.
+ * to keep memory usage predictable. Sorted by user-defined `order`, with
+ * a fallback to `savedAt` for legacy entries that lack an explicit order.
  */
 export async function getAllDownloadedTracks(): Promise<TrackMeta[]> {
   try {
     const db = await getDb();
     const entries = await db.getAll("tracks");
-    return entries.map(({ blob: _, ...meta }) => meta);
+    const sorted = [...entries].sort((a, b) => {
+      const orderA = a.order ?? 0;
+      const orderB = b.order ?? 0;
+      if (orderA !== orderB) return orderA - orderB;
+      // Fallback: preserve insertion order for entries with equal order
+      return a.savedAt.localeCompare(b.savedAt);
+    });
+    return sorted.map(({ blob: _, ...meta }) => meta);
   } catch {
     return [];
   }
@@ -167,6 +192,29 @@ export async function removeTrack(trackId: string): Promise<void> {
   const db = await getDb();
   await db.delete("tracks", trackId);
   await db.delete("downloads_meta", trackId);
+}
+
+// ─── Reorder ────────────────────────────────────────────────────────────────
+
+/**
+ * Update the display order of all downloaded tracks.
+ *
+ * Accepts an array of track IDs in the desired order. Each track's `order`
+ * field is set to its index in the array so the list renders correctly.
+ *
+ * Tracks not in the array are left unchanged (they keep their existing order
+ * and will appear after the explicitly ordered tracks).
+ */
+export async function reorderTracks(trackIds: string[]): Promise<void> {
+  const db = await getDb();
+  const tx = db.transaction("tracks", "readwrite");
+  for (let i = 0; i < trackIds.length; i++) {
+    const existing = await tx.store.get(trackIds[i]);
+    if (existing) {
+      await tx.store.put({ ...existing, order: i });
+    }
+  }
+  await tx.done;
 }
 
 // ─── Download Meta ──────────────────────────────────────────────────────────
