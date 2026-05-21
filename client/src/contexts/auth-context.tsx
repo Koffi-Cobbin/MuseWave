@@ -4,6 +4,24 @@ import { apiRequestJson } from "@/lib/queryClient";
 import { toCamelCaseObject } from "@/lib/caseTransform";
 import type { User } from "../../../shared/schema";
 
+/**
+ * Flattens field-level error objects into a dot-separated string.
+ * {"email": ["msg1"], "username": ["msg2"]} → "msg1. msg2"
+ */
+function flattenFieldErrors(obj: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const value of Object.values(obj)) {
+    if (Array.isArray(value)) {
+      for (const msg of value) {
+        if (typeof msg === "string") parts.push(msg);
+      }
+    } else if (typeof value === "string") {
+      parts.push(value);
+    }
+  }
+  return parts.length > 0 ? parts.join(". ") : JSON.stringify(obj);
+}
+
 interface AuthContextType {
   user: Omit<User, "password"> | null;
   isAuthenticated: boolean;
@@ -62,11 +80,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // FIX: backend returns { error, status, attempts_remaining } on 401 —
         // extract the `error` field specifically (not just statusText)
         const errorData = await response.json().catch(() => ({}));
+        const rawMsg: unknown =
+          errorData.error ??
+          errorData.detail ??
+          (Array.isArray(errorData.non_field_errors) ? errorData.non_field_errors[0] : null) ??
+          `${response.status}: ${response.statusText}`;
         throw new Error(
-          errorData.error ||
-          errorData.detail ||
-          errorData.non_field_errors?.[0] ||
-          `${response.status}: ${response.statusText}`
+          typeof rawMsg === "string"
+            ? rawMsg
+            : Array.isArray(rawMsg)
+              ? rawMsg.join(". ")
+              : typeof rawMsg === "object" && rawMsg !== null
+                ? flattenFieldErrors(rawMsg as Record<string, unknown>)
+                : `${response.status}: ${response.statusText}`,
         );
       }
 

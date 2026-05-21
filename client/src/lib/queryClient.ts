@@ -231,6 +231,27 @@ async function refreshAndRetry(
 }
 
 /**
+ * Flattens a field-level error object (common Django REST Framework format)
+ * into a single dot-separated string.
+ *
+ * Input:  {"email": ["user with this email already exists."], "username": ["taken"]}
+ * Output: "user with this email already exists. taken"
+ */
+function flattenFieldErrors(obj: Record<string, unknown>): string {
+  const parts: string[] = [];
+  for (const value of Object.values(obj)) {
+    if (Array.isArray(value)) {
+      for (const msg of value) {
+        if (typeof msg === "string") parts.push(msg);
+      }
+    } else if (typeof value === "string") {
+      parts.push(value);
+    }
+  }
+  return parts.length > 0 ? parts.join(". ") : JSON.stringify(obj);
+}
+
+/**
  * Throws a descriptive Error for any non-OK response.
  * Tries to extract a message from the JSON body before falling back to the
  * HTTP status text. Distinguishes 5xx server errors from 4xx client errors.
@@ -256,14 +277,22 @@ async function assertOk(response: Response): Promise<void> {
     errorData = JSON.parse(responseText);
   } catch {}
 
-  const message =
+  const rawMessage =
     errorData.message ??
     errorData.detail ??
     errorData.error ??
     `${response.status}: ${response.statusText}`;
 
+  // Coerce to a human-readable string — the API may return field-level errors as
+  // an object like {"email": ["msg1", "msg2"], "username": ["msg1"]}
+  const message = typeof rawMessage === "string"
+    ? rawMessage
+    : Array.isArray(rawMessage)
+      ? rawMessage.join(". ")
+      : flattenFieldErrors(rawMessage);
+
   const error = new Error(message) as any;
-  error.status = response.status; // ✅ THIS is the key fix
+  error.status = response.status;
 
   throw error;
 }

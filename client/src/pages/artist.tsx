@@ -1331,7 +1331,7 @@ export default function ArtistPage() {
               {tracks.length > 0 && (
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
                   {/* Search */}
-                  <div className="relative flex-1">
+                  <div className="relative flex-1 sm:max-w-sm">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                     <input
                       type="text"

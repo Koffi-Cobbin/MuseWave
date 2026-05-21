@@ -14,6 +14,8 @@ import {
   BarChart3,
   Users,
   RefreshCw,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,8 @@ import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { TrackCard } from "@/components/TrackCard";
 import { ShareTrackModal } from "@/components/tracks/ShareTrackModal";
+import { PaginationControls } from "@/components/PaginationControls";
+import { useSearchFilter } from "@/hooks/useSearchFilter";
 import type { Track } from "../../../shared/schema";
 
 type VisibilityFilter = "all" | "public" | "private";
@@ -150,6 +154,18 @@ export default function Dashboard() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [shareModalTrackId, setShareModalTrackId] = useState<string | null>(null);
 
+  // ── Search / Sort config ─────────────────────────────────────────────────
+  const trackSortConfig = useMemo(() => [
+    { value: "latest", label: "Latest", comparer: (a: Track, b: Track) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() },
+    { value: "oldest", label: "Oldest", comparer: (a: Track, b: Track) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() },
+    { value: "plays", label: "Most Played", comparer: (a: Track, b: Track) => (b.plays ?? 0) - (a.plays ?? 0) },
+    { value: "likes", label: "Most Liked", comparer: (a: Track, b: Track) => (b.likes ?? 0) - (a.likes ?? 0) },
+    { value: "az", label: "A → Z", comparer: (a: Track, b: Track) => a.title.localeCompare(b.title) },
+    { value: "za", label: "Z → A", comparer: (a: Track, b: Track) => b.title.localeCompare(a.title) },
+  ], []);
+
+  const trackSearchFields: (keyof Track)[] = useMemo(() => ["title", "genre", "artist"], []);
+
   const loadTracks = async (silent = false) => {
     if (!user?.id) return;
     if (!silent) setLoading(true);
@@ -182,13 +198,33 @@ export default function Dashboard() {
     if (user?.id) loadTracks();
   }, [user?.id]);
 
-  const filteredTracks = useMemo(() => {
+  // Step 1: Visibility filter (remains separate)
+  const visibilityFiltered = useMemo(() => {
     if (visibilityFilter === "public")
       return tracks.filter((t) => (t as any).visibility !== "private");
     if (visibilityFilter === "private")
       return tracks.filter((t) => (t as any).visibility === "private");
     return tracks;
   }, [tracks, visibilityFilter]);
+
+  // Step 2: Search + Sort + Pagination (reusable across any data)
+  const {
+    search: trackSearch,
+    setSearch: setTrackSearch,
+    sort: trackSort,
+    setSort: setTrackSort,
+    page: trackPage,
+    setPage: setTrackPage,
+    filtered: searchFiltered,
+    paged: pagedTracks,
+    totalPages: trackTotalPages,
+  } = useSearchFilter({
+    data: visibilityFiltered,
+    searchFields: trackSearchFields,
+    defaultSort: "latest",
+    sortConfig: trackSortConfig,
+    itemsPerPage: 10,
+  });
 
   const publicCount = useMemo(
     () => tracks.filter((t) => (t as any).visibility !== "private").length,
@@ -268,12 +304,6 @@ export default function Dashboard() {
     );
   }
 
-  const filterTabs: { key: VisibilityFilter; label: string; icon: React.ElementType; count: number }[] = [
-    { key: "all", label: "All", icon: Music2, count: tracks.length },
-    { key: "public", label: "Public", icon: Globe, count: publicCount },
-    { key: "private", label: "Private", icon: Lock, count: privateCount },
-  ];
-
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_420px_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(1100px_520px_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(900px_400px_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
       <div className="mx-auto max-w-5xl px-4 py-6 pb-44 sm:pb-36 lg:py-8 lg:pb-8">
@@ -344,40 +374,68 @@ export default function Dashboard() {
           </motion.div>
         )}
 
-        {/* Filter tabs */}
+        {/* Toolbar — Search + Visibility pills + Sort */}
         {!loading && tracks.length > 0 && (
-          <div className="mb-4 flex gap-1 overflow-x-auto rounded-2xl border border-white/8 bg-white/3 p-1 [scrollbar-width:none]">
-            {filterTabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = visibilityFilter === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setVisibilityFilter(tab.key)}
-                  data-testid={`tab-filter-${tab.key}`}
-                  className={cn(
-                    "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-medium transition-all",
-                    isActive
-                      ? "bg-white/10 text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
+          <div className="mb-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              {/* Search */}
+              <div className="relative flex-1 sm:max-w-sm">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={trackSearch}
+                  onChange={(e) => setTrackSearch(e.target.value)}
+                  placeholder="Search tracks, genres…"
+                  data-testid="input-search-filter"
+                  className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
+                />
+              </div>
+
+              {/* Visibility pills */}
+              <div className="flex items-center gap-1 shrink-0">
+                {(["all", "public", "private"] as const).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setVisibilityFilter(key)}
+                    data-testid={`pill-visibility-${key}`}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition",
+                      visibilityFilter === key
+                        ? "bg-primary/20 text-primary"
+                        : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                    )}
+                  >
+                    {key === "all" ? "All" : key === "public" ? "Public" : "Private"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sort */}
+              <div className="flex items-center gap-2 shrink-0">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <select
+                  value={trackSort}
+                  onChange={(e) => setTrackSort(e.target.value as string)}
+                  data-testid="select-sort-filter"
+                  className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-white/30 transition cursor-pointer [&>option]:bg-black [&>option]:text-white"
                 >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  {tab.label}
-                  {tab.count > 0 && (
-                    <span
-                      className={cn(
-                        "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
-                        isActive ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground",
-                      )}
-                    >
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+                  <option value="latest">Latest</option>
+                  <option value="oldest">Oldest</option>
+                  <option value="plays">Most Played</option>
+                  <option value="likes">Most Liked</option>
+                  <option value="az">A → Z</option>
+                  <option value="za">Z → A</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Result count */}
+            <p className="mt-3 text-xs text-muted-foreground/60">
+              {trackSearch.trim()
+                ? `${searchFiltered.length} ${searchFiltered.length === 1 ? "track" : "tracks"} for "${trackSearch}"`
+                : `${searchFiltered.length} ${searchFiltered.length === 1 ? "track" : "tracks"}`}
+            </p>
           </div>
         )}
 
@@ -388,19 +446,24 @@ export default function Dashboard() {
               <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/5" />
             ))}
           </div>
-        ) : filteredTracks.length === 0 ? (
+        ) : searchFiltered.length === 0 && tracks.length > 0 ? (
+          // No results after search/visibility filter (but tracks exist)
           <div className="py-20 text-center">
-            <Music2 className="mx-auto mb-3 h-10 w-10 text-muted-foreground/25" />
-            {tracks.length === 0 ? (
+            <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/25" />
+            {trackSearch.trim() ? (
               <>
-                <p className="text-sm font-medium text-muted-foreground">No tracks yet</p>
-                <p className="mt-1 text-xs text-muted-foreground/60">Upload your first track to get started.</p>
-                <Link href="/upload">
-                  <Button type="button" className="glow mt-5">
-                    <UploadCloud className="mr-2 h-4 w-4" />
-                    Upload a track
-                  </Button>
-                </Link>
+                <p className="text-sm text-muted-foreground">
+                  No tracks match "{trackSearch}"
+                  {visibilityFilter !== "all" && ` in ${visibilityFilter}`}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setTrackSearch(""); }}
+                  className="mt-3 text-xs text-primary hover:underline"
+                  data-testid="button-clear-search"
+                >
+                  Clear search
+                </button>
               </>
             ) : (
               <>
@@ -417,25 +480,47 @@ export default function Dashboard() {
               </>
             )}
           </div>
+        ) : pagedTracks.length === 0 && tracks.length === 0 ? (
+          // No tracks at all
+          <div className="py-20 text-center">
+            <Music2 className="mx-auto mb-3 h-10 w-10 text-muted-foreground/25" />
+            <p className="text-sm font-medium text-muted-foreground">No tracks yet</p>
+            <p className="mt-1 text-xs text-muted-foreground/60">Upload your first track to get started.</p>
+            <Link href="/upload">
+              <Button type="button" className="glow mt-5">
+                <UploadCloud className="mr-2 h-4 w-4" />
+                Upload a track
+              </Button>
+            </Link>
+          </div>
         ) : (
-          <AnimatePresence mode="popLayout">
-            <div className="grid gap-2 sm:gap-3">
-              {filteredTracks.map((track, idx) => (
-                <DashboardTrackRow
-                  key={track.id}
-                  track={track}
-                  index={idx}
-                  onPlay={handlePlay}
-                  onTrackUpdated={handleTrackUpdated}
-                  onTrackDeleted={handleTrackDeleted}
-                  onShareClick={(id) => setShareModalTrackId(id)}
-                  isActive={active?.id === track.id}
-                  togglingId={togglingId}
-                  onToggleVisibility={handleToggleVisibility}
-                />
-              ))}
-            </div>
-          </AnimatePresence>
+          <>
+            <AnimatePresence mode="popLayout">
+              <div className="grid gap-2 sm:gap-3">
+                {pagedTracks.map((track, idx) => (
+                  <DashboardTrackRow
+                    key={track.id}
+                    track={track}
+                    index={idx}
+                    onPlay={handlePlay}
+                    onTrackUpdated={handleTrackUpdated}
+                    onTrackDeleted={handleTrackDeleted}
+                    onShareClick={(id) => setShareModalTrackId(id)}
+                    isActive={active?.id === track.id}
+                    togglingId={togglingId}
+                    onToggleVisibility={handleToggleVisibility}
+                  />
+                ))}
+              </div>
+            </AnimatePresence>
+
+            {/* Pagination at the bottom of the track list */}
+            <PaginationControls
+              currentPage={trackPage}
+              totalPages={trackTotalPages}
+              onPageChange={setTrackPage}
+            />
+          </>
         )}
       </div>
 

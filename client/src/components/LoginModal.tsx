@@ -75,28 +75,47 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
       handleClose();
       onSuccess?.();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Invalid username or password.");
+      setError(
+        e instanceof Error ? e.message :
+        typeof e === "string" ? e :
+        "Invalid username or password.",
+      );
     } finally {
       setLoading(false);
     }
   };
+
+  /** Slugify a display name the same way the upload flow does */
+  function slugify(name: string): string {
+    return name
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
+  }
 
   const handleSignup = async () => {
     if (!username || !email || !password || !confirmPassword) return setError("Fill in all fields.");
     if (password !== confirmPassword) return setError("Passwords don't match.");
     setLoading(true); setError("");
     try {
+      const slug = slugify(username);
       const data = await apiRequestJson<User>("POST", API_ENDPOINTS.users.create, {
-        username,
+        username: slug,
         email,
         password,
+        display_name: username.trim(),
       });
       await login(data.email!, password);
       toast({ title: "Account created!", description: "Welcome to MuseWave." });
       handleClose();
       onSuccess?.();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Could not create account.");
+      setError(
+        e instanceof Error ? e.message :
+        typeof e === "string" ? e :
+        "Could not create account.",
+      );
     } finally {
       setLoading(false);
     }
@@ -111,7 +130,11 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
       });
       setView("sent");
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(
+        e instanceof Error ? e.message :
+        typeof e === "string" ? e :
+        "Something went wrong.",
+      );
     } finally {
       setLoading(false);
     }
@@ -263,8 +286,13 @@ export function LoginModal({ open, onClose, onSuccess }: LoginModalProps) {
                       <ArrowLeft className="h-3 w-3" /> Back to login
                     </button>
                     <div className="grid gap-1.5">
-                      <Label htmlFor="lm-username" className="text-xs">Username</Label>
+                      <Label htmlFor="lm-username" className="text-xs">Display name</Label>
                       <Input id="lm-username" value={username} onChange={(e) => setUsername(e.target.value)} data-testid="input-username" />
+                      {username.trim() && (
+                        <p className="text-[10px] text-muted-foreground/60">
+                          Profile URL: <span className="font-mono text-foreground/80">/artist/{slugify(username)}</span>
+                        </p>
+                      )}
                     </div>
                     <div className="grid gap-1.5">
                       <Label htmlFor="lm-email" className="text-xs">Email</Label>

@@ -130,6 +130,11 @@ export const API_ENDPOINTS = {
     list: '/api/genres',
     byId: (id: string) => `/api/genres/${id}`,
   },
+
+  // Featured Tracks
+  featured: {
+    list: '/api/featured-tracks',
+  },
 } as const;
 
 // Helper function to get the full streaming URL for a track

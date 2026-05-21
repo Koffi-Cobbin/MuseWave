@@ -1,25 +1,24 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link } from "wouter";
-import { motion } from "framer-motion";
 import {
   ArrowRight,
   Compass,
   Flame,
   Music2,
-  Pause,
-  Play,
   Search,
-  Sparkles,
   UploadCloud,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/contexts/player-context";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { TrackCard } from "@/components/TrackCard";
+import { FeaturedCarousel } from "@/components/FeaturedCarousel";
+import {
+  FeaturedSection,
+  type FeaturedTrackItem,
+} from "@/components/FeaturedSection";
 import { Logo } from "@/components/SidebarNav";
 import type { Track } from "../../../shared/schema";
 
@@ -98,6 +97,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [tracks, setTracks] = useState<Track[]>([]);
   const [artists, setArtists] = useState<ArtistRowData[]>([]);
+  const [featuredItems, setFeaturedItems] = useState<FeaturedTrackItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
 
@@ -105,23 +105,25 @@ export default function Home() {
     window.scrollTo({ top: 0, behavior: "instant" });
   }, []);
 
-  const featuredTrack = useMemo(() => {
-    if (tracks.length === 0) return null;
-    const sorted = [...tracks].sort((a, b) => {
+  // All tracks sorted by publish date (descending), shared by New Releases and Latest Tracks
+  const sortedTracks = useMemo(() => {
+    return [...tracks].sort((a, b) => {
       const dateA = new Date(a.publishedAt ?? a.createdAt ?? 0).getTime();
       const dateB = new Date(b.publishedAt ?? b.createdAt ?? 0).getTime();
       return dateB - dateA;
     });
-    return sorted[0];
   }, [tracks]);
+
+  const newReleases = useMemo(() => sortedTracks.slice(0, 8), [sortedTracks]);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
-        const [tracksData, trendingArtists] = await Promise.all([
+        const [tracksData, trendingArtists, featuredData] = await Promise.all([
           apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, { published: true }),
           apiRequestJson<any[]>("GET", API_ENDPOINTS.artists.trending).catch(() => []),
+          apiRequestJson<any[]>("GET", API_ENDPOINTS.featured.list).catch(() => []),
         ]);
         if (mounted) {
           setTracks(Array.isArray(tracksData) ? tracksData : []);
@@ -137,6 +139,16 @@ export default function Home() {
             avatarUrl: a.avatarUrl ?? a.avatar_url ?? undefined,
           }));
           setArtists(normalized);
+
+          // Normalize featured track entries
+          const rawFeatured = Array.isArray(featuredData) ? featuredData : [];
+          const normalizedFeatured: FeaturedTrackItem[] = rawFeatured
+            .filter((entry: any) => entry.track)
+            .map((entry: any) => ({
+              track: entry.track as Track,
+              label: entry.label ?? undefined,
+            }));
+          setFeaturedItems(normalizedFeatured);
         }
       } catch {
         // silent
@@ -150,11 +162,13 @@ export default function Home() {
 
   const filteredTracks = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return tracks;
-    return tracks.filter((t) =>
+    // When searching, search ALL tracks; otherwise skip the 8 shown in New Releases
+    const source = q ? sortedTracks : sortedTracks.slice(8);
+    if (!q) return source;
+    return source.filter((t) =>
       `${t.title} ${t.artist} ${t.genre ?? ""}`.toLowerCase().includes(q),
     );
-  }, [query, tracks]);
+  }, [query, sortedTracks]);
 
   const filteredArtists = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -213,81 +227,18 @@ export default function Home() {
               </div>
             </div>
 
-            {/* ── Hero — Featured Track ── */}
-            {!query && featuredTrack && (
-              <motion.section
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
-                className="glass glow noise mb-5 overflow-hidden rounded-2xl border border-white/10 sm:mb-6"
-                aria-label="Hero"
-              >
-                <div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:gap-5 sm:p-5 lg:p-6">
-                  <div
-                    className={cn(
-                      "relative h-40 w-full overflow-hidden rounded-xl border border-white/10 sm:h-28 sm:w-28 sm:shrink-0",
-                      !featuredTrack.coverUrl && "bg-gradient-to-br",
-                      featuredTrack.coverUrl ? "" : featuredTrack.coverGradient,
-                    )}
-                  >
-                    {featuredTrack.coverUrl && (
-                      <img src={featuredTrack.coverUrl} alt={`${featuredTrack.title} cover`} className="h-full w-full object-cover" />
-                    )}
-                    <div className="absolute inset-0 flex items-center justify-center sm:hidden">
-                      <Button
-                        size="icon"
-                        className="h-14 w-14 rounded-full bg-background/50 backdrop-blur-md hover:bg-background/70"
-                        onClick={() => handlePlay(featuredTrack)}
-                        data-testid="button-hero-play"
-                      >
-                        {active?.id === featuredTrack.id && isPlaying ? (
-                          <Pause className="h-6 w-6" />
-                        ) : (
-                          <Play className="h-6 w-6 translate-x-px" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
+            {/* ── Featured Section (API) ── */}
+            {!query && featuredItems.length > 0 && (
+              <div className="mb-5 sm:mb-6">
+                <FeaturedSection items={featuredItems} />
+              </div>
+            )}
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge className="border-white/10 bg-white/5 text-xs" variant="secondary" data-testid="badge-new">
-                        <Sparkles className="mr-1 h-3 w-3" />
-                        New
-                      </Badge>
-                      <span className="text-xs uppercase tracking-widest text-muted-foreground">Featured release</span>
-                    </div>
-                    <h2 className="mt-2 text-xl font-bold tracking-tight sm:text-2xl" data-testid="text-featured-title">
-                      {featuredTrack.title}
-                    </h2>
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground" data-testid="text-featured-description">
-                      {featuredTrack.description || `The latest from ${featuredTrack.artist}.`}
-                    </p>
-                    <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Button
-                        size="sm"
-                        className="glow hidden h-9 sm:flex"
-                        onClick={() => handlePlay(featuredTrack)}
-                        data-testid="button-hero-play-desktop"
-                      >
-                        {active?.id === featuredTrack.id && isPlaying ? (
-                          <><Pause className="mr-1.5 h-4 w-4" /> Pause</>
-                        ) : (
-                          <><Play className="mr-1.5 h-4 w-4 translate-x-px" /> Play</>
-                        )}
-                      </Button>
-                      <Link
-                        href={`/artist/${featuredTrack.artistSlug}`}
-                        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-                        data-testid="link-featured-artist"
-                      >
-                        <Music2 className="h-4 w-4" />
-                        {featuredTrack.artist}
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </motion.section>
+            {/* ── New Releases Carousel ── */}
+            {!query && newReleases.length > 0 && (
+              <div className="mb-5 sm:mb-6">
+                <FeaturedCarousel tracks={newReleases} />
+              </div>
             )}
 
             {/* ── Main Grid: Tracks + Trending ── */}
@@ -355,7 +306,7 @@ export default function Home() {
                 <div className="mb-4 flex items-center gap-2">
                   <Flame className="h-5 w-5 shrink-0 text-fuchsia-500" />
                   <h2 className="text-base font-semibold sm:text-lg" data-testid="text-trending-title">
-                    {query ? "Matching Artists" : "Trending"}
+                    {query ? "Matching Artists" : "Trending Artists"}
                   </h2>
                 </div>
                 <div className="glass glow noise overflow-hidden rounded-2xl border border-white/10 p-2">
