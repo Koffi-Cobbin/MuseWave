@@ -119,43 +119,23 @@ export default function Home() {
     let mounted = true;
     const load = async () => {
       try {
-        const [tracksData, rawArtists] = await Promise.all([
+        const [tracksData, trendingArtists] = await Promise.all([
           apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, { published: true }),
-          apiRequestJson<any[]>("GET", API_ENDPOINTS.artists.list).catch(() => []),
+          apiRequestJson<any[]>("GET", API_ENDPOINTS.artists.trending).catch(() => []),
         ]);
         if (mounted) {
           setTracks(Array.isArray(tracksData) ? tracksData : []);
-          const raw = Array.isArray(rawArtists) ? rawArtists : [];
 
-          // Batch-fetch stats for each artist (up to 6) to get real follower counts
-          const statsResults = await Promise.allSettled(
-            raw.slice(0, 6).map((a) =>
-              apiRequestJson<any>("GET", API_ENDPOINTS.users.stats(a.id ?? a.userId)).catch(() => null),
-            ),
-          );
-          const statsMap = new Map<string, { totalFollowers: number; monthlyListeners: number }>();
-          raw.slice(0, 6).forEach((a, i) => {
-            const result = statsResults[i];
-            if (result && "value" in result && result.value) {
-              statsMap.set(a.id ?? a.userId, {
-                totalFollowers: result.value.totalFollowers ?? 0,
-                monthlyListeners: result.value.monthlyListeners ?? 0,
-              });
-            }
-          });
-
-          const normalized: ArtistRowData[] = raw.map((a) => {
-            const stats = statsMap.get(a.id ?? a.userId);
-            return {
-              slug: a.username ?? a.slug ?? "",
-              name: a.displayName ?? a.display_name ?? a.name ?? a.username ?? "",
-              tagline: a.tagline ?? a.bio ?? "",
-              followers: stats?.totalFollowers ?? a.totalFollowers ?? a.followers ?? 0,
-              monthlyListeners: stats?.monthlyListeners ?? a.monthlyListeners ?? 0,
-              accent: a.accent ?? "",
-              avatarUrl: a.avatarUrl ?? a.avatar_url ?? undefined,
-            };
-          });
+          const raw = Array.isArray(trendingArtists) ? trendingArtists : [];
+          const normalized: ArtistRowData[] = raw.map((a) => ({
+            slug: a.username ?? "",
+            name: a.displayName ?? a.display_name ?? a.username ?? "",
+            tagline: a.bio ?? "",
+            followers: a.totalFollowers ?? a.total_followers ?? 0,
+            monthlyListeners: 0,
+            accent: "",
+            avatarUrl: a.avatarUrl ?? a.avatar_url ?? undefined,
+          }));
           setArtists(normalized);
         }
       } catch {

@@ -122,6 +122,7 @@ export const API_ENDPOINTS = {
   // Artists
   artists: {
     list: '/api/artists',
+    trending: '/api/artists/trending',
   },
 
   // Genres

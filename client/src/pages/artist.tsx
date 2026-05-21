@@ -702,7 +702,27 @@ export default function ArtistPage() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const userData = await apiRequestJson("GET", API_ENDPOINTS.users.byUsername(slug));
+        // Resolve the slug to a user. The slug in the URL may be a username,
+        // an artistSlug from a track, or a case variant — so we try multiple
+        // strategies in order of efficiency.
+        let userData: any;
+        try {
+          userData = await apiRequestJson("GET", API_ENDPOINTS.users.byUsername(slug));
+        } catch {
+          // Direct username lookup failed.  Search tracks by slug to find the
+          // owning user's id, then fetch the public profile by id.
+          const searchResults = await apiRequestJson<any>(
+            "GET", API_ENDPOINTS.search.query, undefined,
+            { q: slug, type: "tracks", limit: 1 },
+          ).catch(() => null);
+          const trackResult = searchResults?.tracks?.[0];
+          const resolvedId = trackResult?.userId ?? trackResult?.user_id;
+          if (!resolvedId) {
+            throw new Error("Could not resolve slug to a user");
+          }
+          userData = await apiRequestJson("GET", API_ENDPOINTS.users.byId(resolvedId));
+        }
+
         const statsData = await apiRequestJson("GET", API_ENDPOINTS.users.stats(userData.id))
           .catch(() => ({ totalFollowers: 0, monthlyListeners: 0 }));
 
