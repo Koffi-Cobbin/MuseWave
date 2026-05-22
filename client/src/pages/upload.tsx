@@ -17,7 +17,6 @@ import {
   Sparkles,
   User as UserIcon,
   X,
-  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -963,11 +962,6 @@ export default function Upload() {
                         previewUrl={previewUrl}
                         data-testid="label-cover-upload"
                       />
-                    </div>
-
-                    <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground">
-                      <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                      <span>Files sent via multipart/form-data with <code className="font-mono">audio_file</code> and <code className="font-mono">cover_file</code> fields.</span>
                     </div>
 
                     <div className="mt-5 flex items-center justify-between gap-3">
