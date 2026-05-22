@@ -25,6 +25,7 @@ function flattenFieldErrors(obj: Record<string, unknown>): string {
 interface AuthContextType {
   user: Omit<User, "password"> | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -34,12 +35,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Omit<User, "password"> | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const hasToken = !!(localStorage.getItem("accessToken") && localStorage.getItem("userId"));
+  const [isLoading, setIsLoading] = useState(hasToken);
 
   useEffect(() => {
     const accessToken = localStorage.getItem("accessToken");
     const userId = localStorage.getItem("userId");
     if (accessToken && userId) {
       loadUser(userId);
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
@@ -63,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("userEmail");
       setUser(null);
       setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -159,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, isLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

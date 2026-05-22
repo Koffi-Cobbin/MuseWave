@@ -305,7 +305,7 @@ function LivePreview({
 
 export default function Upload() {
   const { toast } = useToast();
-  const { user: authUser } = useAuth();
+  const { user: authUser, isLoading: authLoading } = useAuth();
   const { genres } = useGenres();
 
   // Derive whether the logged-in user is already an artist.
@@ -675,7 +675,9 @@ export default function Upload() {
                       </div>
 
                       {/* Artist + Email — hidden when the user is a logged-in artist */}
-                      {isLoggedInArtist ? (
+                      {authLoading ? (
+                        <div className="h-10 w-full animate-pulse rounded-xl border border-white/10 bg-white/4" />
+                      ) : isLoggedInArtist ? (
                         <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/4 px-3 py-2.5">
                           <UserIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
                           <span className="text-xs text-muted-foreground">
