@@ -16,9 +16,15 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
-  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
@@ -415,22 +421,26 @@ export default function Dashboard() {
               {/* Sort */}
               <div className="flex items-center gap-2 shrink-0">
                 <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <div className="relative">
-                  <select
-                    value={trackSort}
-                    onChange={(e) => setTrackSort(e.target.value as string)}
+                <Select value={trackSort} onValueChange={(v) => setTrackSort(v)}>
+                  <SelectTrigger
                     data-testid="select-sort-filter"
-                    className="appearance-none rounded-xl border border-white/15 bg-white/10 pl-3 pr-6 py-2 text-xs text-white focus:outline-none focus:border-white/30 transition cursor-pointer [&>option]:bg-black [&>option]:text-white"
+                    className="h-auto w-auto gap-1.5 rounded-xl border-white/15 bg-white/10 px-3 py-2 text-xs text-white focus:ring-0 focus:border-white/30"
                   >
-                    <option value="latest">Latest</option>
-                    <option value="oldest">Oldest</option>
-                    <option value="plays">Most Played</option>
-                    <option value="likes">Most Liked</option>
-                    <option value="az">A → Z</option>
-                    <option value="za">Z → A</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
-                </div>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent
+                    sideOffset={4}
+                    align="end"
+                    className="rounded-xl border-white/15 bg-background/95 backdrop-blur-md"
+                  >
+                    <SelectItem value="latest">Latest</SelectItem>
+                    <SelectItem value="oldest">Oldest</SelectItem>
+                    <SelectItem value="plays">Most Played</SelectItem>
+                    <SelectItem value="likes">Most Liked</SelectItem>
+                    <SelectItem value="az">A → Z</SelectItem>
+                    <SelectItem value="za">Z → A</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
