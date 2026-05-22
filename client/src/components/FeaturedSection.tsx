@@ -216,20 +216,24 @@ export function FeaturedSection({ items }: FeaturedSectionProps) {
 
         {/* Dot indicators */}
         {items.length > 1 && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             {items.map((_, i) => (
               <button
                 key={i}
                 type="button"
                 onClick={() => goTo(i)}
                 aria-label={`Go to featured track ${i + 1}`}
-                className={cn(
-                  "h-2 shrink-0 rounded-full transition-[width]",
-                  i === currentIndex
-                    ? "w-6 bg-primary"
-                    : "w-2 bg-white/30 hover:bg-white/50",
-                )}
-              />
+                className="flex items-center justify-center p-1.5 -m-1.5"
+              >
+                <span
+                  className={cn(
+                    "block h-2.5 shrink-0 rounded-full transition-[width,background-color] duration-300",
+                    i === currentIndex
+                      ? "w-7 bg-primary"
+                      : "w-2.5 bg-white/40 hover:bg-white/60",
+                  )}
+                />
+              </button>
             ))}
           </div>
         )}
