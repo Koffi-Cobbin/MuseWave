@@ -89,7 +89,7 @@ function DashboardTrackRow({
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.18, delay: index * 0.04 }}
-      className="group relative"
+      className="group relative overflow-hidden"
     >
       <TrackCard
         track={track}
@@ -100,8 +100,8 @@ function DashboardTrackRow({
         onTrackDeleted={onTrackDeleted}
         onTrackUpdated={onTrackUpdated}
       />
-      {/* Visibility + Share overlaid on the right */}
-      <div className="absolute right-12 top-1/2 -translate-y-1/2 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity sm:opacity-100">
+      {/* Visibility + Share overlaid on the right — desktop only */}
+      <div className="absolute right-12 top-1/2 -translate-y-1/2 hidden items-center gap-1.5 sm:flex">
         <button
           type="button"
           onClick={() => onToggleVisibility(track)}
