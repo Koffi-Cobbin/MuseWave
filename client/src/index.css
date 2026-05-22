@@ -271,7 +271,9 @@
 }
 
 /* ── Prevent layout shift when Radix UI locks body scroll ────────────────── */
-body {
+/* Scrollbar lives on html, not body — so react-remove-scroll's body
+   padding-right compensation has no visual effect on layout width. */
+html {
   overflow-y: scroll;
 }
 
