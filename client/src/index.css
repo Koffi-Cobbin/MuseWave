@@ -271,8 +271,8 @@
 }
 
 /* ── Prevent layout shift when Radix UI locks body scroll ────────────────── */
-html {
-  scrollbar-gutter: stable;
+body {
+  overflow-y: scroll;
 }
 
 /* ── Tiptap lyrics editor ─────────────────────────────────────────────────── */
