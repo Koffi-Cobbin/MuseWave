@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect, useId } from "react";
 import { Link } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -125,8 +125,9 @@ function DropZone({
   previewUrl?: string | null;
   "data-testid"?: string;
 }) {
-  const [dragging, setDragging] = useState(false);
+  const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
+  const [dragging, setDragging] = useState(false);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -139,8 +140,17 @@ function DropZone({
     [disabled, onFile]
   );
 
+  const handleClear = (e: React.MouseEvent) => {
+    // Prevent the click from bubbling to the label (which would re-open the picker)
+    e.preventDefault();
+    e.stopPropagation();
+    if (inputRef.current) inputRef.current.value = "";
+    onFile(null as unknown as File);
+  };
+
   return (
-    <div
+    <label
+      htmlFor={id}
       className={cn(
         "relative flex cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-5 text-center transition-all duration-200",
         dragging
@@ -150,7 +160,6 @@ function DropZone({
             : "border-white/10 bg-white/3 hover:border-white/20 hover:bg-white/5",
         disabled && "pointer-events-none opacity-50"
       )}
-      onClick={() => !disabled && inputRef.current?.click()}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={handleDrop}
@@ -176,20 +185,24 @@ function DropZone({
         <button
           type="button"
           className="absolute right-2.5 top-2.5 z-20 flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-muted-foreground hover:bg-white/15 hover:text-foreground transition"
-          onClick={(e) => { e.stopPropagation(); inputRef.current && (inputRef.current.value = ""); onFile(null as unknown as File); }}
+          onClick={handleClear}
         >
           <X className="h-3.5 w-3.5" />
         </button>
       )}
+      {/* sr-only instead of hidden — display:none blocks iOS Safari's file picker
+          even when triggered via a native <label>. sr-only keeps it in the DOM
+          and accessible while remaining visually invisible. */}
       <input
         ref={inputRef}
+        id={id}
         type="file"
         accept={accept}
-        className="hidden"
+        className="sr-only"
         disabled={disabled}
         onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }}
       />
-    </div>
+    </label>
   );
 }
 
@@ -910,9 +923,9 @@ export default function Upload() {
 
                     <div className="grid gap-3">
                       <DropZone
-                        accept="audio/*"
+                        accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.aiff,.aif"
                         label="Audio file *"
-                        hint="Drag & drop or click — MP3, WAV, FLAC"
+                        hint="Tap to choose — MP3, WAV, M4A, FLAC"
                         icon={AudioLines}
                         fileName={draft.audioFile?.name}
                         disabled={isSubmitting}
