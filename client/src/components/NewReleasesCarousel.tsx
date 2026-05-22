@@ -8,13 +8,13 @@ import type { Track } from "../../../shared/schema";
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
-interface FeaturedCarouselProps {
+interface NewReleasesCarouselProps {
   tracks: Track[];
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
-export function FeaturedCarousel({ tracks }: FeaturedCarouselProps) {
+export function NewReleasesCarousel({ tracks }: NewReleasesCarouselProps) {
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);

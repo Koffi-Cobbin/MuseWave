@@ -14,7 +14,7 @@ import { usePlayer } from "@/contexts/player-context";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { TrackCard } from "@/components/TrackCard";
-import { FeaturedCarousel } from "@/components/FeaturedCarousel";
+import { NewReleasesCarousel } from "@/components/NewReleasesCarousel";
 import {
   FeaturedSection,
   type FeaturedTrackItem,
@@ -237,7 +237,7 @@ export default function Home() {
             {/* ── New Releases Carousel ── */}
             {!query && newReleases.length > 0 && (
               <div className="mb-5 sm:mb-6">
-                <FeaturedCarousel tracks={newReleases} />
+                <NewReleasesCarousel tracks={newReleases} />
               </div>
             )}
 
