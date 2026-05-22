@@ -104,6 +104,8 @@ function StepDots({ step, total }: { step: number; total: number }) {
 
 // ─── Drag-drop file zone ──────────────────────────────────────────────────────
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
 function DropZone({
   accept,
   label,
@@ -128,6 +130,17 @@ function DropZone({
   const id = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+  const [sizeError, setSizeError] = useState(false);
+
+  const handleFile = useCallback((file: File) => {
+    if (file.size > MAX_FILE_SIZE) {
+      setSizeError(true);
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
+    setSizeError(false);
+    onFile(file);
+  }, [onFile]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -135,9 +148,9 @@ function DropZone({
       setDragging(false);
       if (disabled) return;
       const file = e.dataTransfer.files[0];
-      if (file) onFile(file);
+      if (file) handleFile(file);
     },
-    [disabled, onFile]
+    [disabled, handleFile]
   );
 
   const handleClear = (e: React.MouseEvent) => {
@@ -145,6 +158,7 @@ function DropZone({
     e.preventDefault();
     e.stopPropagation();
     if (inputRef.current) inputRef.current.value = "";
+    setSizeError(false);
     onFile(null as unknown as File);
   };
 
@@ -193,6 +207,11 @@ function DropZone({
       {/* sr-only instead of hidden — display:none blocks iOS Safari's file picker
           even when triggered via a native <label>. sr-only keeps it in the DOM
           and accessible while remaining visually invisible. */}
+      {sizeError && (
+        <p className="relative z-10 mt-1 text-xs font-medium text-red-400">
+          File exceeds 10 MB limit — please choose a smaller file.
+        </p>
+      )}
       <input
         ref={inputRef}
         id={id}
@@ -200,7 +219,7 @@ function DropZone({
         accept={accept}
         className="sr-only"
         disabled={disabled}
-        onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); }}
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
       />
     </label>
   );
