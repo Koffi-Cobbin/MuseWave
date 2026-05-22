@@ -42,6 +42,7 @@ import {
   Lock,
   Search,
   ChevronLeft,
+  ChevronDown,
   SlidersHorizontal,
 } from "lucide-react";
 import { SiSpotify, SiSoundcloud, SiX, SiInstagram } from "react-icons/si";
@@ -1345,19 +1346,22 @@ export default function ArtistPage() {
                   {/* Sort */}
                   <div className="flex items-center gap-2 shrink-0">
                     <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <select
-                      value={trackSort}
-                      onChange={(e) => { setTrackSort(e.target.value as typeof trackSort); setTrackPage(1); }}
-                      data-testid="select-track-sort"
-                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-foreground focus:outline-none focus:border-white/20 transition cursor-pointer"
-                    >
-                      <option value="latest">Latest</option>
-                      <option value="oldest">Oldest</option>
-                      <option value="plays">Most Played</option>
-                      <option value="likes">Most Liked</option>
-                      <option value="az">A → Z</option>
-                      <option value="za">Z → A</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={trackSort}
+                        onChange={(e) => { setTrackSort(e.target.value as typeof trackSort); setTrackPage(1); }}
+                        data-testid="select-track-sort"
+                        className="appearance-none rounded-xl border border-white/15 bg-white/10 pl-3 pr-6 py-2 text-xs text-white focus:outline-none focus:border-white/30 transition cursor-pointer [&>option]:bg-black [&>option]:text-white"
+                      >
+                        <option value="latest">Latest</option>
+                        <option value="oldest">Oldest</option>
+                        <option value="plays">Most Played</option>
+                        <option value="likes">Most Liked</option>
+                        <option value="az">A → Z</option>
+                        <option value="za">Z → A</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                   </div>
                 </div>
               )}
