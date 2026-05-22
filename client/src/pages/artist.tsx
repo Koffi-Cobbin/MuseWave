@@ -43,6 +43,7 @@ import {
   Search,
   ChevronLeft,
   SlidersHorizontal,
+  ChevronDown,
 } from "lucide-react";
 import { SiSpotify, SiSoundcloud, SiX, SiInstagram } from "react-icons/si";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
 import { usePlaylists } from "@/contexts/playlist-context";
+import { useSharedTracks } from "@/hooks/use-shared-tracks";
 import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
@@ -599,6 +601,7 @@ export default function ArtistPage() {
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
   const { toast } = useToast();
   const { sharedWithMe, fetchSharedWithMe } = usePlaylists();
+  const { sharedTracks, fetchSharedTracks } = useSharedTracks();
   const [copied, setCopied] = useState<string | null>(null);
   const [isEditingCredentials, setIsEditingCredentials] = useState(false);
   const [newUsername, setNewUsername] = useState("");
@@ -797,8 +800,9 @@ export default function ArtistPage() {
       apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.list)
         .then((all) => setPublicPlaylists(Array.isArray(all) ? all : []))
         .catch(() => {});
-      // Also fetch playlists shared with this user.
+      // Also fetch playlists and tracks shared with this user.
       fetchSharedWithMe();
+      fetchSharedTracks();
     } else {
       // Other user: try public endpoint.
       apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.byUser(artistUserId))
@@ -1345,19 +1349,22 @@ export default function ArtistPage() {
                   {/* Sort */}
                   <div className="flex items-center gap-2 shrink-0">
                     <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <select
-                      value={trackSort}
-                      onChange={(e) => { setTrackSort(e.target.value as typeof trackSort); setTrackPage(1); }}
-                      data-testid="select-track-sort"
-                      className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-foreground focus:outline-none focus:border-white/20 transition cursor-pointer"
-                    >
-                      <option value="latest">Latest</option>
-                      <option value="oldest">Oldest</option>
-                      <option value="plays">Most Played</option>
-                      <option value="likes">Most Liked</option>
-                      <option value="az">A → Z</option>
-                      <option value="za">Z → A</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={trackSort}
+                        onChange={(e) => { setTrackSort(e.target.value as typeof trackSort); setTrackPage(1); }}
+                        data-testid="select-track-sort"
+                        className="rounded-xl border border-white/10 bg-white/5 pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition cursor-pointer appearance-none [&>option]:bg-popover [&>option]:text-popover-foreground"
+                      >
+                        <option value="latest">Latest</option>
+                        <option value="oldest">Oldest</option>
+                        <option value="plays">Most Played</option>
+                        <option value="likes">Most Liked</option>
+                        <option value="az">A → Z</option>
+                        <option value="za">Z → A</option>
+                      </select>
+                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1544,8 +1551,67 @@ export default function ArtistPage() {
                   </section>
                 )}
 
-                {/* Empty state — only when both are empty */}
-                {publicPlaylists.length === 0 && sharedWithMe.length === 0 && (
+                {/* Shared tracks */}
+                {sharedTracks.length > 0 && (
+                  <section>
+                    <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
+                      <Share2 className="h-3.5 w-3.5" />
+                      Shared tracks
+                    </h3>
+                    <div className="grid gap-2 sm:gap-3">
+                      {sharedTracks.map((track, idx) => (
+                        <motion.div
+                          key={track.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.04 }}
+                          onClick={() => {
+                            if (active?.id === track.id) {
+                              setIsPlaying(!isPlaying);
+                            } else {
+                              setAutoPlay(true);
+                              setActive(track as any);
+                            }
+                          }}
+                          className={cn(
+                            "group flex items-center gap-3 rounded-2xl border border-white/8 bg-white/2 p-3 transition cursor-pointer",
+                            "hover:border-white/15 hover:bg-white/5",
+                            active?.id === track.id && "border-primary/30 bg-primary/5",
+                          )}
+                          data-testid={`card-shared-track-${track.id}`}
+                        >
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/5 group-hover:bg-primary/15 transition">
+                            {active?.id === track.id && isPlaying ? (
+                              <div className="flex items-end gap-0.5 h-4">
+                                <span className="w-0.5 bg-primary rounded-full animate-equalizer-1" />
+                                <span className="w-0.5 bg-primary rounded-full animate-equalizer-2" />
+                                <span className="w-0.5 bg-primary rounded-full animate-equalizer-3" />
+                              </div>
+                            ) : (
+                              <Play className="h-4 w-4 text-muted-foreground group-hover:text-primary transition translate-x-px" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{track.title}</p>
+                            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <span className="truncate">{track.artist}</span>
+                              <span>·</span>
+                              <span>{track.genre}</span>
+                            </p>
+                          </div>
+                          <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground/70 shrink-0">
+                            <Share2 className="h-3 w-3" />
+                            <span>{track.sharedByDisplayName || track.sharedByUsername}</span>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition shrink-0" />
+                        </motion.div>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* Empty state — only when all are empty */}
+                {publicPlaylists.length === 0 && sharedWithMe.length === 0 && sharedTracks.length === 0 && (
                   <div className="py-16 text-center">
                     <ListMusic className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
                     <p className="text-sm text-muted-foreground">No playlists yet.</p>

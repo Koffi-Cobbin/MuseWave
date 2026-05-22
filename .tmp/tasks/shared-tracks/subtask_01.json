@@ -1,0 +1,30 @@
+{
+  "id": "shared-tracks-01",
+  "seq": "01",
+  "title": "Add SharedTrack type to schema",
+  "status": "pending",
+  "depends_on": [],
+  "parallel": true,
+  "context_files": [
+    ".opencode/context/core/standards/code-quality.md"
+  ],
+  "reference_files": [
+    "shared/schema.ts"
+  ],
+  "suggested_agent": "CoderAgent",
+  "agent_id": null,
+  "started_at": null,
+  "completed_at": null,
+  "completion_summary": null,
+  "acceptance_criteria": [
+    "SharedTrack type exists in shared/schema.ts",
+    "SharedTrack extends Track with sharedByUsername (string), sharedByDisplayName (optional string), sharedByAvatar (optional string), sharedAt (string)",
+    "SharedTrack zod schema validates the above shape",
+    "All fields use camelCase naming"
+  ],
+  "deliverables": [
+    "shared/schema.ts"
+  ],
+  "bounded_context": "tracks",
+  "module": "@app/tracks"
+}

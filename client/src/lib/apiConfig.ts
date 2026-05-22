@@ -49,6 +49,7 @@ export const API_ENDPOINTS = {
     download: (id: string) => `/api/tracks/${id}/download/`,
     shares: (id: string) => `/api/tracks/${id}/shares`,
     shareById: (id: string, shareId: string) => `/api/tracks/${id}/shares/${shareId}`,
+    sharedWithMe: '/api/tracks/shared-with-me',
   },
   
   // Albums

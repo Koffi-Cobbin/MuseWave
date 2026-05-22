@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Search,
   SlidersHorizontal,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -414,19 +415,22 @@ export default function Dashboard() {
               {/* Sort */}
               <div className="flex items-center gap-2 shrink-0">
                 <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <select
-                  value={trackSort}
-                  onChange={(e) => setTrackSort(e.target.value as string)}
-                  data-testid="select-sort-filter"
-                  className="rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-white/30 transition cursor-pointer [&>option]:bg-black [&>option]:text-white"
-                >
-                  <option value="latest">Latest</option>
-                  <option value="oldest">Oldest</option>
-                  <option value="plays">Most Played</option>
-                  <option value="likes">Most Liked</option>
-                  <option value="az">A → Z</option>
-                  <option value="za">Z → A</option>
-                </select>
+                <div className="relative">
+                  <select
+                    value={trackSort}
+                    onChange={(e) => setTrackSort(e.target.value as string)}
+                    data-testid="select-sort-filter"
+                    className="rounded-xl border border-white/15 bg-white/10 pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition cursor-pointer appearance-none [&>option]:bg-popover [&>option]:text-popover-foreground"
+                  >
+                    <option value="latest">Latest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="plays">Most Played</option>
+                    <option value="likes">Most Liked</option>
+                    <option value="az">A → Z</option>
+                    <option value="za">Z → A</option>
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                </div>
               </div>
             </div>
 

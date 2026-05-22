@@ -1,0 +1,38 @@
+{
+  "id": "shared-tracks",
+  "name": "Shared With Me Track View",
+  "status": "active",
+  "objective": "Add a view for users to see all tracks shared with them, mirroring the playlist shared-with-me pattern",
+  "context_files": [
+    ".opencode/context/core/standards/code-quality.md",
+    ".opencode/context/ui/web/ui-styling-standards.md",
+    ".opencode/context/ui/web/react-patterns.md"
+  ],
+  "reference_files": [
+    ".tmp/context/shared-tracks/bundle.md",
+    "shared/schema.ts",
+    "client/src/lib/apiConfig.ts",
+    "client/src/lib/queryClient.ts",
+    "client/src/pages/playlists.tsx",
+    "client/src/pages/artist.tsx",
+    "client/src/components/SidebarNav.tsx",
+    "client/src/components/BottomNav.tsx",
+    "client/src/hooks/use-track-shares.ts"
+  ],
+  "exit_criteria": [
+    "SharedTrack type defined in schema.ts with sharedByUsername, sharedByDisplayName?, sharedByAvatar?, sharedAt fields",
+    "API endpoint URL and listSharedTracks() function added to client API layer",
+    "useSharedTracks hook created with loading/error/data states",
+    "Third tab 'Shared Tracks' added to playlists.tsx",
+    "Shared Tracks nav link added to SidebarNav and BottomNav",
+    "Shared tracks section added to artist.tsx under shared playlists"
+  ],
+  "subtask_count": 6,
+  "completed_count": 0,
+  "created_at": "2026-05-22T17:03:00Z",
+  "completed_at": null,
+  "bounded_context": "tracks",
+  "module": "@app/tracks",
+  "vertical_slice": "shared-tracks-view",
+  "release_slice": "v1.1.0"
+}

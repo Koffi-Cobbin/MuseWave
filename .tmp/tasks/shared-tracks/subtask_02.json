@@ -1,0 +1,34 @@
+{
+  "id": "shared-tracks-02",
+  "seq": "02",
+  "title": "Add shared tracks endpoint and API function",
+  "status": "pending",
+  "depends_on": ["01"],
+  "parallel": false,
+  "context_files": [
+    ".opencode/context/core/standards/code-quality.md",
+    ".opencode/context/core/standards/security-patterns.md"
+  ],
+  "reference_files": [
+    "shared/schema.ts",
+    "client/src/lib/apiConfig.ts",
+    "client/src/lib/queryClient.ts"
+  ],
+  "suggested_agent": "CoderAgent",
+  "agent_id": null,
+  "started_at": null,
+  "completed_at": null,
+  "completion_summary": null,
+  "acceptance_criteria": [
+    "API_ENDPOINTS.tracks.sharedWithMe added to client/src/lib/apiConfig.ts pointing to '/api/tracks/shared-with-me'",
+    "listSharedTracks() function added to client/src/lib/queryClient.ts that calls GET on the endpoint",
+    "Function returns Promise<SharedTrack[]>",
+    "Follows the same pattern as listTrackShares() and playlists.sharedWithMe"
+  ],
+  "deliverables": [
+    "client/src/lib/apiConfig.ts",
+    "client/src/lib/queryClient.ts"
+  ],
+  "bounded_context": "tracks",
+  "module": "@app/tracks"
+}

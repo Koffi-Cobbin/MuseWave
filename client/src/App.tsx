@@ -17,6 +17,7 @@ import Downloads from "@/pages/downloads";
 import Upload from "./pages/upload";
 import Artist from "./pages/artist";
 import Discover from "./pages/discover";
+import MyTracks from "./pages/my-tracks";
 import ResetPassword from "./pages/reset-password";
 import VerifyEmail from "./pages/verify-email";
 import Playlists from "./pages/playlists";
@@ -40,6 +41,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Home} />
         <Route path="/discover" component={Discover} />
+        <Route path="/my-tracks" component={MyTracks} />
         <Route path="/upload" component={Upload} />
         <Route path="/artist/:slug" component={Artist} />
         <Route path="/playlists" component={Playlists} />

@@ -265,7 +265,7 @@ export default function PlaylistDetailPage() {
                   </Badge>
                 )}
               </div>
-              <h1 className="text-4xl font-bold mb-2 truncate">{currentPlaylist.name}</h1>
+              <h1 className="text-4xl font-bold mb-2 break-words">{currentPlaylist.name}</h1>
               {currentPlaylist.description && (
                 <p className="text-muted-foreground text-sm mb-3 line-clamp-2">{currentPlaylist.description}</p>
               )}
@@ -319,11 +319,18 @@ export default function PlaylistDetailPage() {
 
         {/* Track list */}
         {localTracks.length === 0 ? (
-          <div className="text-center py-16 bg-muted/10 rounded-2xl border border-white/5">
+          <div className="text-center py-16 bg-muted/10 rounded-2xl border border-white/5 mb-6">
             <Music className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-muted-foreground">No tracks in this playlist yet</p>
             {canEdit && (
-              <p className="text-xs text-muted-foreground mt-2">Browse tracks and add them from the track menu</p>
+              <>
+                <p className="text-xs text-muted-foreground mt-2">Browse tracks and add them from the track menu</p>
+                <Link href="/discover">
+                  <Button size="sm" className="mt-4 glow" data-testid="button-add-track-from-discover">
+                    Add Tracks
+                  </Button>
+                </Link>
+              </>
             )}
           </div>
         ) : (
@@ -387,19 +394,31 @@ export default function PlaylistDetailPage() {
                   {/* Track info */}
                   <div className="min-w-0 flex items-center gap-3">
                     {item.track.coverUrl ? (
-                      <img
-                        src={item.track.coverUrl}
-                        alt=""
-                        className="h-10 w-10 rounded-lg object-cover shrink-0 border border-white/10"
-                      />
+                      <button
+                        type="button"
+                        onClick={() => handlePlayTrack(index)}
+                        className="shrink-0"
+                        aria-label={`Play ${item.track.title}`}
+                      >
+                        <img
+                          src={item.track.coverUrl}
+                          alt=""
+                          className="h-10 w-10 rounded-lg object-cover shrink-0 border border-white/10"
+                        />
+                      </button>
                     ) : (
-                      <div className={cn(
-                        "h-10 w-10 rounded-lg shrink-0 flex items-center justify-center border border-white/10",
-                        "bg-gradient-to-br",
-                        item.track.coverGradient || "from-purple-500/30 to-pink-500/20",
-                      )}>
+                      <button
+                        type="button"
+                        onClick={() => handlePlayTrack(index)}
+                        className={cn(
+                          "h-10 w-10 rounded-lg shrink-0 flex items-center justify-center border border-white/10",
+                          "bg-gradient-to-br",
+                          item.track.coverGradient || "from-purple-500/30 to-pink-500/20",
+                        )}
+                        aria-label={`Play ${item.track.title}`}
+                      >
                         <Music className="h-4 w-4 text-muted-foreground" />
-                      </div>
+                      </button>
                     )}
                     <div className="min-w-0">
                       <p className={cn("font-medium truncate text-sm", isActive && "text-primary")}>
@@ -420,7 +439,7 @@ export default function PlaylistDetailPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => setTrackToRemove(item.track.id)}
-                      className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity px-2"
+                      className="sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity px-2"
                       data-testid={`button-remove-track-${item.track.id}`}
                       aria-label="Remove from playlist"
                     >

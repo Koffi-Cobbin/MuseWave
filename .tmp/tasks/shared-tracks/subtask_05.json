@@ -1,0 +1,33 @@
+{
+  "id": "shared-tracks-05",
+  "seq": "05",
+  "title": "Add Shared Tracks navigation link",
+  "status": "pending",
+  "depends_on": ["03"],
+  "parallel": true,
+  "context_files": [
+    ".opencode/context/ui/web/ui-styling-standards.md"
+  ],
+  "reference_files": [
+    "client/src/components/SidebarNav.tsx",
+    "client/src/components/BottomNav.tsx"
+  ],
+  "suggested_agent": "CoderAgent",
+  "agent_id": null,
+  "started_at": null,
+  "completed_at": null,
+  "completion_summary": null,
+  "acceptance_criteria": [
+    "SidebarNav.tsx has a 'Shared Tracks' link in authenticatedItems navigating to /playlists?tab=shared-tracks or similar route",
+    "BottomNav.tsx includes shared tracks nav entry or points to playlists page where tab is available",
+    "Link uses suitable icon (e.g., Users or Share2)",
+    "Link has data-testid attribute",
+    "Matches existing nav item styling"
+  ],
+  "deliverables": [
+    "client/src/components/SidebarNav.tsx",
+    "client/src/components/BottomNav.tsx"
+  ],
+  "bounded_context": "navigation",
+  "module": "@app/components"
+}

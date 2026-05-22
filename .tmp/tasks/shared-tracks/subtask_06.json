@@ -1,0 +1,35 @@
+{
+  "id": "shared-tracks-06",
+  "seq": "06",
+  "title": "Add shared tracks section to Artist page",
+  "status": "pending",
+  "depends_on": ["03"],
+  "parallel": false,
+  "context_files": [
+    ".opencode/context/ui/web/ui-styling-standards.md",
+    ".opencode/context/ui/web/react-patterns.md"
+  ],
+  "reference_files": [
+    "client/src/pages/artist.tsx",
+    "client/src/hooks/use-shared-tracks.ts"
+  ],
+  "suggested_agent": "CoderAgent",
+  "agent_id": null,
+  "started_at": null,
+  "completed_at": null,
+  "completion_summary": null,
+  "acceptance_criteria": [
+    "Artist page playlists tab shows a 'Shared Tracks' section below shared playlists",
+    "Section header reads 'Shared Tracks' with a Users icon",
+    "Tracks displayed in a grid matching the shared playlists pattern",
+    "Each shared track shows 'Shared by {sharedByDisplayName}' attribution",
+    "Empty state: 'No tracks shared with you yet' when the list is empty",
+    "All new elements have data-testid attributes",
+    "Follows existing dark theme styling"
+  ],
+  "deliverables": [
+    "client/src/pages/artist.tsx"
+  ],
+  "bounded_context": "tracks",
+  "module": "@app/pages"
+}

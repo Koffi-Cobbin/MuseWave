@@ -16,7 +16,7 @@ import {
 // QueryClient
 // ---------------------------------------------------------------------------
 
-import type { TrackShare } from "@shared/schema";
+import type { TrackShare, SharedTrack } from "@shared/schema";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -130,6 +130,11 @@ export async function revokeTrackShare(
   shareId: string
 ): Promise<void> {
   await apiRequestJson("DELETE", API_ENDPOINTS.tracks.shareById(trackId, shareId));
+}
+
+/** List all tracks shared with the authenticated user. */
+export async function listSharedTracks(): Promise<SharedTrack[]> {
+  return apiRequestJson<SharedTrack[]>("GET", API_ENDPOINTS.tracks.sharedWithMe);
 }
 
 async function attemptTokenRefresh(): Promise<boolean> {

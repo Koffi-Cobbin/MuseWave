@@ -77,8 +77,8 @@ export function PlaylistCard({ playlist, onPlaylistDeleted }: PlaylistCardProps)
 
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <CardTitle className="truncate text-base">{playlist.name}</CardTitle>
-              <p className="text-xs text-muted-foreground mt-1">
+              <CardTitle className="text-sm sm:text-base break-words">{playlist.name}</CardTitle>
+              <p className="text-xs text-muted-foreground mt-1 mb-3">
                 {trackCount === 0 ? "No songs" : `${trackCount} ${trackCount === 1 ? "song" : "songs"}`}
               </p>
               {/* Shared-with-me badge */}

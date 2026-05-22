@@ -1,0 +1,37 @@
+{
+  "id": "shared-tracks-04",
+  "seq": "04",
+  "title": "Add Shared Tracks tab to Playlists page",
+  "status": "pending",
+  "depends_on": ["03"],
+  "parallel": true,
+  "context_files": [
+    ".opencode/context/ui/web/ui-styling-standards.md",
+    ".opencode/context/ui/web/react-patterns.md"
+  ],
+  "reference_files": [
+    "client/src/pages/playlists.tsx",
+    "client/src/hooks/use-shared-tracks.ts"
+  ],
+  "suggested_agent": "CoderAgent",
+  "agent_id": null,
+  "started_at": null,
+  "completed_at": null,
+  "completion_summary": null,
+  "acceptance_criteria": [
+    "Tab type extended to include 'shared-tracks' (type Tab = 'my' | 'shared' | 'shared-tracks')",
+    "Third tab button added to the tab bar with Users icon and label 'Shared Tracks'",
+    "Tab shows shared tracks in a grid using TrackCard component",
+    "Tab has empty state: 'No tracks have been shared with you yet'",
+    "Tab shows loading skeleton while fetching",
+    "Each track card shows 'Shared by {sharedByDisplayName}' attribution",
+    "All new elements have data-testid attributes",
+    "Follows existing dark theme styling",
+    "Responsive at all breakpoints (matches existing grid layout)"
+  ],
+  "deliverables": [
+    "client/src/pages/playlists.tsx"
+  ],
+  "bounded_context": "tracks",
+  "module": "@app/playlists"
+}

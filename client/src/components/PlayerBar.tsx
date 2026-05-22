@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1 } from "lucide-react";
+import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -615,13 +615,13 @@ function PlayerBar() {
                   <button
                     type="button"
                     onClick={togglePlay}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary transition hover:bg-primary/20"
+                    className="flex h-9 w-9 items-center justify-center text-primary transition hover:text-primary/80"
                     data-testid="button-player-play-pause"
                     aria-label={isPlaying ? "Pause" : "Play"}
                   >
                     {isPlaying
-                      ? <Pause className="h-4 w-4 fill-current" />
-                      : <Play className="h-4 w-4 translate-x-px fill-current" />
+                      ? <Pause className="h-4 w-4" />
+                      : <Play className="h-4 w-4 translate-x-px" />
                     }
                   </button>
 
@@ -669,6 +669,16 @@ function PlayerBar() {
                     aria-label="Open full player"
                   >
                     <ChevronUp className="h-4 w-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { audioRef.current?.pause(); setIsPlaying(false); setActive(null); }}
+                    className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground/50 transition hover:text-foreground"
+                    data-testid="button-player-close"
+                    aria-label="Close player"
+                  >
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -826,6 +836,18 @@ function PlayerBar() {
 
                   <OverflowMenu side="top" align="end" {...desktopMenuProps} />
                 </div>
+
+                {/* Close */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="px-2 text-muted-foreground/50 hover:text-foreground shrink-0"
+                  onClick={() => { audioRef.current?.pause(); setIsPlaying(false); setActive(null); }}
+                  data-testid="button-player-close-desktop"
+                  aria-label="Close player"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
             </motion.div>
           </>

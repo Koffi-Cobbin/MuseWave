@@ -1,0 +1,35 @@
+{
+  "id": "shared-tracks-03",
+  "seq": "03",
+  "title": "Create useSharedTracks hook",
+  "status": "pending",
+  "depends_on": ["02"],
+  "parallel": false,
+  "context_files": [
+    ".opencode/context/ui/web/react-patterns.md",
+    ".opencode/context/core/standards/code-quality.md"
+  ],
+  "reference_files": [
+    "client/src/hooks/use-track-shares.ts",
+    "client/src/lib/queryClient.ts",
+    "shared/schema.ts"
+  ],
+  "suggested_agent": "CoderAgent",
+  "agent_id": null,
+  "started_at": null,
+  "completed_at": null,
+  "completion_summary": null,
+  "acceptance_criteria": [
+    "New file client/src/hooks/use-shared-tracks.ts created",
+    "Exports useSharedTracks() hook returning { sharedTracks, loading, error }",
+    "Uses listSharedTracks() from queryClient internally",
+    "Has loading skeleton state and error state",
+    "Follows same pattern as useTrackShares hook",
+    "Uses useCallback for the fetch function"
+  ],
+  "deliverables": [
+    "client/src/hooks/use-shared-tracks.ts"
+  ],
+  "bounded_context": "tracks",
+  "module": "@app/tracks"
+}
