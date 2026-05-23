@@ -156,7 +156,7 @@ export function TrackActionsMenu({
             size={size}
             disabled={loading}
             aria-label="Track actions"
-            className="border-transparent"
+            className="border-transparent focus-visible:ring-0"
             data-testid={`button-track-actions-${track.id}`}
           >
             <MoreVertical className="h-3.5 w-3.5" />
