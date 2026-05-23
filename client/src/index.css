@@ -276,6 +276,14 @@
 html {
   overflow-y: scroll;
 }
+/* react-remove-scroll adds padding-right to body when a Radix portal opens to
+   compensate for the scrollbar it thinks will disappear. Since the scrollbar
+   belongs to html (not body), that compensation is wrong and widens body,
+   causing every flex child (track cards, etc.) to resize. Force it to zero. */
+body[data-scroll-locked] {
+  padding-right: 0 !important;
+  margin-right: 0 !important;
+}
 
 /* ── Tiptap lyrics editor ─────────────────────────────────────────────────── */
 .tiptap p.is-editor-empty:first-child::before {
