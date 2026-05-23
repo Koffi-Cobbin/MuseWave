@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X } from "lucide-react";
+import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronDown, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -194,6 +194,7 @@ function PlayerBar() {
   const audioSrc = useOfflineAudio(active);
 
   const [playScreenOpen, setPlayScreenOpen] = useState(false);
+  const [barMinimized, setBarMinimized] = useState(false);
   const [queueOpen, setQueueOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -282,6 +283,9 @@ function PlayerBar() {
 
   // Minimum seconds listened to count as a meaningful partial play
   const MIN_PLAY_SECONDS = 30;
+
+  // Reset minimized state whenever a new track becomes active
+  useEffect(() => { if (active?.id) setBarMinimized(false); }, [active?.id]);
 
   // Record partial play when user switches to a different track before it ends
   useEffect(() => {
@@ -545,144 +549,185 @@ function PlayerBar() {
                 MOBILE  (hidden on lg+)
                 Compact always-visible bar above BottomNav
             ══════════════════════════════════════════════ */}
-            <motion.div
-              key="mobile-bar"
-              data-testid="player-bar-mobile"
-              initial={{ y: 80, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 80, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 380, damping: 36 }}
-              className="fixed inset-x-0 z-30 lg:hidden"
-              style={{ bottom: "calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px))" }}
-            >
-              {/* Offline banner */}
-              {!isOnline && (
-                <div className="flex items-center justify-center gap-1.5 bg-amber-500/15 py-1 text-[10px] text-amber-400">
-                  <WifiOff className="h-3 w-3" />
-                  Offline — only saved tracks are available
-                </div>
-              )}
-              {/* Hairline progress bar at top of bar */}
-              <div className="relative h-[2px] w-full bg-white/10">
-                <div
-                  className="absolute inset-y-0 left-0 bg-primary transition-all duration-200 pointer-events-none"
-                  style={{ width: `${progress}%` }}
-                />
-                <input
-                  type="range" min="0" max={duration || 0} value={currentTime}
-                  onChange={handleSeekInput}
-                  className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[16px] w-full cursor-pointer opacity-0"
-                  data-testid="input-player-seek"
-                />
-              </div>
-
-              {/* Bar body — clickable to open play screen */}
-              <div
-                role="button"
-                tabIndex={0}
-                onClick={() => setPlayScreenOpen(true)}
-                onKeyDown={(e) => e.key === "Enter" && setPlayScreenOpen(true)}
-                className="flex cursor-pointer items-center gap-3 bg-background/94 px-3 py-2.5 backdrop-blur-2xl border-t border-white/8 select-none"
-                data-testid="button-open-play-screen"
-                aria-label="Open full player"
-              >
-                {/* Cover art */}
-                <div className={cn(
-                  "h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
-                  !active.coverUrl && "bg-gradient-to-br",
-                  active.coverUrl ? "" : active.coverGradient || "from-emerald-500/40 to-fuchsia-500/30",
-                )}>
-                  {active.coverUrl && (
-                    <img src={active.coverUrl} alt="" className="h-full w-full object-cover" />
-                  )}
-                </div>
-
-                {/* Track info */}
-                <div className="min-w-0 flex-1 overflow-hidden">
-                  <div className="truncate text-sm font-semibold leading-tight" data-testid="text-player-title">
-                    {active.title}
-                  </div>
-                  <div className="truncate text-xs text-muted-foreground" data-testid="text-player-artist">
-                    {active.artist}
-                  </div>
-                </div>
-
-                {/* Actions — stop propagation so clicks don't open play screen */}
-                <div
-                  className="flex shrink-0 items-center gap-0.5"
-                  onClick={(e) => e.stopPropagation()}
+            <AnimatePresence mode="wait">
+              {barMinimized ? (
+                /* ── Minimised pill ── */
+                <motion.button
+                  key="mini-pill"
+                  type="button"
+                  onClick={() => setBarMinimized(false)}
+                  initial={{ scale: 0.7, opacity: 0, y: 12 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  exit={{ scale: 0.7, opacity: 0, y: 12 }}
+                  transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                  className="fixed z-30 lg:hidden flex items-center gap-2 rounded-full border border-white/15 bg-background/90 px-3 py-1.5 backdrop-blur-xl shadow-lg shadow-black/30 cursor-pointer"
+                  style={{ bottom: "calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px) + 10px)", left: "50%", transform: "translateX(-50%)" }}
+                  data-testid="button-player-pill"
+                  aria-label="Restore player"
                 >
-                  <button
-                    type="button"
-                    onClick={togglePlay}
-                    className="flex h-9 w-9 items-center justify-center text-primary transition hover:text-primary/80"
-                    data-testid="button-player-play-pause"
-                    aria-label={isPlaying ? "Pause" : "Play"}
-                  >
-                    {isPlaying
-                      ? <Pause className="h-4 w-4" />
-                      : <Play className="h-4 w-4 translate-x-px" />
-                    }
-                  </button>
+                  {/* Audio wave bars */}
+                  <div className="flex items-end gap-[3px] h-4">
+                    {[0, 0.2, 0.1, 0.3].map((delay, i) => (
+                      <span
+                        key={i}
+                        className="w-[3px] rounded-full bg-primary"
+                        style={{
+                          height: "100%",
+                          transformOrigin: "bottom",
+                          animation: isPlaying
+                            ? `player-wave 0.7s ease-in-out ${delay}s infinite alternate`
+                            : "none",
+                          transform: isPlaying ? undefined : "scaleY(0.35)",
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span className="max-w-[120px] truncate text-xs font-medium text-white/80">
+                    {active.title}
+                  </span>
+                </motion.button>
+              ) : (
+                /* ── Full mobile bar ── */
+                <motion.div
+                  key="mobile-bar"
+                  data-testid="player-bar-mobile"
+                  initial={{ y: 80, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 80, opacity: 0 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 36 }}
+                  className="fixed inset-x-0 z-30 lg:hidden"
+                  style={{ bottom: "calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px))" }}
+                >
+                  {/* Offline banner */}
+                  {!isOnline && (
+                    <div className="flex items-center justify-center gap-1.5 bg-amber-500/15 py-1 text-[10px] text-amber-400">
+                      <WifiOff className="h-3 w-3" />
+                      Offline — only saved tracks are available
+                    </div>
+                  )}
+                  {/* Hairline progress bar at top of bar */}
+                  <div className="relative h-[2px] w-full bg-white/10">
+                    <div
+                      className="absolute inset-y-0 left-0 bg-primary transition-all duration-200 pointer-events-none"
+                      style={{ width: `${progress}%` }}
+                    />
+                    <input
+                      type="range" min="0" max={duration || 0} value={currentTime}
+                      onChange={handleSeekInput}
+                      className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[16px] w-full cursor-pointer opacity-0"
+                      data-testid="input-player-seek"
+                    />
+                  </div>
 
-                  <button
-                    type="button"
-                    onClick={toggleRepeatMode}
-                    className={cn(
-                      "flex h-9 w-9 items-center justify-center rounded-full transition",
-                      repeatMode !== "off"
-                        ? "text-primary hover:text-primary/80"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                    data-testid="button-player-repeat"
-                    aria-label={
-                      repeatMode === "off" ? "Repeat off" : repeatMode === "all" ? "Repeat all" : "Repeat one"
-                    }
-                  >
-                    {repeatMode === "one" ? (
-                      <Repeat1 className="h-4 w-4" />
-                    ) : (
-                      <Repeat className="h-4 w-4" />
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setQueueOpen(true)}
-                    className="relative flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground"
-                    data-testid="button-player-queue"
-                    aria-label="Open queue"
-                  >
-                    <ListMusic className="h-4 w-4" />
-                    {queueCount > 0 && (
-                      <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-1 text-[8px] font-bold text-white leading-none">
-                        {queueCount > 9 ? "9+" : queueCount}
-                      </span>
-                    )}
-                  </button>
-
-                  <button
-                    type="button"
+                  {/* Bar body — clickable to open play screen */}
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setPlayScreenOpen(true)}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground"
-                    data-testid="button-player-expand"
+                    onKeyDown={(e) => e.key === "Enter" && setPlayScreenOpen(true)}
+                    className="flex cursor-pointer items-center gap-3 bg-background/94 px-3 py-2.5 backdrop-blur-2xl border-t border-white/8 select-none"
+                    data-testid="button-open-play-screen"
                     aria-label="Open full player"
                   >
-                    <ChevronUp className="h-4 w-4" />
-                  </button>
+                    {/* Cover art */}
+                    <div className={cn(
+                      "h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
+                      !active.coverUrl && "bg-gradient-to-br",
+                      active.coverUrl ? "" : active.coverGradient || "from-emerald-500/40 to-fuchsia-500/30",
+                    )}>
+                      {active.coverUrl && (
+                        <img src={active.coverUrl} alt="" className="h-full w-full object-cover" />
+                      )}
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={() => { audioRef.current?.pause(); setIsPlaying(false); setActive(null); }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground/50 transition hover:text-foreground"
-                    data-testid="button-player-close"
-                    aria-label="Close player"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </motion.div>
+                    {/* Track info */}
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <div className="truncate text-sm font-semibold leading-tight" data-testid="text-player-title">
+                        {active.title}
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground" data-testid="text-player-artist">
+                        {active.artist}
+                      </div>
+                    </div>
+
+                    {/* Actions — stop propagation so clicks don't open play screen */}
+                    <div
+                      className="flex shrink-0 items-center gap-0.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={togglePlay}
+                        className="flex h-9 w-9 items-center justify-center text-primary transition hover:text-primary/80"
+                        data-testid="button-player-play-pause"
+                        aria-label={isPlaying ? "Pause" : "Play"}
+                      >
+                        {isPlaying
+                          ? <Pause className="h-4 w-4" />
+                          : <Play className="h-4 w-4 translate-x-px" />
+                        }
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={toggleRepeatMode}
+                        className={cn(
+                          "flex h-9 w-9 items-center justify-center rounded-full transition",
+                          repeatMode !== "off"
+                            ? "text-primary hover:text-primary/80"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                        data-testid="button-player-repeat"
+                        aria-label={
+                          repeatMode === "off" ? "Repeat off" : repeatMode === "all" ? "Repeat all" : "Repeat one"
+                        }
+                      >
+                        {repeatMode === "one" ? (
+                          <Repeat1 className="h-4 w-4" />
+                        ) : (
+                          <Repeat className="h-4 w-4" />
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setQueueOpen(true)}
+                        className="relative flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground"
+                        data-testid="button-player-queue"
+                        aria-label="Open queue"
+                      >
+                        <ListMusic className="h-4 w-4" />
+                        {queueCount > 0 && (
+                          <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-1 text-[8px] font-bold text-white leading-none">
+                            {queueCount > 9 ? "9+" : queueCount}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setBarMinimized(true)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition hover:text-foreground"
+                        data-testid="button-player-minimise"
+                        aria-label="Minimise player"
+                      >
+                        <ChevronDown className="h-4 w-4" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => { audioRef.current?.pause(); setIsPlaying(false); setActive(null); }}
+                        className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground/50 transition hover:text-foreground"
+                        data-testid="button-player-close"
+                        aria-label="Close player"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* ══════════════════════════════════════════════
                 DESKTOP  (hidden below lg)

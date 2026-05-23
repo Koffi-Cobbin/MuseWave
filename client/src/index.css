@@ -284,6 +284,12 @@ html body[data-scroll-locked] {
   margin-right: 0 !important;
 }
 
+/* ── Mini player pill — audio wave animation ─────────────────────────────── */
+@keyframes player-wave {
+  0%   { transform: scaleY(0.25); }
+  100% { transform: scaleY(1); }
+}
+
 /* ── Tiptap lyrics editor ─────────────────────────────────────────────────── */
 .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
