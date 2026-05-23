@@ -1,16 +1,14 @@
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useParams } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { AlbumCreate } from "@/components/album-create";
 import {
   ArrowLeft,
   Crown,
-  ExternalLink,
   Heart,
   Music2,
   Play,
   Share2,
-  Sparkles,
   Users,
   Copy,
   Check,
@@ -21,29 +19,16 @@ import {
   Disc,
   Mail,
   UserIcon,
-  ListMusic,
-  Clock,
-  Radio,
-  ChevronRight,
-  Pause,
   TrendingUp,
-  Calendar,
   Headphones,
-  BarChart3,
-  ShieldCheck,
   ShieldAlert,
-  RefreshCw,
   Loader2,
   BadgeCheck,
   X,
   MapPin,
   Globe,
   Link2,
-  Lock,
-  Search,
-  ChevronLeft,
-  SlidersHorizontal,
-  ChevronDown,
+  RefreshCw,
 } from "lucide-react";
 import { SiSpotify, SiSoundcloud, SiX, SiInstagram } from "react-icons/si";
 import { Button } from "@/components/ui/button";
@@ -62,15 +47,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
-import { usePlaylists } from "@/contexts/playlist-context";
-import { useSharedTracks } from "@/hooks/use-shared-tracks";
 import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import type { Track, User } from "../../../shared/schema";
 import { Label } from "@/components/ui/label";
-import { TrackCard } from "@/components/TrackCard";
-import type { Playlist } from "../../../shared/schema";
+
 
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -97,7 +79,7 @@ type Album = {
   createdAt?: string;
 };
 
-type Tab = "tracks" | "albums" | "playlists" | "about";
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -489,94 +471,6 @@ function ArtistHero({
   );
 }
 
-// ─── Album Detail Sheet ───────────────────────────────────────────────────────
-
-function AlbumDetailSheet({
-  album,
-  open,
-  onClose,
-  onPlayTrack,
-  activeTrackId,
-}: {
-  album: Album | null;
-  open: boolean;
-  onClose: () => void;
-  onPlayTrack: (t: Track) => void;
-  activeTrackId: string | null;
-}) {
-  if (!album) return null;
-  const tracks = album.tracks ?? [];
-
-  return (
-    <AnimatePresence>
-      {open && (
-        <>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-40 bg-background/70 backdrop-blur-sm"
-            onClick={onClose}
-          />
-          <motion.div
-            initial={{ opacity: 0, y: "100%" }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: "100%" }}
-            transition={{ type: "spring", damping: 32, stiffness: 280 }}
-            className="fixed inset-x-0 bottom-0 z-50 max-h-[85dvh] overflow-hidden rounded-t-3xl border-t border-white/10 bg-background shadow-2xl"
-          >
-            <div className="flex max-h-[85dvh] flex-col">
-              {/* Handle */}
-              <div className="flex justify-center pt-3 pb-1">
-                <div className="h-1 w-10 rounded-full bg-white/20" />
-              </div>
-
-              {/* Header */}
-              <div className="flex items-center gap-4 px-5 pb-3 pt-2">
-                <div
-                  className={cn(
-                    "h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10",
-                    !album.coverUrl && "bg-gradient-to-br",
-                    album.coverUrl ? "" : album.coverGradient,
-                  )}
-                >
-                  {album.coverUrl ? (
-                    <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <Disc className="h-6 w-6 text-white/30" />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate font-semibold">{album.title}</div>
-                  <div className="text-xs text-muted-foreground">{tracks.length === 1 ? "1 track" : `${tracks.length} tracks`}</div>
-                </div>
-                <Button type="button" variant="ghost" size="icon" onClick={onClose}>
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-
-              <Separator className="opacity-30" />
-
-              {/* Track list */}
-              <div className="flex-1 overflow-y-auto px-3 py-2">
-                {tracks.length === 0 ? (
-                  <div className="py-8 text-center text-xs text-muted-foreground">No tracks in this album yet.</div>
-                ) : (
-                  tracks.map((t, i) => (
-                    <TrackCard key={t.id} track={t} onPlay={onPlayTrack} isActive={t.id === activeTrackId} index={i} />
-                  ))
-                )}
-              </div>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-  );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ArtistPage() {
@@ -586,22 +480,16 @@ export default function ArtistPage() {
   const [artist, setArtist] = useState<Artist | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
-  const [publicPlaylists, setPublicPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [followCount, setFollowCount] = useState(0);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("tracks");
-  const [activeAlbum, setActiveAlbum] = useState<Album | null>(null);
-  const [albumDetailOpen, setAlbumDetailOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [justPlayedId, setJustPlayedId] = useState<string | null>(null);
   const { user: authUser } = useAuth();
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
   const { toast } = useToast();
-  const { sharedWithMe, fetchSharedWithMe } = usePlaylists();
-  const { sharedTracks, fetchSharedTracks } = useSharedTracks();
   const [copied, setCopied] = useState<string | null>(null);
   const [isEditingCredentials, setIsEditingCredentials] = useState(false);
   const [newUsername, setNewUsername] = useState("");
@@ -622,14 +510,8 @@ export default function ArtistPage() {
   const [isAlbumCreateOpen, setIsAlbumCreateOpen] = useState(false);
   const [showCredentials, setShowCredentials] = useState(false);
   const [artistUserId, setArtistUserId] = useState<string | null>(null);
-  const tabsRef = useRef<HTMLDivElement>(null);
 
   const isOwner = authUser?.id === artist?.id;
-
-  const TRACKS_PER_PAGE = 10;
-  const [trackSearch, setTrackSearch] = useState("");
-  const [trackSort, setTrackSort] = useState<"latest" | "oldest" | "az" | "za" | "plays" | "likes">("latest");
-  const [trackPage, setTrackPage] = useState(1);
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -791,26 +673,6 @@ export default function ArtistPage() {
     fetchData();
   }, [slug]);
 
-  // Fetch playlists separately — needs authUser to be loaded (race condition fix).
-  useEffect(() => {
-    if (!artistUserId) return;
-    const isOwnProfile = authUser?.id === artistUserId;
-    if (isOwnProfile) {
-      // Owner: show ALL playlists (not just public).
-      apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.list)
-        .then((all) => setPublicPlaylists(Array.isArray(all) ? all : []))
-        .catch(() => {});
-      // Also fetch playlists and tracks shared with this user.
-      fetchSharedWithMe();
-      fetchSharedTracks();
-    } else {
-      // Other user: try public endpoint.
-      apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.byUser(artistUserId))
-        .then((all) => setPublicPlaylists(Array.isArray(all) ? all.filter((p) => p.public) : []))
-        .catch(() => setPublicPlaylists([]));
-    }
-  }, [artistUserId, authUser?.id]);
-
   // Check if the current user already follows this artist
   useEffect(() => {
     if (!artistUserId || !authUser?.id) return;
@@ -835,21 +697,6 @@ export default function ArtistPage() {
       setJustPlayedId(t.id);
       setTimeout(() => setJustPlayedId(null), 1000);
     }
-  };
-
-  const handlePlayAlbum = (album: Album) => {
-    const albumTracks = album.tracks ?? [];
-    if (albumTracks.length > 0) handlePlayTrack(albumTracks[0]);
-  };
-
-  const handleTrackDeleted = (trackId: string) => {
-    setTracks((prev) => prev.filter((t) => t.id !== trackId));
-  };
-
-  const handleTrackUpdated = (updated: Track) => {
-    setTracks((prev) =>
-      prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t))
-    );
   };
 
   // Toggle follow/unfollow via API
@@ -918,43 +765,6 @@ export default function ArtistPage() {
 
   const displayName = artist?.displayName || artist?.username || slug;
 
-  const processedTracks = useMemo(() => {
-    let result = [...tracks];
-    if (trackSearch.trim()) {
-      const q = trackSearch.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          (t.genre ?? "").toLowerCase().includes(q) ||
-          (t.artist ?? "").toLowerCase().includes(q),
-      );
-    }
-    switch (trackSort) {
-      case "oldest":
-        result.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-        break;
-      case "az":
-        result.sort((a, b) => a.title.localeCompare(b.title));
-        break;
-      case "za":
-        result.sort((a, b) => b.title.localeCompare(a.title));
-        break;
-      case "plays":
-        result.sort((a, b) => (b.plays ?? 0) - (a.plays ?? 0));
-        break;
-      case "likes":
-        result.sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
-        break;
-      default: // "latest" — sort newest first
-        result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        break;
-    }
-    return result;
-  }, [tracks, trackSearch, trackSort]);
-
-  const totalPages = Math.max(1, Math.ceil(processedTracks.length / TRACKS_PER_PAGE));
-  const pagedTracks = processedTracks.slice((trackPage - 1) * TRACKS_PER_PAGE, trackPage * TRACKS_PER_PAGE);
-
   // ── Loading skeleton ──
   if (loading) {
     return (
@@ -980,13 +790,6 @@ export default function ArtistPage() {
       </div>
     );
   }
-
-  const tabs: { key: Tab; label: string; icon: React.ElementType; count?: number }[] = [
-    { key: "tracks", label: "Tracks", icon: Music2, count: tracks.length },
-    { key: "albums", label: "Albums", icon: Disc, count: albums.length },
-    { key: "playlists", label: "Playlists", icon: ListMusic, count: publicPlaylists.length + sharedWithMe.length },
-    { key: "about", label: "About", icon: UserIcon },
-  ];
 
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_420px_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(1100px_520px_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(900px_400px_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
@@ -1289,572 +1092,202 @@ export default function ArtistPage() {
           )}
         </AnimatePresence>
 
-        {/* ── Tabs ── */}
-        <div ref={tabsRef} className="mb-4 flex gap-1 overflow-x-auto rounded-2xl border border-white/8 bg-white/3 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.key;
-            return (
-              <button
+        {/* ── View Artist Tracks link (non-owner only) ── */}
+        {!isOwner && tracks.length > 0 && (
+          <div className="mb-5 flex justify-end">
+            <Link href={`/my-tracks?artist=${slug}`}>
+              <Button
                 type="button"
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={cn(
-                  "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-medium transition-all",
-                  isActive
-                    ? "bg-white/10 text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-                data-testid={`tab-${tab.key}`}
+                variant="secondary"
+                className="border-white/15 bg-white/10 backdrop-blur-sm hover:bg-white/15"
+                data-testid="button-view-artist-tracks"
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                {tab.label}
-                {tab.count !== undefined && tab.count > 0 && (
-                  <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] tabular-nums", isActive ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground")}>
-                    {tab.count}
-                  </span>
+                <Music2 className="mr-2 h-4 w-4" />
+                View Artist Tracks
+              </Button>
+            </Link>
+          </div>
+        )}
+
+        {/* ════════════════════════════════════════════════════════════════ */}
+        {/* ABOUT SECTION */}
+        {/* ════════════════════════════════════════════════════════════════ */}
+        <section className="space-y-4">
+
+          {/* Latest Release */}
+          {tracks.length > 0 && (() => {
+            const latest = [...tracks].sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            )[0];
+            return (
+              <div
+                className="relative overflow-hidden rounded-2xl border border-white/10 cursor-pointer group"
+                onClick={() => handlePlayTrack(latest)}
+                data-testid="card-latest-release"
+              >
+                {latest.coverUrl && (
+                  <img
+                    src={latest.coverUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="absolute inset-0 h-full w-full object-cover opacity-20 blur-xl scale-110"
+                  />
                 )}
-              </button>
+                <div className={cn("absolute inset-0 bg-gradient-to-br opacity-60", artist.accent)} />
+                <div className="absolute inset-0 bg-black/40" />
+
+                <div className="relative flex items-center gap-4 p-4 sm:p-5">
+                  <div className={cn(
+                    "h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/15 shadow-lg sm:h-20 sm:w-20",
+                    !latest.coverUrl && "bg-gradient-to-br from-primary/30 to-fuchsia-500/20 flex items-center justify-center",
+                  )}>
+                    {latest.coverUrl
+                      ? <img src={latest.coverUrl} alt={latest.title} className="h-full w-full object-cover" />
+                      : <Music2 className="h-7 w-7 text-white/30" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">Latest Release</div>
+                    <div className="truncate text-base font-bold sm:text-lg" data-testid="text-latest-release-title">{latest.title}</div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-white/50">
+                      {latest.genre && <span>{latest.genre}</span>}
+                      {latest.genre && <span>·</span>}
+                      <span>{new Date(latest.createdAt).getFullYear()}</span>
+                      {latest.audioDuration > 0 && <><span>·</span><span>{time(latest.audioDuration)}</span></>}
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary shadow-[0_4px_20px_-4px_rgba(16,185,129,.7)] transition group-hover:scale-105 group-hover:shadow-[0_6px_28px_-4px_rgba(16,185,129,.85)]">
+                      <Play className="h-5 w-5 translate-x-px text-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
             );
-          })}
-        </div>
+          })()}
 
-        {/* ── Tab content ── */}
-        <AnimatePresence mode="wait">
-
-          {/* Tracks */}
-          {activeTab === "tracks" && (
-            <motion.div
-              key="tracks"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              {/* Search + Sort toolbar */}
-              {tracks.length > 0 && (
-                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  {/* Search */}
-                  <div className="relative flex-1 sm:max-w-sm">
-                    <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                      type="text"
-                      value={trackSearch}
-                      onChange={(e) => { setTrackSearch(e.target.value); setTrackPage(1); }}
-                      placeholder="Search tracks, genres…"
-                      data-testid="input-track-search"
-                      className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
-                    />
-                  </div>
-                  {/* Sort */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                    <div className="relative">
-                      <select
-                        value={trackSort}
-                        onChange={(e) => { setTrackSort(e.target.value as typeof trackSort); setTrackPage(1); }}
-                        data-testid="select-track-sort"
-                        className="rounded-xl border border-white/10 bg-white/5 pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition cursor-pointer appearance-none [&>option]:bg-popover [&>option]:text-popover-foreground"
-                      >
-                        <option value="latest">Latest</option>
-                        <option value="oldest">Oldest</option>
-                        <option value="plays">Most Played</option>
-                        <option value="likes">Most Liked</option>
-                        <option value="az">A → Z</option>
-                        <option value="za">Z → A</option>
-                      </select>
-                      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Result count */}
-              {tracks.length > 0 && (
-                <p className="mb-3 text-xs text-muted-foreground/60">
-                  {trackSearch.trim()
-                    ? `${processedTracks.length} result${processedTracks.length !== 1 ? "s" : ""} for "${trackSearch}"`
-                    : `${processedTracks.length} track${processedTracks.length !== 1 ? "s" : ""}`}
-                  {totalPages > 1 && ` · page ${trackPage} of ${totalPages}`}
-                </p>
-              )}
-
-              {/* Track list */}
-              {tracks.length === 0 ? (
-                <div className="py-16 text-center">
-                  <Music2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No tracks yet.</p>
-                  {isOwner && (
-                    <Link href="/upload">
-                      <Button type="button" className="glow mt-4">
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Upload your first track
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-              ) : pagedTracks.length === 0 ? (
-                <div className="py-12 text-center">
-                  <Search className="mx-auto mb-3 h-7 w-7 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No tracks match "{trackSearch}"</p>
-                  <button
-                    type="button"
-                    onClick={() => { setTrackSearch(""); setTrackPage(1); }}
-                    className="mt-2 text-xs text-primary hover:underline"
-                    data-testid="button-clear-search"
-                  >
-                    Clear search
-                  </button>
-                </div>
-              ) : (
-                <div className="grid gap-2 sm:gap-3">
-                  {pagedTracks.map((t, idx) => (
-                    <TrackCard
-                      key={t.id}
-                      track={t}
-                      onPlay={handlePlayTrack}
-                      isActive={active?.id === t.id}
-                      index={(trackPage - 1) * TRACKS_PER_PAGE + idx}
-                      isOwner={isOwner}
-                      onTrackDeleted={handleTrackDeleted}
-                      onTrackUpdated={handleTrackUpdated}
-                    />
-                  ))}
-                </div>
-              )}
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="mt-5 flex items-center justify-between gap-3">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={trackPage <= 1}
-                    onClick={() => setTrackPage((p) => Math.max(1, p - 1))}
-                    data-testid="button-tracks-prev"
-                    className="border-white/10 bg-white/5 disabled:opacity-40"
-                  >
-                    <ChevronLeft className="mr-1 h-3.5 w-3.5" />
-                    Prev
-                  </Button>
-                  <div className="flex gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setTrackPage(p)}
-                        data-testid={`button-page-${p}`}
-                        className={cn(
-                          "h-8 min-w-[32px] rounded-lg px-2 text-xs font-medium transition",
-                          p === trackPage
-                            ? "bg-primary/20 text-primary"
-                            : "text-muted-foreground hover:bg-white/8 hover:text-foreground",
-                        )}
-                      >
-                        {p}
-                      </button>
-                    ))}
-                  </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={trackPage >= totalPages}
-                    onClick={() => setTrackPage((p) => Math.min(totalPages, p + 1))}
-                    data-testid="button-tracks-next"
-                    className="border-white/10 bg-white/5 disabled:opacity-40"
-                  >
-                    Next
-                    <ChevronRight className="ml-1 h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              )}
-            </motion.div>
+          {/* Bio */}
+          {artist.bio ? (
+            <div className="glass rounded-2xl border border-white/10 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <UserIcon className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">About {displayName}</h2>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line" data-testid="text-artist-bio">{artist.bio}</p>
+            </div>
+          ) : !isOwner && (
+            <div className="glass rounded-2xl border border-white/10 p-5 text-center">
+              <UserIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/30" />
+              <p className="text-sm text-muted-foreground">{displayName} hasn't added a bio yet.</p>
+            </div>
           )}
 
-          {/* Playlists */}
-          {activeTab === "playlists" && (
-            <motion.div key="playlists" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              <div className="space-y-8">
-                {/* Owned playlists */}
-                {publicPlaylists.length > 0 && (
-                  <section>
-                    <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
-                      <ListMusic className="h-3.5 w-3.5" />
-                      My Playlists
-                    </h3>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {publicPlaylists.map((pl, idx) => (
-                        <motion.a
-                          key={pl.id}
-                          href={`/playlists/${pl.id}`}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: idx * 0.05 }}
-                          className="group flex items-center gap-3 rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5 cursor-pointer"
-                          data-testid={`card-public-playlist-${pl.id}`}
-                        >
-                          <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-purple-500/30 to-pink-500/20 flex items-center justify-center border border-white/10">
-                            <ListMusic className="h-5 w-5 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{pl.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(pl.trackIds?.length ?? 0)} {(pl.trackIds?.length ?? 0) === 1 ? "track" : "tracks"}
-                              {pl.myPermission && pl.myPermission !== "owner" && (
-                                <span className="ml-2 text-primary/60">({pl.myPermission})</span>
-                              )}
-                            </p>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition shrink-0" />
-                        </motion.a>
-                      ))}
-                    </div>
-                  </section>
-                )}
+          {/* Stats at a glance */}
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              { icon: Headphones, label: "Monthly listeners", value: formatCount(artist.monthlyListeners) },
+              { icon: Users, label: "Followers", value: formatCount(followCount) },
+              { icon: Music2, label: "Tracks", value: tracks.length },
+              { icon: TrendingUp, label: "Total plays", value: formatCount(tracks.reduce((s, t) => s + (t.plays ?? 0), 0)) },
+            ].map((s) => (
+              <div key={s.label} className="glass rounded-2xl border border-white/8 p-4 text-center" data-testid={`stat-${s.label.replace(/\s+/g, "-").toLowerCase()}`}>
+                <s.icon className="mx-auto mb-1.5 h-4 w-4 text-primary/70" />
+                <div className="text-lg font-black tabular-nums">{s.value}</div>
+                <div className="text-[10px] text-muted-foreground">{s.label}</div>
+              </div>
+            ))}
+          </div>
 
-                {/* Shared with me */}
-                {sharedWithMe.length > 0 && (
-                  <section>
-                    <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
-                      <Users className="h-3.5 w-3.5" />
-                      Shared with me
-                    </h3>
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {sharedWithMe.map((pl, idx) => (
-                        <motion.a
-                          key={pl.id}
-                          href={`/playlists/${pl.id}`}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: idx * 0.05 }}
-                          className="group flex items-center gap-3 rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5 cursor-pointer"
-                          data-testid={`card-shared-playlist-${pl.id}`}
-                        >
-                          <div className="h-12 w-12 shrink-0 rounded-xl bg-gradient-to-br from-emerald-500/30 to-cyan-500/20 flex items-center justify-center border border-white/10">
-                            <Users className="h-5 w-5 text-muted-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{pl.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {(pl.trackIds?.length ?? 0)} {(pl.trackIds?.length ?? 0) === 1 ? "track" : "tracks"}
-                              {pl.myPermission && (
-                                <span className="ml-2 text-primary/60">({pl.myPermission})</span>
-                              )}
-                            </p>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition shrink-0" />
-                        </motion.a>
-                      ))}
-                    </div>
-                  </section>
+          {/* Social Links */}
+          {artist.socialLinks && Object.values(artist.socialLinks).some(Boolean) && (
+            <div className="glass rounded-2xl border border-white/10 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Link2 className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">Find {displayName} online</h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {artist.socialLinks.twitter && (
+                  <a href={`https://x.com/${artist.socialLinks.twitter.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
+                    data-testid="link-social-twitter"
+                  >
+                    <SiX className="h-3.5 w-3.5" />{artist.socialLinks.twitter}
+                  </a>
                 )}
-
-                {/* Shared tracks */}
-                {sharedTracks.length > 0 && (
-                  <section>
-                    <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">
-                      <Share2 className="h-3.5 w-3.5" />
-                      Shared tracks
-                    </h3>
-                    <div className="grid gap-2 sm:gap-3">
-                      {sharedTracks.map((track, idx) => (
-                        <motion.div
-                          key={track.id}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: idx * 0.04 }}
-                          onClick={() => {
-                            if (active?.id === track.id) {
-                              setIsPlaying(!isPlaying);
-                            } else {
-                              setAutoPlay(true);
-                              setActive(track as any);
-                            }
-                          }}
-                          className={cn(
-                            "group flex items-center gap-3 rounded-2xl border border-white/8 bg-white/2 p-3 transition cursor-pointer",
-                            "hover:border-white/15 hover:bg-white/5",
-                            active?.id === track.id && "border-primary/30 bg-primary/5",
-                          )}
-                          data-testid={`card-shared-track-${track.id}`}
-                        >
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/5 group-hover:bg-primary/15 transition">
-                            {active?.id === track.id && isPlaying ? (
-                              <div className="flex items-end gap-0.5 h-4">
-                                <span className="w-0.5 bg-primary rounded-full animate-equalizer-1" />
-                                <span className="w-0.5 bg-primary rounded-full animate-equalizer-2" />
-                                <span className="w-0.5 bg-primary rounded-full animate-equalizer-3" />
-                              </div>
-                            ) : (
-                              <Play className="h-4 w-4 text-muted-foreground group-hover:text-primary transition translate-x-px" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{track.title}</p>
-                            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <span className="truncate">{track.artist}</span>
-                              <span>·</span>
-                              <span>{track.genre}</span>
-                            </p>
-                          </div>
-                          <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground/70 shrink-0">
-                            <Share2 className="h-3 w-3" />
-                            <span>{track.sharedByDisplayName || track.sharedByUsername}</span>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition shrink-0" />
-                        </motion.div>
-                      ))}
-                    </div>
-                  </section>
+                {artist.socialLinks.instagram && (
+                  <a href={`https://instagram.com/${artist.socialLinks.instagram.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
+                    data-testid="link-social-instagram"
+                  >
+                    <SiInstagram className="h-3.5 w-3.5" />{artist.socialLinks.instagram}
+                  </a>
                 )}
-
-                {/* Empty state — only when all are empty */}
-                {publicPlaylists.length === 0 && sharedWithMe.length === 0 && sharedTracks.length === 0 && (
-                  <div className="py-16 text-center">
-                    <ListMusic className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
-                    <p className="text-sm text-muted-foreground">No playlists yet.</p>
-                  </div>
+                {artist.socialLinks.spotify && (
+                  <a href={artist.socialLinks.spotify} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
+                    data-testid="link-social-spotify"
+                  >
+                    <SiSpotify className="h-3.5 w-3.5 text-green-500" />Spotify
+                  </a>
+                )}
+                {artist.socialLinks.soundcloud && (
+                  <a href={artist.socialLinks.soundcloud} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
+                    data-testid="link-social-soundcloud"
+                  >
+                    <SiSoundcloud className="h-3.5 w-3.5 text-orange-400" />SoundCloud
+                  </a>
                 )}
               </div>
-            </motion.div>
+            </div>
           )}
 
-          {/* Albums */}
-          {activeTab === "albums" && (
-            <motion.div key="albums" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
-              {albums.length === 0 ? (
-                <div className="py-16 text-center">
-                  <Disc className="mx-auto mb-3 h-8 w-8 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">No albums yet.</p>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {albums.map((album, idx) => (
-                    <motion.div
-                      key={album.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.06 }}
-                      className="group cursor-pointer rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
-                      onClick={() => { setActiveAlbum(album); setAlbumDetailOpen(true); }}
-                    >
-                      <div className={cn("mb-3 h-36 w-full overflow-hidden rounded-xl border border-white/10", !album.coverUrl && "bg-gradient-to-br", album.coverUrl ? "" : album.coverGradient)}>
-                        {album.coverUrl ? <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><Disc className="h-8 w-8 text-white/20" /></div>}
-                      </div>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate font-semibold">{album.title}</div>
-                          <div className="text-xs text-muted-foreground">{(album.tracks?.length ?? album.trackCount ?? 0) === 1 ? "1 track" : `${album.tracks?.length ?? album.trackCount ?? 0} tracks`} · {album.genre}</div>
-                        </div>
-                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 shrink-0 opacity-0 group-hover:opacity-100 transition" onClick={(e) => { e.stopPropagation(); handlePlayAlbum(album); }}>
-                          <Play className="h-3.5 w-3.5 translate-x-px" />
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* About */}
-          {activeTab === "about" && (
-            <motion.div key="about" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="space-y-4">
-
-              {/* Latest Release */}
-              {tracks.length > 0 && (() => {
-                const latest = [...tracks].sort(
-                  (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-                )[0];
-                return (
-                  <div
-                    className="relative overflow-hidden rounded-2xl border border-white/10 cursor-pointer group"
-                    onClick={() => { handlePlayTrack(latest); setActiveTab("tracks"); }}
-                    data-testid="card-latest-release"
-                  >
-                    {/* Blurred cover backdrop */}
-                    {latest.coverUrl && (
-                      <img
-                        src={latest.coverUrl}
-                        alt=""
-                        aria-hidden="true"
-                        className="absolute inset-0 h-full w-full object-cover opacity-20 blur-xl scale-110"
-                      />
-                    )}
-                    <div className={cn("absolute inset-0 bg-gradient-to-br opacity-60", artist.accent)} />
-                    <div className="absolute inset-0 bg-black/40" />
-
-                    <div className="relative flex items-center gap-4 p-4 sm:p-5">
-                      {/* Cover */}
-                      <div className={cn(
-                        "h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/15 shadow-lg sm:h-20 sm:w-20",
-                        !latest.coverUrl && "bg-gradient-to-br from-primary/30 to-fuchsia-500/20 flex items-center justify-center",
-                      )}>
-                        {latest.coverUrl
-                          ? <img src={latest.coverUrl} alt={latest.title} className="h-full w-full object-cover" />
-                          : <Music2 className="h-7 w-7 text-white/30" />}
-                      </div>
-
-                      {/* Info */}
-                      <div className="min-w-0 flex-1">
-                        <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-primary/80">Latest Release</div>
-                        <div className="truncate text-base font-bold sm:text-lg" data-testid="text-latest-release-title">{latest.title}</div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-white/50">
-                          {latest.genre && <span>{latest.genre}</span>}
-                          {latest.genre && <span>·</span>}
-                          <span>{new Date(latest.createdAt).getFullYear()}</span>
-                          {latest.audioDuration > 0 && <><span>·</span><span>{time(latest.audioDuration)}</span></>}
-                        </div>
-                      </div>
-
-                      {/* Play button */}
-                      <div className="shrink-0">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary shadow-[0_4px_20px_-4px_rgba(16,185,129,.7)] transition group-hover:scale-105 group-hover:shadow-[0_6px_28px_-4px_rgba(16,185,129,.85)]">
-                          <Play className="h-5 w-5 translate-x-px text-white" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Bio */}
-              {artist.bio ? (
-                <div className="glass rounded-2xl border border-white/10 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <UserIcon className="h-4 w-4 text-primary" />
-                    <h2 className="text-sm font-semibold">About {displayName}</h2>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line" data-testid="text-artist-bio">{artist.bio}</p>
-                </div>
-              ) : !isOwner && (
-                <div className="glass rounded-2xl border border-white/10 p-5 text-center">
-                  <UserIcon className="mx-auto mb-2 h-6 w-6 text-muted-foreground/30" />
-                  <p className="text-sm text-muted-foreground">{displayName} hasn't added a bio yet.</p>
-                </div>
-              )}
-
-              {/* Stats at a glance */}
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {[
-                  { icon: Headphones, label: "Monthly listeners", value: formatCount(artist.monthlyListeners) },
-                  { icon: Users, label: "Followers", value: formatCount(followCount) },
-                  { icon: Music2, label: "Tracks", value: tracks.length },
-                  { icon: TrendingUp, label: "Total plays", value: formatCount(tracks.reduce((s, t) => s + (t.plays ?? 0), 0)) },
-                ].map((s) => (
-                  <div key={s.label} className="glass rounded-2xl border border-white/8 p-4 text-center" data-testid={`stat-${s.label.replace(/\s+/g, "-").toLowerCase()}`}>
-                    <s.icon className="mx-auto mb-1.5 h-4 w-4 text-primary/70" />
-                    <div className="text-lg font-black tabular-nums">{s.value}</div>
-                    <div className="text-[10px] text-muted-foreground">{s.label}</div>
-                  </div>
-                ))}
+          {/* Location / Website */}
+          {(artist.location || artist.website) && (
+            <div className="glass rounded-2xl border border-white/10 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <MapPin className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">Details</h2>
               </div>
-
-              {/* Social Links */}
-              {artist.socialLinks && Object.values(artist.socialLinks).some(Boolean) && (
-                <div className="glass rounded-2xl border border-white/10 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Link2 className="h-4 w-4 text-primary" />
-                    <h2 className="text-sm font-semibold">Find {displayName} online</h2>
+              <div className="space-y-2">
+                {artist.location && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="text-artist-location">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" />
+                    {artist.location}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {artist.socialLinks.twitter && (
-                      <a href={`https://x.com/${artist.socialLinks.twitter.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
-                        data-testid="link-social-twitter"
-                      >
-                        <SiX className="h-3.5 w-3.5" />{artist.socialLinks.twitter}
-                      </a>
-                    )}
-                    {artist.socialLinks.instagram && (
-                      <a href={`https://instagram.com/${artist.socialLinks.instagram.replace("@", "")}`} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
-                        data-testid="link-social-instagram"
-                      >
-                        <SiInstagram className="h-3.5 w-3.5" />{artist.socialLinks.instagram}
-                      </a>
-                    )}
-                    {artist.socialLinks.spotify && (
-                      <a href={artist.socialLinks.spotify} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
-                        data-testid="link-social-spotify"
-                      >
-                        <SiSpotify className="h-3.5 w-3.5 text-green-500" />Spotify
-                      </a>
-                    )}
-                    {artist.socialLinks.soundcloud && (
-                      <a href={artist.socialLinks.soundcloud} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm hover:bg-white/10 transition"
-                        data-testid="link-social-soundcloud"
-                      >
-                        <SiSoundcloud className="h-3.5 w-3.5 text-orange-400" />SoundCloud
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Location / Website */}
-              {(artist.location || artist.website) && (
-                <div className="glass rounded-2xl border border-white/10 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <h2 className="text-sm font-semibold">Details</h2>
-                  </div>
-                  <div className="space-y-2">
-                    {artist.location && (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground" data-testid="text-artist-location">
-                        <MapPin className="h-3.5 w-3.5 shrink-0" />
-                        {artist.location}
-                      </div>
-                    )}
-                    {artist.website && (
-                      <a href={artist.website} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-2 text-sm text-primary hover:underline"
-                        data-testid="link-artist-website"
-                      >
-                        <Globe className="h-3.5 w-3.5 shrink-0" />
-                        {artist.website.replace(/^https?:\/\//, "")}
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Contact */}
-              {artist.email && (
-                <div className="glass rounded-2xl border border-white/10 p-5">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Mail className="h-4 w-4 text-primary" />
-                    <h2 className="text-sm font-semibold">Contact</h2>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">{artist.email}</span>
-                    <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(artist.email!, "Email")}>
-                      {copied === "Email" ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </motion.div>
+                )}
+                {artist.website && (
+                  <a href={artist.website} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-primary hover:underline"
+                    data-testid="link-artist-website"
+                  >
+                    <Globe className="h-3.5 w-3.5 shrink-0" />
+                    {artist.website.replace(/^https?:\/\//, "")}
+                  </a>
+                )}
+              </div>
+            </div>
           )}
 
-        </AnimatePresence>
+          {/* Contact */}
+          {artist.email && (
+            <div className="glass rounded-2xl border border-white/10 p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Mail className="h-4 w-4 text-primary" />
+                <h2 className="text-sm font-semibold">Contact</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">{artist.email}</span>
+                <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(artist.email!, "Email")}>
+                  {copied === "Email" ? <Check className="h-3 w-3 text-primary" /> : <Copy className="h-3 w-3" />}
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Spacer for PlayerBar */}
         <div className="h-28" aria-hidden="true" />
       </div>
-
-      {/* ── Album Detail Sheet ── */}
-      <AlbumDetailSheet
-        album={activeAlbum}
-        open={albumDetailOpen}
-        onClose={() => setAlbumDetailOpen(false)}
-        onPlayTrack={handlePlayTrack}
-        activeTrackId={active?.id ?? null}
-      />
     </div>
   );
 }

@@ -12,7 +12,6 @@ import { Music2, Pause, Play, Heart, Headphones, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/contexts/player-context";
-import { useAuth } from "@/contexts/auth-context";
 import { TrackActionsMenu } from "@/components/playlists/TrackActionsMenu";
 import type { Track } from "../../../shared/schema";
 
@@ -59,7 +58,6 @@ export function TrackCard({
   onTrackUpdated,
 }: TrackCardProps) {
   const { isPlaying } = usePlayer();
-  const { isAuthenticated } = useAuth();
   const [imgLoaded, setImgLoaded] = useState(false);
   const isActiveAndPlaying = isActive && isPlaying;
 
@@ -98,7 +96,7 @@ export function TrackCard({
           MOBILE  (default)
           Full-height cover strip on the left
       ════════════════════════════════════════════════════════════ */}
-      <div className="flex sm:hidden">
+      <div className="flex sm:hidden h-[72px]">
         {/* ── Full-height cover strip ── */}
         <div
           className={cn(
@@ -145,75 +143,74 @@ export function TrackCard({
           </div>
         </div>
 
-        {/* ── Info panel with PlayScreen-style blurred cover background ── */}
-        <div className="relative flex flex-1 items-center min-w-0 overflow-hidden">
-          {/* Blurred cover background (like PlayScreen) */}
-          {track.coverUrl && (
-            <img
-              src={track.coverUrl}
-              alt=""
-              aria-hidden="true"
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{ filter: "blur(40px) saturate(1.4) brightness(0.5)", transform: "scale(1.15)" }}
+        {/* ── Info panel + Actions (siblings to avoid click propagation) ── */}
+        {/* overflow-hidden creates a stacking context to contain the content div's z-10,
+            preventing it from stacking above visibility controls in MyTrackRow */}
+        <div className="relative flex flex-1 min-w-0 overflow-hidden">
+          {/* Info panel — clickable to play */}
+          <div className="flex flex-1 items-center min-w-0 overflow-hidden cursor-pointer" onClick={() => onPlay(track)}>
+            {/* Blurred cover background (like PlayScreen) — pointer-events-none so it doesn't block sibling actions menu */}
+            {track.coverUrl && (
+              <img
+                src={track.coverUrl}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+                style={{ filter: "blur(40px) saturate(1.4) brightness(0.5)", transform: "scale(1.15)" }}
+              />
+            )}
+
+            {/* Gradient overlay for depth — pointer-events-none */}
+            <div className={cn(
+              "absolute inset-0 pointer-events-none",
+              track.coverGradient
+                ? `bg-gradient-to-br opacity-60`
+                : "bg-gradient-to-br from-emerald-500/20 to-fuchsia-500/20",
+            )}
+              style={track.coverGradient ? { backgroundImage: `linear-gradient(135deg, ${track.coverGradient})`, opacity: 0.6 } : undefined}
             />
-          )}
 
-          {/* Gradient overlay for depth */}
-          <div className={cn(
-            "absolute inset-0",
-            track.coverGradient
-              ? `bg-gradient-to-br opacity-60`
-              : "bg-gradient-to-br from-emerald-500/20 to-fuchsia-500/20",
-          )}
-            style={track.coverGradient ? { backgroundImage: `linear-gradient(135deg, ${track.coverGradient})`, opacity: 0.6 } : undefined}
-          />
+            {/* Dark scrim for text readability — pointer-events-none */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-black/40 to-black/60 pointer-events-none" />
 
-          {/* Dark scrim for text readability */}
-          <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-black/40 to-black/60" />
-
-          {/* Content */}
-          <div className="relative z-10 flex flex-1 items-center min-w-0 pl-3 pr-2 py-3 gap-1">
-            <div className="min-w-0 flex-1">
-              {/* Title */}
-              <div
-                className={cn(
-                  "truncate text-sm font-semibold leading-tight",
-                  isActive ? "text-primary" : "text-white",
+            {/* Content — pr-4 instead of pr-12 since actions menu is now a flex sibling, not overlapping */}
+            <div className="relative z-10 flex flex-1 items-center min-w-0 pl-3 pr-4 py-3">
+              <div className="min-w-0 flex-1 pr-4">
+                {/* Title */}
+                <div
+                  className={cn(
+                    "truncate text-sm font-semibold leading-tight",
+                    isActive ? "text-primary" : "text-white",
+                  )}
+                  data-testid={`text-track-title-${track.id}`}
+                >
+                  {track.title}
+                </div>
+                {/* Artist */}
+                <div className="mt-0.5 flex items-center gap-1 text-xs text-white/60 pointer-events-none">
+                  <Music2 className="h-3 w-3 shrink-0" />
+                  <span className="truncate">{track.artist}</span>
+                </div>
+                {(track as any).visibility === "private" && (
+                  <span className="inline-flex items-center gap-0.5 text-[10px] text-fuchsia-300/70 mt-0.5">
+                    <Lock className="h-2.5 w-2.5" />
+                    Private
+                  </span>
                 )}
-                data-testid={`text-track-title-${track.id}`}
-              >
-                {track.title}
               </div>
-              {/* Artist */}
-              <Link
-                href={`/artist/${track.artistSlug}`}
-                className="mt-0.5 flex items-center gap-1 text-xs text-white/60 hover:text-white/90 transition-colors"
-                data-testid={`link-track-artist-${track.id}`}
-              >
-                <Music2 className="h-3 w-3 shrink-0" />
-                <span className="truncate">{track.artist}</span>
-              </Link>
-              {(track as any).visibility === "private" && (
-                <span className="inline-flex items-center gap-0.5 text-[10px] text-fuchsia-300/70 mt-0.5">
-                  <Lock className="h-2.5 w-2.5" />
-                  Private
-                </span>
-              )}
             </div>
+          </div>
 
-            {/* Actions button */}
-            <div className="shrink-0 self-center">
-              {(isAuthenticated || isOwner) && (
-                <TrackActionsMenu
-                  track={track}
-                  isOwner={isOwner}
-                  size="sm"
-                  variant="ghost"
-                  onTrackDeleted={onTrackDeleted}
-                  onTrackUpdated={onTrackUpdated}
-                />
-              )}
-            </div>
+          {/* Actions button — sibling of info panel, no click propagation to onPlay */}
+          <div className="relative flex items-center shrink-0 pr-3 sm:pr-12" onClick={(e) => e.stopPropagation()}>
+            <TrackActionsMenu
+              track={track}
+              isOwner={isOwner}
+              size="sm"
+              variant="ghost"
+              onTrackDeleted={onTrackDeleted}
+              onTrackUpdated={onTrackUpdated}
+            />
           </div>
         </div>
       </div>
@@ -222,7 +219,7 @@ export function TrackCard({
           DESKTOP  (sm+)
           Square cover with PlayScreen-style background + rich metadata
       ════════════════════════════════════════════════════════════ */}
-      <div className="hidden sm:flex items-stretch">
+      <div className="hidden sm:flex items-stretch h-24">
         {/* ── Cover art ── */}
         <div
           className={cn(
@@ -388,29 +385,14 @@ export function TrackCard({
 
             {/* ── Actions menu ── */}
             <div className="shrink-0 self-center">
-              {(isAuthenticated || isOwner) ? (
-                <TrackActionsMenu
-                  track={track}
-                  isOwner={isOwner}
-                  size="sm"
-                  variant="ghost"
-                  onTrackDeleted={onTrackDeleted}
-                  onTrackUpdated={onTrackUpdated}
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => onPlay(track)}
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-full transition-all duration-200",
-                    "opacity-0 group-hover:opacity-100",
-                    "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white",
-                  )}
-                  aria-label={`Play ${track.title}`}
-                >
-                  <Play className="h-3.5 w-3.5 ml-0.5 fill-current" />
-                </button>
-              )}
+              <TrackActionsMenu
+                track={track}
+                isOwner={isOwner}
+                size="sm"
+                variant="ghost"
+                onTrackDeleted={onTrackDeleted}
+                onTrackUpdated={onTrackUpdated}
+              />
             </div>
           </div>
         </div>

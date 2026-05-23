@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Music2,
-  ListMusic,
+  Disc3,
   Headphones,
   Share2,
   Globe,
@@ -26,22 +26,20 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
-import { usePlaylists } from "@/contexts/playlist-context";
 import { useSharedTracks } from "@/hooks/use-shared-tracks";
 import { useSearchFilter } from "@/hooks/useSearchFilter";
 import { TrackCard } from "@/components/TrackCard";
-import { PlaylistCard } from "@/components/playlists/PlaylistCard";
 import { PaginationControls } from "@/components/PaginationControls";
-import { ShareTrackModal } from "@/components/tracks/ShareTrackModal";
+
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Track } from "../../../shared/schema";
+import type { Track, Album, User } from "../../../shared/schema";
 import type { SharedTrack } from "@shared/schema";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type PrimaryTab = "tracks" | "playlists";
+type PrimaryTab = "tracks" | "albums";
 type TracksSubTab = "my" | "shared";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -144,20 +142,20 @@ function MyTrackRow({
   onPlay,
   onTrackUpdated,
   onTrackDeleted,
-  onShareClick,
   isActive,
   togglingId,
   onToggleVisibility,
+  isOwner,
 }: {
   track: Track;
   index: number;
   onPlay: (t: Track) => void;
   onTrackUpdated: (t: Track) => void;
   onTrackDeleted: (id: string) => void;
-  onShareClick: (trackId: string) => void;
   isActive: boolean;
   togglingId: string | null;
   onToggleVisibility: (track: Track) => void;
+  isOwner?: boolean;
 }) {
   const isPrivate = (track as any).visibility === "private";
   const isToggling = togglingId === track.id;
@@ -174,12 +172,13 @@ function MyTrackRow({
         onPlay={onPlay}
         isActive={isActive}
         index={index}
-        isOwner
+        isOwner={isOwner}
         onTrackDeleted={onTrackDeleted}
         onTrackUpdated={onTrackUpdated}
       />
       {/* Visibility + Share overlaid on the right — desktop only */}
-      <div className="absolute right-12 top-1/2 -translate-y-1/2 hidden items-center gap-1.5 sm:flex">
+      {isOwner && (
+      <div className="absolute right-12 sm:right-12 top-1/2 -translate-y-1/2 flex items-center gap-1 sm:gap-1.5">
         <button
           type="button"
           onClick={() => onToggleVisibility(track)}
@@ -187,7 +186,7 @@ function MyTrackRow({
           title={isPrivate ? "Make public" : "Make private"}
           data-testid={`button-toggle-visibility-${track.id}`}
           className={cn(
-            "flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold transition",
+            "flex items-center gap-1 rounded-lg border px-1 sm:px-2 py-1 text-[10px] font-semibold transition",
             isPrivate
               ? "border-white/15 bg-white/5 text-muted-foreground hover:border-amber-400/30 hover:bg-amber-400/10 hover:text-amber-300"
               : "border-white/15 bg-white/5 text-muted-foreground hover:border-emerald-400/30 hover:bg-emerald-400/10 hover:text-emerald-300",
@@ -201,19 +200,8 @@ function MyTrackRow({
             <><Globe className="h-3 w-3" /><span className="hidden sm:inline">Public</span></>
           )}
         </button>
-        {isPrivate && (
-          <button
-            type="button"
-            onClick={() => onShareClick(track.id)}
-            title="Manage sharing"
-            data-testid={`button-share-track-${track.id}`}
-            className="flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[10px] font-semibold text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
-          >
-            <Share2 className="h-3 w-3" />
-            <span className="hidden sm:inline">Share</span>
-          </button>
-        )}
       </div>
+      )}
     </motion.div>
   );
 }
@@ -224,7 +212,6 @@ export default function MyTracks() {
   const { user, isAuthenticated } = useAuth();
   const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
   const { sharedTracks, loading: sharedTracksLoading, fetchSharedTracks } = useSharedTracks();
-  const { sharedWithMe, fetchSharedWithMe } = usePlaylists();
   const { toast } = useToast();
 
   // ── Primary tab: Tracks / Playlists ────────────────────────────────────
@@ -239,7 +226,6 @@ export default function MyTracks() {
   const [myTracksRefreshing, setMyTracksRefreshing] = useState(false);
   const [visibilityFilter, setVisibilityFilter] = useState<"all" | "public" | "private">("all");
   const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [shareModalTrackId, setShareModalTrackId] = useState<string | null>(null);
 
   // ── State: Shared with Me ──────────────────────────────────────────────
   const [sharedSearch, setSharedSearch] = useState("");
@@ -247,8 +233,10 @@ export default function MyTracks() {
   const [sharedShowFilters, setSharedShowFilters] = useState(false);
   const [sharedPage, setSharedPage] = useState(1);
 
-  // ── State: Playlists ───────────────────────────────────────────────────
-  const [playlistSearch, setPlaylistSearch] = useState("");
+  // ── State: Albums ──────────────────────────────────────────────────────
+  const [albums, setAlbums] = useState<Album[]>([]);
+  const [albumsLoading, setAlbumsLoading] = useState(true);
+  const [albumSearch, setAlbumSearch] = useState("");
 
   // ── My Tracks: sort config ─────────────────────────────────────────────
   const myTrackSortConfig = useMemo(() => [
@@ -256,8 +244,8 @@ export default function MyTracks() {
     { value: "oldest", label: "Oldest", comparer: (a: Track, b: Track) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() },
     { value: "plays", label: "Most Played", comparer: (a: Track, b: Track) => (b.plays ?? 0) - (a.plays ?? 0) },
     { value: "likes", label: "Most Liked", comparer: (a: Track, b: Track) => (b.likes ?? 0) - (a.likes ?? 0) },
-    { value: "az", label: "A \u2192 Z", comparer: (a: Track, b: Track) => a.title.localeCompare(b.title) },
-    { value: "za", label: "Z \u2192 A", comparer: (a: Track, b: Track) => b.title.localeCompare(a.title) },
+    { value: "az", label: "A → Z", comparer: (a: Track, b: Track) => a.title.localeCompare(b.title) },
+    { value: "za", label: "Z → A", comparer: (a: Track, b: Track) => b.title.localeCompare(a.title) },
   ], []);
 
   const myTrackSearchFields: (keyof Track)[] = useMemo(() => ["title", "genre", "artist"], []);
@@ -298,8 +286,185 @@ export default function MyTracks() {
 
   useEffect(() => {
     fetchSharedTracks();
-    fetchSharedWithMe();
-  }, [fetchSharedTracks, fetchSharedWithMe]);
+  }, [fetchSharedTracks]);
+
+  // ── Load albums ────────────────────────────────────────────────────────
+  const loadAlbums = useCallback(async () => {
+    if (!user?.id) return;
+    setAlbumsLoading(true);
+    try {
+      const albumsData = await apiRequestJson<Album[]>(
+        "GET",
+        API_ENDPOINTS.albums.byUser(user.id),
+      );
+      const enriched = await Promise.all(
+        (Array.isArray(albumsData) ? albumsData : []).map(async (album) => {
+          try {
+            const detail = await apiRequestJson<Album>("GET", API_ENDPOINTS.albums.byId(album.id));
+            return { ...album, ...detail };
+          } catch {
+            return album;
+          }
+        }),
+      );
+      setAlbums(enriched);
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Couldn't load albums",
+        description: err instanceof Error ? err.message : "Please try again.",
+      });
+    } finally {
+      setAlbumsLoading(false);
+    }
+  }, [user?.id, toast]);
+
+  useEffect(() => {
+    if (user?.id) loadAlbums();
+  }, [user?.id, loadAlbums]);
+
+  // ── Artist View: resolve slug to user and fetch their tracks ────────────
+  const artistSlug = new URLSearchParams(window.location.search).get("artist");
+  const isArtistView = !!artistSlug && artistSlug.length > 0;
+
+  const [viewingArtist, setViewingArtist] = useState<User | null>(null);
+  const [artistTracks, setArtistTracks] = useState<Track[]>([]);
+  const [artistAlbums, setArtistAlbums] = useState<Album[]>([]);
+  const [artistViewLoading, setArtistViewLoading] = useState(false);
+
+  const [artistSearch, setArtistSearch] = useState("");
+  const [artistAlbumSearch, setArtistAlbumSearch] = useState("");
+  const [artistAlbumTab, setArtistAlbumTab] = useState<"tracks" | "albums">("tracks");
+  const [artistSort, setArtistSort] = useState("latest");
+  const [artistPage, setArtistPage] = useState(1);
+
+  const ARTIST_PAGE_SIZE = 10;
+
+  useEffect(() => {
+    if (!isArtistView) return;
+    let cancelled = false;
+
+    (async () => {
+      setArtistViewLoading(true);
+      try {
+        // Resolve slug to user data
+        let userData: any;
+        try {
+          userData = await apiRequestJson("GET", API_ENDPOINTS.users.byUsername(artistSlug!));
+        } catch {
+          const searchResults = await apiRequestJson<any>(
+            "GET", API_ENDPOINTS.search.query, undefined,
+            { q: artistSlug!, type: "tracks", limit: 1 },
+          ).catch(() => null);
+          const trackResult = searchResults?.tracks?.[0];
+          const resolvedId = trackResult?.userId ?? trackResult?.user_id;
+          if (!resolvedId) throw new Error("Could not resolve artist slug");
+          userData = await apiRequestJson("GET", API_ENDPOINTS.users.byId(resolvedId));
+        }
+        if (cancelled) return;
+        setViewingArtist(userData);
+
+        // Fetch their tracks
+        const data = await apiRequestJson<Track[]>(
+          "GET",
+          API_ENDPOINTS.tracks.list,
+          undefined,
+          { userId: userData.id },
+        );
+        if (cancelled) return;
+        const rawTracks = (Array.isArray(data) ? data : []).filter(
+          (t) => t.userId === userData.id || (t as any).user_id === userData.id,
+        );
+        const isOwnerOfArtistView = userData.id === user?.id;
+        setArtistTracks(
+          isOwnerOfArtistView
+            ? rawTracks
+            : rawTracks.filter((t) => (t as any).visibility !== "private"),
+        );
+
+        // Fetch their albums (hide unpublished for non-owners)
+        const albumsData = await apiRequestJson<Album[]>(
+          "GET",
+          API_ENDPOINTS.albums.byUser(userData.id),
+        );
+        if (cancelled) return;
+        const enriched = await Promise.all(
+          (Array.isArray(albumsData) ? albumsData : []).map(async (album) => {
+            try {
+              const detail = await apiRequestJson<Album>("GET", API_ENDPOINTS.albums.byId(album.id));
+              return { ...album, ...detail };
+            } catch {
+              return album;
+            }
+          }),
+        );
+        setArtistAlbums(
+          isOwnerOfArtistView
+            ? enriched
+            : enriched.filter((a) => a.published === true),
+        );
+      } catch (err) {
+        if (!cancelled) {
+          toast({
+            variant: "destructive",
+            title: "Couldn't load artist tracks",
+            description: err instanceof Error ? err.message : "Please try again.",
+          });
+        }
+      } finally {
+        if (!cancelled) setArtistViewLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [artistSlug]);
+
+  // Artist tracks: filter/sort/paginate
+  const filteredArtistTracks = useMemo(() => {
+    if (!artistSearch) return artistTracks;
+    const q = artistSearch.toLowerCase();
+    return artistTracks.filter((t) =>
+      ["title", "genre", "artist"].some((f) =>
+        String((t as any)[f] ?? "").toLowerCase().includes(q),
+      ),
+    );
+  }, [artistTracks, artistSearch]);
+
+  const sortedArtistTracks = useMemo(() => {
+    const arr = [...filteredArtistTracks];
+    if (artistSort === "latest") {
+      arr.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    } else if (artistSort === "oldest") {
+      arr.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    } else if (artistSort === "plays") {
+      arr.sort((a, b) => (b.plays ?? 0) - (a.plays ?? 0));
+    } else if (artistSort === "likes") {
+      arr.sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
+    } else if (artistSort === "az") {
+      arr.sort((a, b) => a.title.localeCompare(b.title));
+    } else if (artistSort === "za") {
+      arr.sort((a, b) => b.title.localeCompare(a.title));
+    }
+    return arr;
+  }, [filteredArtistTracks, artistSort]);
+
+  const artistTotalPages = Math.max(1, Math.ceil(sortedArtistTracks.length / ARTIST_PAGE_SIZE));
+  const artistSafePage = Math.min(artistPage, artistTotalPages);
+  const pagedArtistTracks = sortedArtistTracks.slice(
+    (artistSafePage - 1) * ARTIST_PAGE_SIZE,
+    artistSafePage * ARTIST_PAGE_SIZE,
+  );
+
+  // Artist albums: filter
+  const filteredArtistAlbums = useMemo(() => {
+    if (!artistAlbumSearch) return artistAlbums;
+    const q = artistAlbumSearch.toLowerCase();
+    return artistAlbums.filter((a) =>
+      a.title.toLowerCase().includes(q) || a.genre.toLowerCase().includes(q),
+    );
+  }, [artistAlbums, artistAlbumSearch]);
+
+  useEffect(() => { setArtistPage(1); }, [artistSearch, artistSort]);
 
   // ── My Tracks: visibility filter + search/sort/paginate ────────────────
   const visibilityFiltered = useMemo(() => {
@@ -372,14 +537,14 @@ export default function MyTracks() {
 
   useEffect(() => { setSharedPage(1); }, [sharedSearch, sharedSortBy]);
 
-  // ── Playlists: filter ──────────────────────────────────────────────────
-  const filteredPlaylists = useMemo(() => {
-    if (!playlistSearch) return sharedWithMe;
-    const q = playlistSearch.toLowerCase();
-    return sharedWithMe.filter((pl) =>
-      pl.name.toLowerCase().includes(q),
+  // ── Albums: filter ─────────────────────────────────────────────────────
+  const filteredAlbums = useMemo(() => {
+    if (!albumSearch) return albums;
+    const q = albumSearch.toLowerCase();
+    return albums.filter((a) =>
+      a.title.toLowerCase().includes(q) || a.genre.toLowerCase().includes(q),
     );
-  }, [sharedWithMe, playlistSearch]);
+  }, [albums, albumSearch]);
 
   // ── Handlers ───────────────────────────────────────────────────────────
   const handlePlay = useCallback(
@@ -443,20 +608,10 @@ export default function MyTracks() {
       prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
     );
 
-  // ── Derived counts ─────────────────────────────────────────────────────
-  const publicCount = useMemo(
-    () => myTracks.filter((t) => (t as any).visibility !== "private").length,
-    [myTracks],
-  );
-  const privateCount = useMemo(
-    () => myTracks.filter((t) => (t as any).visibility === "private").length,
-    [myTracks],
-  );
-
   // ── Primary tabs config ────────────────────────────────────────────────
   const primaryTabs: { key: PrimaryTab; label: string; icon: React.ElementType; count: number }[] = [
     { key: "tracks", label: "Tracks", icon: Music2, count: myTracks.length + sharedTracks.length },
-    { key: "playlists", label: "Playlists", icon: ListMusic, count: sharedWithMe.length },
+    { key: "albums", label: "Albums", icon: Disc3, count: albums.length },
   ];
 
   // ── Sub-tabs config (within Tracks) ────────────────────────────────────
@@ -502,17 +657,231 @@ export default function MyTracks() {
               </div>
               <div>
                 <h1 className="text-base font-semibold tracking-tight sm:text-lg" data-testid="text-my-tracks-heading">
-                  My Tracks
+                  {isArtistView ? `Music by ${viewingArtist?.displayName || viewingArtist?.username || artistSlug}` : "My Tracks"}
                 </h1>
                 <p className="hidden text-xs text-muted-foreground sm:block">
-                  {myTracks.length} track{myTracks.length !== 1 ? "s" : ""}
-                  {sharedTracks.length > 0 && ` \u00b7 ${sharedTracks.length} shared`}
+                  {isArtistView
+                    ? `${artistTracks.length} track${artistTracks.length !== 1 ? "s" : ""}`
+                    : `${myTracks.length} track${myTracks.length !== 1 ? "s" : ""}${sharedTracks.length > 0 ? ` \u00b7 ${sharedTracks.length} shared` : ""}`
+                  }
                 </p>
               </div>
             </div>
           </div>
+          {!isArtistView && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              onClick={() => loadMyTracks(true)}
+              disabled={myTracksRefreshing}
+              className="border-white/10 bg-white/5 h-9 w-9 shrink-0"
+              title="Refresh"
+              data-testid="button-refresh-my-tracks"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", myTracksRefreshing && "animate-spin")} />
+            </Button>
+          )}
         </header>
 
+        {/* ── Artist View (read-only tracks + albums) ── */}
+        {isArtistView ? (
+          <div className="flex flex-1 flex-col">
+            {artistViewLoading ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/5" />
+                ))}
+              </div>
+            ) : (
+              <>
+                {/* Tabs */}
+                <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl border border-white/8 bg-white/3 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setArtistAlbumTab("tracks")}
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-medium transition-all",
+                      artistAlbumTab === "tracks"
+                        ? "bg-white/10 text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Music2 className="h-3.5 w-3.5 shrink-0" />
+                    Tracks
+                    {artistTracks.length > 0 && (
+                      <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] tabular-nums", artistAlbumTab === "tracks" ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground")}>
+                        {artistTracks.length}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setArtistAlbumTab("albums")}
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-medium transition-all",
+                      artistAlbumTab === "albums"
+                        ? "bg-white/10 text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Disc3 className="h-3.5 w-3.5 shrink-0" />
+                    Albums
+                    {artistAlbums.length > 0 && (
+                      <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] tabular-nums", artistAlbumTab === "albums" ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground")}>
+                        {artistAlbums.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {/* Tracks tab */}
+                {artistAlbumTab === "tracks" && (
+                  artistTracks.length === 0 ? (
+                    <div className="py-16 text-center">
+                      <Headphones className="mx-auto mb-3 h-10 w-10 text-muted-foreground/25" />
+                      <p className="text-sm font-medium text-muted-foreground">No tracks found</p>
+                      <p className="mt-1 text-xs text-muted-foreground/60">This artist hasn't released any tracks yet.</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Toolbar: Search + Sort */}
+                      <div className="mb-4">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <div className="relative flex-1 sm:max-w-sm">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                            <input
+                              type="text"
+                              value={artistSearch}
+                              onChange={(e) => setArtistSearch(e.target.value)}
+                              placeholder="Search tracks, genres…"
+                              className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <div className="relative">
+                              <select
+                                value={artistSort}
+                                onChange={(e) => setArtistSort(e.target.value)}
+                                className="rounded-xl border border-white/15 bg-white/10 pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition cursor-pointer appearance-none [&>option]:bg-popover [&>option]:text-popover-foreground"
+                              >
+                                <option value="latest">Latest</option>
+                                <option value="oldest">Oldest</option>
+                                <option value="plays">Most Played</option>
+                                <option value="likes">Most Liked</option>
+                                <option value="az">A → Z</option>
+                                <option value="za">Z → A</option>
+                              </select>
+                              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            </div>
+                          </div>
+                        </div>
+                        <p className="mt-3 text-xs text-muted-foreground/60">
+                          {artistSearch.trim()
+                            ? `${sortedArtistTracks.length} ${sortedArtistTracks.length === 1 ? "track" : "tracks"} for "${artistSearch}"`
+                            : `${sortedArtistTracks.length} ${sortedArtistTracks.length === 1 ? "track" : "tracks"}`}
+                        </p>
+                      </div>
+
+                      {pagedArtistTracks.length === 0 ? (
+                        <div className="py-16 text-center">
+                          <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/25" />
+                          <p className="text-sm text-muted-foreground">No tracks match "{artistSearch}"</p>
+                          <button type="button" onClick={() => setArtistSearch("")} className="mt-3 text-xs text-primary hover:underline">Clear search</button>
+                        </div>
+                      ) : (
+                        <>
+                          <AnimatePresence mode="popLayout">
+                            <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
+                              {pagedArtistTracks.map((track, idx) => (
+                                <TrackCard
+                                  key={track.id}
+                                  track={track}
+                                  onPlay={handlePlay}
+                                  isActive={active?.id === track.id}
+                                  index={idx}
+                                />
+                              ))}
+                            </div>
+                          </AnimatePresence>
+                          <PaginationControls
+                            currentPage={artistSafePage}
+                            totalPages={artistTotalPages}
+                            onPageChange={setArtistPage}
+                          />
+                        </>
+                      )}
+                    </>
+                  )
+                )}
+
+                {/* Albums tab */}
+                {artistAlbumTab === "albums" && (
+                  <>
+                    <div className="mb-6">
+                      <div className="relative max-w-xs">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          type="text"
+                          value={artistAlbumSearch}
+                          onChange={(e) => setArtistAlbumSearch(e.target.value)}
+                          placeholder="Search albums…"
+                          className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
+                        />
+                      </div>
+                    </div>
+
+                    {filteredArtistAlbums.length === 0 && artistAlbums.length > 0 ? (
+                      <div className="glass rounded-2xl p-12 text-center">
+                        <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                        <p className="text-sm text-muted-foreground">No albums matching "{artistAlbumSearch}"</p>
+                        <button type="button" onClick={() => setArtistAlbumSearch("")} className="mt-3 text-xs text-primary hover:underline">Clear search</button>
+                      </div>
+                    ) : artistAlbums.length === 0 ? (
+                      <div className="glass rounded-2xl p-12 text-center">
+                        <Disc3 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                        <p className="text-sm text-muted-foreground">No albums yet</p>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {filteredArtistAlbums.map((album, idx) => (
+                          <motion.div
+                            key={album.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: idx * 0.06 }}
+                            className="group rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
+                          >
+                            <div className={cn("mb-3 h-36 w-full overflow-hidden rounded-xl border border-white/10", !album.coverUrl && "bg-gradient-to-br", album.coverUrl ? "" : (album.coverGradient ?? "from-emerald-500/20 to-fuchsia-500/20"))}>
+                              {album.coverUrl ? (
+                                <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <Disc3 className="h-8 w-8 text-white/20" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold">{album.title}</div>
+                                <div className="mt-0.5 text-xs text-muted-foreground">
+                                  {album.genre}
+                                  {(album as any).trackCount ? ` \u00b7 ${(album as any).trackCount} track${(album as any).trackCount !== 1 ? "s" : ""}` : ""}
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        ) : (
+          <>
         {/* ── Primary tabs (Artist-style) ── */}
         <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl border border-white/8 bg-white/3 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {primaryTabs.map((tab) => {
@@ -557,7 +926,7 @@ export default function MyTracks() {
               className="flex flex-1 flex-col"
             >
               {/* ── Sub-tabs: My Tracks / Shared with Me ── */}
-              <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-white/8 bg-white/3 p-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden self-start">
+              <div className="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-white/8 bg-white/3 p-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-full sm:self-start">
                 {tracksSubTabs.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTracksTab === tab.key;
@@ -567,7 +936,7 @@ export default function MyTracks() {
                       key={tab.key}
                       onClick={() => setActiveTracksTab(tab.key)}
                       className={cn(
-                        "flex items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all",
+                        "flex flex-1 sm:flex-none items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition-all",
                         isActive
                           ? "bg-white/10 text-foreground shadow-sm"
                           : "text-muted-foreground hover:text-foreground",
@@ -597,43 +966,6 @@ export default function MyTracks() {
                     transition={{ duration: 0.2 }}
                     className="flex flex-1 flex-col"
                   >
-                    {/* Stats row */}
-                    {!myTracksLoading && myTracks.length > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mb-4 grid grid-cols-3 gap-2 sm:gap-3"
-                      >
-                        <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/3 p-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
-                            <Music2 className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-black tabular-nums">{myTracks.length}</div>
-                            <div className="text-[10px] text-muted-foreground">Total</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/3 p-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-400">
-                            <Globe className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-black tabular-nums">{publicCount}</div>
-                            <div className="text-[10px] text-muted-foreground">Public</div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 rounded-xl border border-white/8 bg-white/3 p-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-500/15 text-amber-400">
-                            <Lock className="h-4 w-4" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-black tabular-nums">{privateCount}</div>
-                            <div className="text-[10px] text-muted-foreground">Private</div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-
                     {/* Toolbar: Search + Visibility pills + Sort */}
                     {!myTracksLoading && myTracks.length > 0 && (
                       <div className="mb-4">
@@ -645,65 +977,55 @@ export default function MyTracks() {
                               type="text"
                               value={mySearch}
                               onChange={(e) => setMySearch(e.target.value)}
-                              placeholder="Search tracks, genres\u2026"
+                              placeholder="Search tracks, genres…"
                               data-testid="input-my-tracks-search"
                               className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
                             />
                           </div>
 
-                          {/* Visibility pills */}
-                          <div className="flex items-center gap-1 shrink-0">
-                            {(["all", "public", "private"] as const).map((key) => (
-                              <button
-                                key={key}
-                                type="button"
-                                onClick={() => setVisibilityFilter(key)}
-                                data-testid={`pill-visibility-${key}`}
-                                className={cn(
-                                  "rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition",
-                                  visibilityFilter === key
-                                    ? "bg-primary/20 text-primary"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-white/5",
-                                )}
-                              >
-                                {key === "all" ? "All" : key === "public" ? "Public" : "Private"}
-                              </button>
-                            ))}
-                          </div>
+                          {/* Filter + Sort row */}
+                          <div className="flex items-center justify-between gap-2 sm:justify-start">
+                            {/* Visibility pills */}
+                            <div className="flex items-center gap-1 shrink-0">
+                              {(["all", "public", "private"] as const).map((key) => (
+                                <button
+                                  key={key}
+                                  type="button"
+                                  onClick={() => setVisibilityFilter(key)}
+                                  data-testid={`pill-visibility-${key}`}
+                                  className={cn(
+                                    "rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition",
+                                    visibilityFilter === key
+                                      ? "bg-primary/20 text-primary"
+                                      : "text-muted-foreground hover:text-foreground hover:bg-white/5",
+                                  )}
+                                >
+                                  {key === "all" ? "All" : key === "public" ? "Public" : "Private"}
+                                </button>
+                              ))}
+                            </div>
 
-                          {/* Sort */}
-                          <div className="flex items-center gap-2 shrink-0">
-                            <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <div className="relative">
-                              <select
-                                value={mySort}
-                                onChange={(e) => setMySort(e.target.value)}
-                                data-testid="select-sort-my-tracks"
-                                className="rounded-xl border border-white/15 bg-white/10 pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition cursor-pointer appearance-none [&>option]:bg-popover [&>option]:text-popover-foreground"
-                              >
-                                <option value="latest">Latest</option>
-                                <option value="oldest">Oldest</option>
-                                <option value="plays">Most Played</option>
-                                <option value="likes">Most Liked</option>
-                                <option value="az">A \u2192 Z</option>
-                                <option value="za">Z \u2192 A</option>
-                              </select>
-                              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                            {/* Sort */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <div className="relative">
+                                <select
+                                  value={mySort}
+                                  onChange={(e) => setMySort(e.target.value)}
+                                  data-testid="select-sort-my-tracks"
+                                  className="rounded-xl border border-white/15 bg-white/10 pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition cursor-pointer appearance-none [&>option]:bg-popover [&>option]:text-popover-foreground"
+                                >
+                                  <option value="latest">Latest</option>
+                                  <option value="oldest">Oldest</option>
+                                  <option value="plays">Most Played</option>
+                                  <option value="likes">Most Liked</option>
+                                  <option value="az">A → Z</option>
+                                  <option value="za">Z → A</option>
+                                </select>
+                                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                              </div>
                             </div>
                           </div>
-
-                          {/* Refresh */}
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            onClick={() => loadMyTracks(true)}
-                            disabled={myTracksRefreshing}
-                            className="border-white/10 bg-white/5 h-9 w-9 shrink-0"
-                            title="Refresh"
-                          >
-                            <RefreshCw className={cn("h-3.5 w-3.5", myTracksRefreshing && "animate-spin")} />
-                          </Button>
                         </div>
 
                         {/* Result count */}
@@ -770,7 +1092,7 @@ export default function MyTracks() {
                     ) : (
                       <>
                         <AnimatePresence mode="popLayout">
-                          <div className="grid gap-2 sm:gap-3">
+                          <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
                             {myPaged.map((track, idx) => (
                               <MyTrackRow
                                 key={track.id}
@@ -779,10 +1101,10 @@ export default function MyTracks() {
                                 onPlay={handlePlay}
                                 onTrackUpdated={handleTrackUpdated}
                                 onTrackDeleted={handleTrackDeleted}
-                                onShareClick={(id) => setShareModalTrackId(id)}
                                 isActive={active?.id === track.id}
                                 togglingId={togglingId}
                                 onToggleVisibility={handleToggleVisibility}
+                                isOwner={!isArtistView}
                               />
                             ))}
                           </div>
@@ -815,7 +1137,7 @@ export default function MyTracks() {
                           type="text"
                           value={sharedSearch}
                           onChange={(e) => setSharedSearch(e.target.value)}
-                          placeholder="Search shared tracks\u2026"
+                          placeholder="Search shared tracks…"
                           data-testid="input-shared-tracks-search"
                           className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
                         />
@@ -963,11 +1285,11 @@ export default function MyTracks() {
           )}
 
           {/* ════════════════════════════════════════════════════════════════ */}
-          {/* PLAYLISTS TAB */}
+          {/* ALBUMS TAB */}
           {/* ════════════════════════════════════════════════════════════════ */}
-          {activeTab === "playlists" && (
+          {activeTab === "albums" && (
             <motion.div
-              key="playlists"
+              key="albums"
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
@@ -975,71 +1297,95 @@ export default function MyTracks() {
               className="flex-1"
             >
               {/* Search */}
-              <div className="mb-4">
+              <div className="mb-6">
                 <div className="relative max-w-xs">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                   <input
                     type="text"
-                    value={playlistSearch}
-                    onChange={(e) => setPlaylistSearch(e.target.value)}
-                    placeholder="Search playlists\u2026"
-                    data-testid="input-playlist-search"
+                    value={albumSearch}
+                    onChange={(e) => setAlbumSearch(e.target.value)}
+                    placeholder="Search albums…"
+                    data-testid="input-album-search"
                     className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
                   />
                 </div>
               </div>
 
-              {/* Playlist content */}
-              {sharedWithMe.length === 0 ? (
-                <div className="glass rounded-2xl p-12 text-center">
-                  <ListMusic className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">
-                    No playlists have been shared with you yet
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground/60">
-                    When someone shares a playlist with you, it will appear here
-                  </p>
+              {/* Album content */}
+              {albumsLoading ? (
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-52 animate-pulse rounded-2xl bg-white/5" />
+                  ))}
                 </div>
-              ) : filteredPlaylists.length === 0 ? (
+              ) : filteredAlbums.length === 0 && albums.length > 0 ? (
                 <div className="glass rounded-2xl p-12 text-center">
+                  <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
                   <p className="text-sm text-muted-foreground">
-                    No playlists matching "{playlistSearch}"
+                    No albums matching "{albumSearch}"
                   </p>
                   <Button
                     variant="secondary"
                     size="sm"
                     className="mt-4 border-white/10 bg-white/5"
-                    onClick={() => setPlaylistSearch("")}
+                    onClick={() => setAlbumSearch("")}
                   >
                     Clear search
                   </Button>
                 </div>
+              ) : albums.length === 0 ? (
+                <div className="glass rounded-2xl p-12 text-center">
+                  <Disc3 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">No albums yet</p>
+                  <p className="mt-1 text-xs text-muted-foreground/60">
+                    Create your first album to organize your tracks.
+                  </p>
+                </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                  {filteredPlaylists.map((playlist) => (
-                    <PlaylistCard
-                      key={playlist.id}
-                      playlist={playlist}
-                      onPlaylistDeleted={() => fetchSharedWithMe()}
-                    />
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {filteredAlbums.map((album, idx) => (
+                    <motion.div
+                      key={album.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: idx * 0.06 }}
+                      className="group rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
+                    >
+                      <div
+                        className={cn(
+                          "mb-3 h-36 w-full overflow-hidden rounded-xl border border-white/10",
+                          !album.coverUrl && "bg-gradient-to-br",
+                          album.coverUrl ? "" : (album.coverGradient ?? "from-emerald-500/20 to-fuchsia-500/20"),
+                        )}
+                      >
+                        {album.coverUrl ? (
+                          <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Disc3 className="h-8 w-8 text-white/20" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold">{album.title}</div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            {album.genre}
+                            {(album as any).trackCount ? ` · ${(album as any).trackCount} track${(album as any).trackCount !== 1 ? "s" : ""}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
                   ))}
                 </div>
               )}
             </motion.div>
           )}
         </AnimatePresence>
-
+          </>
+        )}
         <div className="h-8" aria-hidden="true" />
       </div>
-
-      {/* Share modal */}
-      {shareModalTrackId && (
-        <ShareTrackModal
-          trackId={shareModalTrackId}
-          open={!!shareModalTrackId}
-          onOpenChange={(open) => { if (!open) setShareModalTrackId(null); }}
-        />
-      )}
     </div>
   );
 }

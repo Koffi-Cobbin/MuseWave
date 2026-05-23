@@ -1,37 +1,21 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
-  Music2,
   Globe,
   Lock,
-  Share2,
   UploadCloud,
-  Loader2,
   TrendingUp,
-  Eye,
-  EyeOff,
   BarChart3,
-  Users,
   RefreshCw,
-  Search,
-  SlidersHorizontal,
-  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
-import { usePlayer } from "@/contexts/player-context";
 import { useToast } from "@/hooks/use-toast";
-import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
+import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
-import { TrackCard } from "@/components/TrackCard";
-import { ShareTrackModal } from "@/components/tracks/ShareTrackModal";
-import { PaginationControls } from "@/components/PaginationControls";
-import { useSearchFilter } from "@/hooks/useSearchFilter";
 import type { Track } from "../../../shared/schema";
-
-type VisibilityFilter = "all" | "public" | "private";
 
 // ─── Stats Card ───────────────────────────────────────────────────────────────
 
@@ -59,113 +43,15 @@ function StatCard({
   );
 }
 
-// ─── Dashboard Track Row ──────────────────────────────────────────────────────
-
-function DashboardTrackRow({
-  track,
-  index,
-  onPlay,
-  onTrackUpdated,
-  onTrackDeleted,
-  onShareClick,
-  isActive,
-  togglingId,
-  onToggleVisibility,
-}: {
-  track: Track;
-  index: number;
-  onPlay: (t: Track) => void;
-  onTrackUpdated: (t: Track) => void;
-  onTrackDeleted: (id: string) => void;
-  onShareClick: (trackId: string) => void;
-  isActive: boolean;
-  togglingId: string | null;
-  onToggleVisibility: (track: Track) => void;
-}) {
-  const isPrivate = (track as any).visibility === "private";
-  const isToggling = togglingId === track.id;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, delay: index * 0.04 }}
-      className="group relative overflow-hidden"
-    >
-      <TrackCard
-        track={track}
-        onPlay={onPlay}
-        isActive={isActive}
-        index={index}
-        isOwner
-        onTrackDeleted={onTrackDeleted}
-        onTrackUpdated={onTrackUpdated}
-      />
-      {/* Visibility + Share overlaid on the right — desktop only */}
-      <div className="absolute right-12 top-1/2 -translate-y-1/2 hidden items-center gap-1.5 sm:flex">
-        <button
-          type="button"
-          onClick={() => onToggleVisibility(track)}
-          disabled={isToggling}
-          title={isPrivate ? "Make public" : "Make private"}
-          data-testid={`button-toggle-visibility-${track.id}`}
-          className={cn(
-            "flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold transition",
-            isPrivate
-              ? "border-white/15 bg-white/5 text-muted-foreground hover:border-amber-400/30 hover:bg-amber-400/10 hover:text-amber-300"
-              : "border-white/15 bg-white/5 text-muted-foreground hover:border-emerald-400/30 hover:bg-emerald-400/10 hover:text-emerald-300",
-          )}
-        >
-          {isToggling ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : isPrivate ? (
-            <><Lock className="h-3 w-3" /><span className="hidden sm:inline">Private</span></>
-          ) : (
-            <><Globe className="h-3 w-3" /><span className="hidden sm:inline">Public</span></>
-          )}
-        </button>
-        {isPrivate && (
-          <button
-            type="button"
-            onClick={() => onShareClick(track.id)}
-            title="Manage sharing"
-            data-testid={`button-share-track-${track.id}`}
-            className="flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-2 py-1 text-[10px] font-semibold text-muted-foreground transition hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
-          >
-            <Share2 className="h-3 w-3" />
-            <span className="hidden sm:inline">Share</span>
-          </button>
-        )}
-      </div>
-    </motion.div>
-  );
-}
-
 // ─── Main Dashboard Page ──────────────────────────────────────────────────────
 
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
-  const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
   const { toast } = useToast();
 
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [visibilityFilter, setVisibilityFilter] = useState<VisibilityFilter>("all");
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [shareModalTrackId, setShareModalTrackId] = useState<string | null>(null);
-
-  // ── Search / Sort config ─────────────────────────────────────────────────
-  const trackSortConfig = useMemo(() => [
-    { value: "latest", label: "Latest", comparer: (a: Track, b: Track) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime() },
-    { value: "oldest", label: "Oldest", comparer: (a: Track, b: Track) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime() },
-    { value: "plays", label: "Most Played", comparer: (a: Track, b: Track) => (b.plays ?? 0) - (a.plays ?? 0) },
-    { value: "likes", label: "Most Liked", comparer: (a: Track, b: Track) => (b.likes ?? 0) - (a.likes ?? 0) },
-    { value: "az", label: "A → Z", comparer: (a: Track, b: Track) => a.title.localeCompare(b.title) },
-    { value: "za", label: "Z → A", comparer: (a: Track, b: Track) => b.title.localeCompare(a.title) },
-  ], []);
-
-  const trackSearchFields: (keyof Track)[] = useMemo(() => ["title", "genre", "artist"], []);
 
   const loadTracks = async (silent = false) => {
     if (!user?.id) return;
@@ -199,34 +85,6 @@ export default function Dashboard() {
     if (user?.id) loadTracks();
   }, [user?.id]);
 
-  // Step 1: Visibility filter (remains separate)
-  const visibilityFiltered = useMemo(() => {
-    if (visibilityFilter === "public")
-      return tracks.filter((t) => (t as any).visibility !== "private");
-    if (visibilityFilter === "private")
-      return tracks.filter((t) => (t as any).visibility === "private");
-    return tracks;
-  }, [tracks, visibilityFilter]);
-
-  // Step 2: Search + Sort + Pagination (reusable across any data)
-  const {
-    search: trackSearch,
-    setSearch: setTrackSearch,
-    sort: trackSort,
-    setSort: setTrackSort,
-    page: trackPage,
-    setPage: setTrackPage,
-    filtered: searchFiltered,
-    paged: pagedTracks,
-    totalPages: trackTotalPages,
-  } = useSearchFilter({
-    data: visibilityFiltered,
-    searchFields: trackSearchFields,
-    defaultSort: "latest",
-    sortConfig: trackSortConfig,
-    itemsPerPage: 10,
-  });
-
   const publicCount = useMemo(
     () => tracks.filter((t) => (t as any).visibility !== "private").length,
     [tracks],
@@ -235,64 +93,6 @@ export default function Dashboard() {
     () => tracks.filter((t) => (t as any).visibility === "private").length,
     [tracks],
   );
-
-  const handleToggleVisibility = async (track: Track) => {
-    const current = (track as any).visibility ?? "public";
-    const next = current === "private" ? "public" : "private";
-    setTogglingId(track.id);
-    try {
-      const accessToken = localStorage.getItem("accessToken") ?? "";
-      const res = await fetch(`${API_BASE_URL}${API_ENDPOINTS.tracks.update(track.id)}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        },
-        body: JSON.stringify({ visibility: next }),
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.detail || err.error || `${res.status}`);
-      }
-      const updated = await res.json();
-      setTracks((prev) =>
-        prev.map((t) =>
-          t.id === track.id ? { ...t, ...(updated as Track), visibility: (updated.visibility ?? next) as any } : t,
-        ),
-      );
-      toast({
-        title: next === "private" ? "Track set to private" : "Track is now public",
-        description: next === "private"
-          ? "Only you and people you share with can access it."
-          : "Everyone can discover this track.",
-      });
-    } catch (err) {
-      toast({
-        variant: "destructive",
-        title: "Couldn't update visibility",
-        description: err instanceof Error ? err.message : "Please try again.",
-      });
-    } finally {
-      setTogglingId(null);
-    }
-  };
-
-  const handlePlay = (t: Track) => {
-    if (active?.id === t.id) {
-      setIsPlaying(!isPlaying);
-    } else {
-      setAutoPlay(true);
-      setActive(t);
-    }
-  };
-
-  const handleTrackDeleted = (id: string) =>
-    setTracks((prev) => prev.filter((t) => t.id !== id));
-
-  const handleTrackUpdated = (updated: Track) =>
-    setTracks((prev) =>
-      prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)),
-    );
 
   if (!isAuthenticated) {
     return (
@@ -374,168 +174,7 @@ export default function Dashboard() {
             />
           </motion.div>
         )}
-
-        {/* Toolbar — Search + Visibility pills + Sort */}
-        {!loading && tracks.length > 0 && (
-          <div className="mb-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              {/* Search */}
-              <div className="relative flex-1 sm:max-w-sm">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={trackSearch}
-                  onChange={(e) => setTrackSearch(e.target.value)}
-                  placeholder="Search tracks, genres…"
-                  data-testid="input-search-filter"
-                  className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
-                />
-              </div>
-
-              {/* Visibility pills */}
-              <div className="flex items-center gap-1 shrink-0">
-                {(["all", "public", "private"] as const).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => setVisibilityFilter(key)}
-                    data-testid={`pill-visibility-${key}`}
-                    className={cn(
-                      "rounded-lg px-2.5 py-1.5 text-[11px] font-medium transition",
-                      visibilityFilter === key
-                        ? "bg-primary/20 text-primary"
-                        : "text-muted-foreground hover:text-foreground hover:bg-white/5",
-                    )}
-                  >
-                    {key === "all" ? "All" : key === "public" ? "Public" : "Private"}
-                  </button>
-                ))}
-              </div>
-
-              {/* Sort */}
-              <div className="flex items-center gap-2 shrink-0">
-                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                <div className="relative">
-                  <select
-                    value={trackSort}
-                    onChange={(e) => setTrackSort(e.target.value as string)}
-                    data-testid="select-sort-filter"
-                    className="rounded-xl border border-white/15 bg-white/10 pl-3 pr-8 py-2 text-xs text-white focus:outline-none transition cursor-pointer appearance-none [&>option]:bg-popover [&>option]:text-popover-foreground"
-                  >
-                    <option value="latest">Latest</option>
-                    <option value="oldest">Oldest</option>
-                    <option value="plays">Most Played</option>
-                    <option value="likes">Most Liked</option>
-                    <option value="az">A → Z</option>
-                    <option value="za">Z → A</option>
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-              </div>
-            </div>
-
-            {/* Result count */}
-            <p className="mt-3 text-xs text-muted-foreground/60">
-              {trackSearch.trim()
-                ? `${searchFiltered.length} ${searchFiltered.length === 1 ? "track" : "tracks"} for "${trackSearch}"`
-                : `${searchFiltered.length} ${searchFiltered.length === 1 ? "track" : "tracks"}`}
-            </p>
-          </div>
-        )}
-
-        {/* Track list */}
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-16 animate-pulse rounded-2xl bg-white/5" />
-            ))}
-          </div>
-        ) : searchFiltered.length === 0 && tracks.length > 0 ? (
-          // No results after search/visibility filter (but tracks exist)
-          <div className="py-20 text-center">
-            <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/25" />
-            {trackSearch.trim() ? (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  No tracks match "{trackSearch}"
-                  {visibilityFilter !== "all" && ` in ${visibilityFilter}`}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => { setTrackSearch(""); }}
-                  className="mt-3 text-xs text-primary hover:underline"
-                  data-testid="button-clear-search"
-                >
-                  Clear search
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  No {visibilityFilter} tracks
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setVisibilityFilter("all")}
-                  className="mt-3 text-xs text-primary hover:underline"
-                >
-                  View all tracks
-                </button>
-              </>
-            )}
-          </div>
-        ) : pagedTracks.length === 0 && tracks.length === 0 ? (
-          // No tracks at all
-          <div className="py-20 text-center">
-            <Music2 className="mx-auto mb-3 h-10 w-10 text-muted-foreground/25" />
-            <p className="text-sm font-medium text-muted-foreground">No tracks yet</p>
-            <p className="mt-1 text-xs text-muted-foreground/60">Upload your first track to get started.</p>
-            <Link href="/upload">
-              <Button type="button" className="glow mt-5">
-                <UploadCloud className="mr-2 h-4 w-4" />
-                Upload a track
-              </Button>
-            </Link>
-          </div>
-        ) : (
-          <>
-            <AnimatePresence mode="popLayout">
-              <div className="grid gap-2 sm:gap-3">
-                {pagedTracks.map((track, idx) => (
-                  <DashboardTrackRow
-                    key={track.id}
-                    track={track}
-                    index={idx}
-                    onPlay={handlePlay}
-                    onTrackUpdated={handleTrackUpdated}
-                    onTrackDeleted={handleTrackDeleted}
-                    onShareClick={(id) => setShareModalTrackId(id)}
-                    isActive={active?.id === track.id}
-                    togglingId={togglingId}
-                    onToggleVisibility={handleToggleVisibility}
-                  />
-                ))}
-              </div>
-            </AnimatePresence>
-
-            {/* Pagination at the bottom of the track list */}
-            <PaginationControls
-              currentPage={trackPage}
-              totalPages={trackTotalPages}
-              onPageChange={setTrackPage}
-            />
-          </>
-        )}
       </div>
-
-      {/* Share modal */}
-      {shareModalTrackId && (
-        <ShareTrackModal
-          trackId={shareModalTrackId}
-          open={!!shareModalTrackId}
-          onOpenChange={(open) => { if (!open) setShareModalTrackId(null); }}
-        />
-      )}
     </div>
   );
 }
