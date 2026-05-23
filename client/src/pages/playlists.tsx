@@ -58,7 +58,7 @@ export default function PlaylistPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background px-4 py-12">
+      <div className="min-h-screen bg-background px-4 pt-12 pb-36 lg:pb-12">
         <div className="max-w-6xl mx-auto">
           <div className="text-center py-12">
             <h1 className="text-4xl font-bold mb-4">My Playlists</h1>
@@ -84,7 +84,7 @@ export default function PlaylistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background px-4 py-8">
+    <div className="min-h-screen bg-background px-4 pt-8 pb-36 lg:pb-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
