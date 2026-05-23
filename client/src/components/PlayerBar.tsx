@@ -549,19 +549,19 @@ function PlayerBar() {
                 MOBILE  (hidden on lg+)
                 Compact always-visible bar above BottomNav
             ══════════════════════════════════════════════ */}
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               {barMinimized ? (
                 /* ── Minimised pill ── */
                 <motion.button
                   key="mini-pill"
                   type="button"
                   onClick={() => setBarMinimized(false)}
-                  initial={{ scale: 0.7, opacity: 0, y: 12 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  exit={{ scale: 0.7, opacity: 0, y: 12 }}
+                  initial={{ scale: 0.7, opacity: 0, y: 12, x: "-50%" }}
+                  animate={{ scale: 1, opacity: 1, y: 0, x: "-50%" }}
+                  exit={{ scale: 0.7, opacity: 0, y: 12, x: "-50%" }}
                   transition={{ type: "spring", stiffness: 420, damping: 32 }}
                   className="fixed z-30 lg:hidden flex items-center gap-2 rounded-full border border-white/15 bg-background/90 px-3 py-1.5 backdrop-blur-xl shadow-lg shadow-black/30 cursor-pointer"
-                  style={{ bottom: "calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px) + 10px)", left: "50%", transform: "translateX(-50%)" }}
+                  style={{ bottom: "calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px) + 10px)", left: "50%" }}
                   data-testid="button-player-pill"
                   aria-label="Restore player"
                 >
