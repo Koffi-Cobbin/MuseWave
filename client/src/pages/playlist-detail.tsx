@@ -103,7 +103,7 @@ export default function PlaylistDetailPage() {
   if (error || !currentPlaylist) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="max-w-4xl mx-auto px-4 py-8">
+<div className="max-w-4xl mx-auto px-4 py-8 pb-36 lg:pb-8">
           <Link href="/playlists">
             <Button variant="outline" size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />Back to Playlists
@@ -231,7 +231,7 @@ export default function PlaylistDetailPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 py-8 pb-36 lg:pb-8">
 
         <Link href="/playlists">
           <Button variant="outline" size="sm" className="mb-8">

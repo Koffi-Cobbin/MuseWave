@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronDown, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X } from "lucide-react";
+import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronDown, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {

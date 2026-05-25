@@ -287,7 +287,7 @@ export default function Home() {
                             data-testid="link-browse-all-tracks"
                           >
                             <Compass className="h-4 w-4 shrink-0" />
-                            <span className="truncate">Browse all {filteredTracks.length} tracks on Discover</span>
+                            <span className="truncate">Browse all {query ? filteredTracks.length : sortedTracks.length} tracks on Discover</span>
                             <ArrowRight className="h-4 w-4 shrink-0" />
                           </div>
                         </Link>

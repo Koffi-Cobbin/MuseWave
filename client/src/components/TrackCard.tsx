@@ -175,7 +175,7 @@ export function TrackCard({
 
             {/* Content — pr-4 instead of pr-12 since actions menu is now a flex sibling, not overlapping */}
             <div className="relative z-10 flex flex-1 items-center min-w-0 pl-3 pr-4 py-3">
-              <div className="min-w-0 flex-1 pr-4">
+              <div className="min-w-0 flex-1 pr-0">
                 {/* Title */}
                 <div
                   className={cn(

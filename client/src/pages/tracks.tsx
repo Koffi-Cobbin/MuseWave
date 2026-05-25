@@ -176,9 +176,12 @@ function MyTrackRow({
         onTrackDeleted={onTrackDeleted}
         onTrackUpdated={onTrackUpdated}
       />
-      {/* Visibility + Share overlaid on the right — desktop only */}
+      {/* Visibility + Share overlaid on the right */}
       {isOwner && (
-      <div className="absolute right-12 sm:right-12 top-1/2 -translate-y-1/2 flex items-center gap-1 sm:gap-1.5">
+      <div
+        className="absolute right-12 sm:right-12 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 sm:gap-1.5"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
           onClick={() => onToggleVisibility(track)}
@@ -186,18 +189,18 @@ function MyTrackRow({
           title={isPrivate ? "Make public" : "Make private"}
           data-testid={`button-toggle-visibility-${track.id}`}
           className={cn(
-            "flex items-center gap-1 rounded-lg border px-1 sm:px-2 py-1 text-[10px] font-semibold transition cursor-pointer disabled:cursor-not-allowed",
+            "transition cursor-pointer disabled:cursor-not-allowed",
             isPrivate
-              ? "border-white/15 bg-white/5 text-muted-foreground hover:border-amber-400/30 hover:bg-amber-400/10 hover:text-amber-300"
-              : "border-white/15 bg-white/5 text-muted-foreground hover:border-emerald-400/30 hover:bg-emerald-400/10 hover:text-emerald-300",
+              ? "text-muted-foreground/60 hover:text-amber-300"
+              : "text-muted-foreground/60 hover:text-emerald-300",
           )}
         >
           {isToggling ? (
             <Loader2 className="h-3 w-3 animate-spin" />
           ) : isPrivate ? (
-            <><Lock className="h-3 w-3" /><span className="hidden sm:inline">Private</span></>
+            <Lock className="h-3 w-3" />
           ) : (
-            <><Globe className="h-3 w-3" /><span className="hidden sm:inline">Public</span></>
+            <Globe className="h-3 w-3" />
           )}
         </button>
       </div>

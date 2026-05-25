@@ -68,7 +68,7 @@ function AccountSheet({
                     </div>
                   </Link>
                   <Separator className="opacity-20" />
-                  <Link href="/my-tracks" onClick={onClose} className="block" data-testid="link-account-my-tracks">
+                  <Link href="/tracks" onClick={onClose} className="block" data-testid="link-account-my-tracks">
                     <div className="flex items-center gap-3 rounded-xl px-3 py-3 transition hover:bg-white/8">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5">
                         <Headphones className="h-5 w-5 text-muted-foreground" />

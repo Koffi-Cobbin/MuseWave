@@ -1095,7 +1095,7 @@ export default function ArtistPage() {
         {/* ── View Artist Tracks link (non-owner only) ── */}
         {!isOwner && tracks.length > 0 && (
           <div className="mb-5 flex justify-end">
-            <Link href={`/my-tracks?artist=${slug}`}>
+            <Link href={`/tracks?artist=${slug}`}>
               <Button
                 type="button"
                 variant="secondary"
