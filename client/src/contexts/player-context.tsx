@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
 import type { Track } from "../../../shared/schema";
+import { getTrackBlob } from "@/lib/offlineStorage";
 
 export type RepeatMode = "off" | "all" | "one";
 
@@ -14,13 +15,9 @@ type PlayerContextType = {
   queueIndex: number;
   setQueue: (tracks: Track[], startIndex?: number) => void;
   insertNext: (track: Track) => void;
-  /** Appends a track to the very end of the queue */
   addToQueue: (track: Track) => void;
-  /** Removes a track from the queue at the given index */
   removeFromQueue: (index: number) => void;
-  /** Moves a track from one queue position to another */
   reorderQueue: (fromIndex: number, toIndex: number) => void;
-  /** Empties the entire queue */
   clearQueue: () => void;
   playNext: () => void;
   playPrev: () => void;
@@ -28,25 +25,23 @@ type PlayerContextType = {
   hasPrev: boolean;
   queueCount: number;
   repeatMode: RepeatMode;
-  /** Cycles repeat: off → all → one → off */
   toggleRepeatMode: () => void;
-  /**
-   * Registers the shared <audio> element so playTrack / playQueue can
-   * call `.play()` synchronously within a user gesture (required by iOS).
-   * Called once by PlayerBar on mount.
-   */
   registerAudioElement: (el: HTMLAudioElement | null) => void;
   /**
-   * Direct-initiation play for a single track.  Sets active + isPlaying
-   * and immediately calls audio.play() while still inside the user's
-   * touch/click handler, satisfying iOS Safari's autoplay policy.
+   * Direct-initiation play for a single track.
+   * Resolves an offline blob URL if available, sets audio.src, and calls
+   * audio.play() synchronously within the user-gesture stack so iOS Safari
+   * allows playback.  Sets gesturePlayPending so PlayerBar's useEffect skips
+   * the canplay-listener path and does not overwrite src mid-play.
    */
   playTrack: (track: Track) => void;
-  /**
-   * Direct-initiation queue play.  Replaces the queue and immediately
-   * starts the first track from within the user gesture context.
-   */
   playQueue: (tracks: Track[], startIndex?: number) => void;
+  /**
+   * True when playTrack / playQueue initiated playback directly via a user
+   * gesture.  PlayerBar reads and clears this flag to avoid a redundant
+   * audio.play() call (which would restart the track from zero on iOS).
+   */
+  consumeGesturePlay: () => boolean;
 };
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -75,21 +70,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const insertNext = useCallback((track: Track) => {
     if (queue.length === 0) {
       if (active) {
-        // A track is already playing but no formal queue exists yet.
-        // Build a queue with the current track at position 0 and the
-        // requested track at position 1 — WITHOUT changing active or
-        // interrupting playback.
         setQueueState([active, track]);
         setQueueIndex(0);
       } else {
-        // Nothing playing at all — start the track immediately.
         setQueueState([track]);
         setQueueIndex(0);
         setActiveState(track);
         setAutoPlay(true);
       }
     } else {
-      // Normal case: splice in right after the current position.
       const next = [...queue];
       next.splice(queueIndex + 1, 0, track);
       setQueueState(next);
@@ -105,7 +94,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (index < 0 || index >= prev.length) return prev;
       return prev.filter((_, i) => i !== index);
     });
-    // If the removed item was before or at the current index, adjust
     setQueueIndex((prevIdx) => {
       if (index < prevIdx) return prevIdx - 1;
       return prevIdx;
@@ -121,7 +109,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       next.splice(toIndex, 0, moved);
       return next;
     });
-    // Adjust queueIndex if the moved item affected it
     setQueueIndex((prevIdx) => {
       if (fromIndex === prevIdx) return toIndex;
       if (fromIndex < prevIdx && toIndex >= prevIdx) return prevIdx - 1;
@@ -154,7 +141,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setActiveState(queue[nextIndex]);
       setAutoPlay(true);
     } else if (repeatMode === "all" && queue.length > 0) {
-      // Repeat all: loop back to the beginning
       setQueueIndex(0);
       setActiveState(queue[0]);
       setAutoPlay(true);
@@ -175,38 +161,82 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const hasNext = queue.length > 0 && queueIndex < queue.length - 1;
   const hasPrev = queue.length > 0 && queueIndex > 0;
-  // Only count unplayed tracks (after queueIndex) for the badge.
-  // Played tracks remain in the array but shouldn't count toward "up next".
   const queueCount = Math.max(0, queue.length - queueIndex - 1);
 
-  // ── iOS user-gesture direct play support ──────────────────────────────────
+  // ── iOS user-gesture direct play ─────────────────────────────────────────
 
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
+  /**
+   * Set to true by playTrack / playQueue after a successful audio.play() call
+   * inside the user gesture.  PlayerBar's isPlaying useEffect checks and clears
+   * this flag; when true it skips calling audio.play() again (which would
+   * restart from 0 on iOS) and also skips attaching a canplay listener that
+   * would fire outside the gesture context.
+   */
+  const gesturePlayPendingRef = useRef(false);
+
   const registerAudioElement = useCallback((el: HTMLAudioElement | null) => {
     audioElementRef.current = el;
+  }, []);
+
+  const consumeGesturePlay = useCallback((): boolean => {
+    const was = gesturePlayPendingRef.current;
+    gesturePlayPendingRef.current = false;
+    return was;
+  }, []);
+
+  /**
+   * Resolve the best src for a track:
+   *  1. Offline blob URL (if available in IndexedDB)
+   *  2. Network audio URL
+   *
+   * This is called synchronously within the user-gesture stack by initiating
+   * a promise that resolves immediately when the blob is cached, or falls back
+   * to the network URL without waiting.
+   */
+  const resolveAndPlay = useCallback(async (track: Track) => {
+    const audio = audioElementRef.current;
+    if (!audio) return;
+
+    // Try to get an offline blob — if it exists it's returned synchronously
+    // from IndexedDB (already in memory after the first open).  We give it a
+    // short deadline so we don't delay the gesture-initiated play call.
+    let src = track.audioUrl;
+    try {
+      const blob = await Promise.race([
+        getTrackBlob(track.id),
+        new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 50)),
+      ]);
+      if (blob) {
+        src = URL.createObjectURL(blob);
+      }
+    } catch {
+      // fall back to network URL
+    }
+
+    audio.src = src;
+    audio.load();
+
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // play() was interrupted (e.g. src changed) — PlayerBar's effect
+        // will retry once canplay fires.
+      });
+    }
+
+    gesturePlayPendingRef.current = true;
   }, []);
 
   const playTrack = useCallback((track: Track) => {
     setActiveState(track);
     setIsPlaying(true);
     setAutoPlay(false);
-
-    // Call audio.play() synchronously within the user gesture context
-    // so iOS Safari allows playback.
-    const audio = audioElementRef.current;
-    if (audio && track.audioUrl) {
-      // Set the src to the network URL directly.  If the track is saved
-      // offline, useOfflineAudio in PlayerBar will later swap in the blob
-      // URL — but by then the audio element is already "unlocked".
-      audio.src = track.audioUrl;
-      audio.play().catch(() => {
-        // Silently ignore — the existing useEffect-based sync in PlayerBar
-        // will attempt playback again once the audio is ready (e.g. when
-        // an offline blob resolves).
-      });
-    }
-  }, []);
+    // Fire-and-forget — resolveAndPlay is async but we kick it off immediately
+    // inside the synchronous gesture handler so iOS unlocks audio.
+    resolveAndPlay(track);
+  }, [resolveAndPlay]);
 
   const playQueue = useCallback((tracks: Track[], startIndex = 0) => {
     setQueueState(tracks);
@@ -216,16 +246,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setActiveState(track);
       setIsPlaying(true);
       setAutoPlay(false);
-
-      const audio = audioElementRef.current;
-      if (audio && track.audioUrl) {
-        audio.src = track.audioUrl;
-        audio.play().catch(() => {});
-      }
+      resolveAndPlay(track);
     }
-  }, []);
-
-  // ── ───────────────────────────────────────────────────────────────────────
+  }, [resolveAndPlay]);
 
   return (
     <PlayerContext.Provider value={{
@@ -251,6 +274,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       repeatMode,
       toggleRepeatMode,
       registerAudioElement,
+      consumeGesturePlay,
       playTrack,
       playQueue,
     }}>
