@@ -48,7 +48,7 @@ export default function Downloads() {
     clearAllDownloads,
     reorderDownloads,
   } = useOffline();
-  const { setQueue, active } = usePlayer();
+  const { playQueue, active } = usePlayer();
   const { toast } = useToast();
 
   const [coverBlobUrls, setCoverBlobUrls] = useState<Record<string, string>>({});
@@ -208,8 +208,8 @@ export default function Downloads() {
   );
 
   const handlePlay = useCallback((track: Track) => {
-    setQueue([track], 0);
-  }, [setQueue]);
+    playQueue([track], 0);
+  }, [playQueue]);
 
 
 
@@ -279,7 +279,7 @@ export default function Downloads() {
               variant="outline"
               size="sm"
               className="border-white/10"
-              onClick={() => setQueue(downloads, 0)}
+              onClick={() => playQueue(downloads, 0)}
               data-testid="button-play-all-downloads"
             >
               <Play className="mr-1 h-3.5 w-3.5 fill-current" />

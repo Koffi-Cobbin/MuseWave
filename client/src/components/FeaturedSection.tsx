@@ -32,7 +32,7 @@ const ROTATION_INTERVAL_MS = 5_000;
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function FeaturedSection({ items }: FeaturedSectionProps) {
-  const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } =
+  const { active, isPlaying, setIsPlaying, playTrack } =
     usePlayer();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -77,8 +77,7 @@ export function FeaturedSection({ items }: FeaturedSectionProps) {
     if (active?.id === current.track.id) {
       setIsPlaying(!isPlaying);
     } else {
-      setAutoPlay(true);
-      setActive(current.track);
+      playTrack(current.track);
     }
   };
 

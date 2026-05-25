@@ -35,7 +35,7 @@ export default function PlaylistDetailPage() {
     fetchPlaylistById, removeSongFromPlaylist, deletePlaylist, reorderPlaylistTracks,
     setCurrentPlaylist,
   } = usePlaylists();
-  const { setQueue, active } = usePlayer();
+  const { playQueue, active } = usePlayer();
   const { toast } = useToast();
 
   const [showEditModal, setShowEditModal] = useState(false);
@@ -128,13 +128,13 @@ export default function PlaylistDetailPage() {
   const handlePlayAll = () => {
     if (localTracks.length === 0) return;
     const tracks = localTracks.map((t) => t.track);
-    setQueue(tracks, 0);
+    playQueue(tracks, 0);
     toast({ title: `Playing ${currentPlaylist.name}`, description: `${tracks.length} tracks` });
   };
 
   const handlePlayTrack = (index: number) => {
     const tracks = localTracks.map((t) => t.track);
-    setQueue(tracks, index);
+    playQueue(tracks, index);
   };
 
   // ── Remove track ─────────────────────────────────────────────────────────────

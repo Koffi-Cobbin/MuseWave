@@ -123,8 +123,7 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
     queue,
     queueIndex,
     active,
-    setActive,
-    setAutoPlay,
+    playQueue,
     removeFromQueue,
     reorderQueue,
     clearQueue,
@@ -134,9 +133,8 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
   const upNext = queue.slice(queueIndex + 1);
   const hasAny = upNext.length > 0;
 
-  const handlePlay = (track: Track) => {
-    setAutoPlay(true);
-    setActive(track);
+  const handlePlay = (index: number) => {
+    playQueue(queue, queueIndex + 1 + index);
   };
 
   const handleRemove = (index: number) => {
@@ -267,7 +265,7 @@ export function QueueSheet({ open, onClose }: QueueSheetProps) {
                       track={track}
                       index={idx}
                       isCurrent={false}
-                      onPlay={() => handlePlay(track)}
+                      onPlay={() => handlePlay(idx)}
                       onRemove={() => handleRemove(idx)}
                       onMoveUp={() => handleMoveUp(idx)}
                       onMoveDown={() => handleMoveDown(idx)}

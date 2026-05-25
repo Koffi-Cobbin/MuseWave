@@ -201,7 +201,7 @@ export default function Discover() {
 
   const { genres } = useGenres();
 
-  const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
+  const { active, isPlaying, setIsPlaying, playTrack } = usePlayer();
 
   useEffect(() => {
     async function load() {
@@ -270,11 +270,10 @@ export default function Discover() {
       if (active?.id === t.id) {
         setIsPlaying(!isPlaying);
       } else {
-        setAutoPlay(true);
-        setActive(t);
+        playTrack(t);
       }
     },
-    [active, isPlaying, setActive, setAutoPlay, setIsPlaying],
+    [active, isPlaying, playTrack, setIsPlaying],
   );
 
   return (

@@ -919,12 +919,11 @@ export function PlayScreen({
 }
 
 function MoreTrackRow({ track, onClose }: { track: Track; onClose: () => void }) {
-  const { active, setActive, setAutoPlay } = usePlayer();
+  const { active, playTrack } = usePlayer();
   const isActive = active?.id === track.id;
 
   const handlePlay = () => {
-    setAutoPlay(true);
-    setActive(track);
+    playTrack(track);
   };
 
   return (

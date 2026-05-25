@@ -488,7 +488,7 @@ export default function ArtistPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [justPlayedId, setJustPlayedId] = useState<string | null>(null);
   const { user: authUser } = useAuth();
-  const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
+  const { active, isPlaying, setIsPlaying, playTrack } = usePlayer();
   const { toast } = useToast();
   const [copied, setCopied] = useState<string | null>(null);
   const [isEditingCredentials, setIsEditingCredentials] = useState(false);
@@ -692,8 +692,7 @@ export default function ArtistPage() {
     if (active?.id === t.id) {
       setIsPlaying(!isPlaying);
     } else {
-      setAutoPlay(true);
-      setActive(t);
+      playTrack(t);
       setJustPlayedId(t.id);
       setTimeout(() => setJustPlayedId(null), 1000);
     }

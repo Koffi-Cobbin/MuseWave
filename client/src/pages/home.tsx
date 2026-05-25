@@ -99,7 +99,7 @@ export default function Home() {
   const [artists, setArtists] = useState<ArtistRowData[]>([]);
   const [featuredItems, setFeaturedItems] = useState<FeaturedTrackItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
+  const { active, isPlaying, setIsPlaying, playTrack } = usePlayer();
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
@@ -183,8 +183,7 @@ export default function Home() {
     if (active?.id === t.id) {
       setIsPlaying(!isPlaying);
     } else {
-      setAutoPlay(true);
-      setActive(t);
+      playTrack(t);
     }
   };
 

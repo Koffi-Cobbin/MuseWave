@@ -22,7 +22,7 @@ type Tab = "my" | "shared" | "tracks";
 export default function PlaylistPage() {
   const { isAuthenticated, user } = useAuth();
   const [location] = useLocation();
-  const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
+  const { active, isPlaying, setIsPlaying, playTrack } = usePlayer();
   const { playlists, sharedWithMe, loading, error, fetchPlaylists, fetchSharedWithMe } = usePlaylists();
   const { sharedTracks, loading: sharedTracksLoading, fetchSharedTracks } = useSharedTracks();
   const [searchQuery, setSearchQuery] = useState("");
@@ -51,8 +51,7 @@ export default function PlaylistPage() {
     if (active?.id === track.id) {
       setIsPlaying(!isPlaying);
     } else {
-      setAutoPlay(true);
-      setActive(track as any);
+      playTrack(track);
     }
   };
 

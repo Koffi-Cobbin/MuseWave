@@ -15,7 +15,7 @@ interface NewReleasesCarouselProps {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function NewReleasesCarousel({ tracks }: NewReleasesCarouselProps) {
-  const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
+  const { active, isPlaying, setIsPlaying, playTrack } = usePlayer();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -55,8 +55,7 @@ export function NewReleasesCarousel({ tracks }: NewReleasesCarouselProps) {
     if (active?.id === track.id) {
       setIsPlaying(!isPlaying);
     } else {
-      setAutoPlay(true);
-      setActive(track);
+      playTrack(track);
     }
   };
 

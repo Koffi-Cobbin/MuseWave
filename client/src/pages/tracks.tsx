@@ -211,7 +211,7 @@ function MyTrackRow({
 
 export default function MyTracks() {
   const { user, isAuthenticated } = useAuth();
-  const { active, setActive, setAutoPlay, isPlaying, setIsPlaying } = usePlayer();
+  const { active, isPlaying, setIsPlaying, playTrack } = usePlayer();
   const { sharedTracks, loading: sharedTracksLoading, fetchSharedTracks } = useSharedTracks();
   const { toast } = useToast();
 
@@ -553,11 +553,10 @@ export default function MyTracks() {
       if (active?.id === t.id) {
         setIsPlaying(!isPlaying);
       } else {
-        setAutoPlay(true);
-        setActive(t);
+        playTrack(t);
       }
     },
-    [active, isPlaying, setActive, setAutoPlay, setIsPlaying],
+    [active, isPlaying, playTrack, setIsPlaying],
   );
 
   const handleToggleVisibility = async (track: Track) => {

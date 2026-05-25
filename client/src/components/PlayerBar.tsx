@@ -187,7 +187,7 @@ function OverflowMenu({
 // ── Main component ────────────────────────────────────────────────────────────
 
 function PlayerBar() {
-  const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying, playNext, playPrev, hasNext, hasPrev, queueCount, repeatMode, toggleRepeatMode } = usePlayer();
+  const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying, playNext, playPrev, hasNext, hasPrev, queueCount, repeatMode, toggleRepeatMode, registerAudioElement } = usePlayer();
   const { user, isAuthenticated } = useAuth();
   const { isTrackDownloaded, downloadForOffline, isOnline } = useOffline();
   const { toast } = useToast();
@@ -208,6 +208,11 @@ function PlayerBar() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
+
+  useEffect(() => {
+    registerAudioElement(audioRef.current);
+    return () => registerAudioElement(null);
+  }, [registerAudioElement]);
 
   // Always-fresh refs so the `ended` handler never captures stale values.
   const playNextRef = useRef(playNext);
@@ -329,7 +334,6 @@ function PlayerBar() {
 
   // Reset state when track changes
   useEffect(() => {
-    setIsPlaying(false);
     setCurrentTime(0);
     setIsLiked(false);
   }, [active?.id]);
@@ -520,7 +524,7 @@ function PlayerBar() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      <audio ref={audioRef} src={audioSrc} preload="metadata" />
+      <audio ref={audioRef} src={audioSrc} preload="metadata" playsInline />
 
       {/* ── Queue Sheet ── */}
       <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />

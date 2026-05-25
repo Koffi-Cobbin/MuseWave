@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
 import type { Track } from "../../../shared/schema";
 
 export type RepeatMode = "off" | "all" | "one";
@@ -30,6 +30,23 @@ type PlayerContextType = {
   repeatMode: RepeatMode;
   /** Cycles repeat: off → all → one → off */
   toggleRepeatMode: () => void;
+  /**
+   * Registers the shared <audio> element so playTrack / playQueue can
+   * call `.play()` synchronously within a user gesture (required by iOS).
+   * Called once by PlayerBar on mount.
+   */
+  registerAudioElement: (el: HTMLAudioElement | null) => void;
+  /**
+   * Direct-initiation play for a single track.  Sets active + isPlaying
+   * and immediately calls audio.play() while still inside the user's
+   * touch/click handler, satisfying iOS Safari's autoplay policy.
+   */
+  playTrack: (track: Track) => void;
+  /**
+   * Direct-initiation queue play.  Replaces the queue and immediately
+   * starts the first track from within the user gesture context.
+   */
+  playQueue: (tracks: Track[], startIndex?: number) => void;
 };
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -162,6 +179,54 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   // Played tracks remain in the array but shouldn't count toward "up next".
   const queueCount = Math.max(0, queue.length - queueIndex - 1);
 
+  // ── iOS user-gesture direct play support ──────────────────────────────────
+
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+
+  const registerAudioElement = useCallback((el: HTMLAudioElement | null) => {
+    audioElementRef.current = el;
+  }, []);
+
+  const playTrack = useCallback((track: Track) => {
+    setActiveState(track);
+    setIsPlaying(true);
+    setAutoPlay(false);
+
+    // Call audio.play() synchronously within the user gesture context
+    // so iOS Safari allows playback.
+    const audio = audioElementRef.current;
+    if (audio && track.audioUrl) {
+      // Set the src to the network URL directly.  If the track is saved
+      // offline, useOfflineAudio in PlayerBar will later swap in the blob
+      // URL — but by then the audio element is already "unlocked".
+      audio.src = track.audioUrl;
+      audio.play().catch(() => {
+        // Silently ignore — the existing useEffect-based sync in PlayerBar
+        // will attempt playback again once the audio is ready (e.g. when
+        // an offline blob resolves).
+      });
+    }
+  }, []);
+
+  const playQueue = useCallback((tracks: Track[], startIndex = 0) => {
+    setQueueState(tracks);
+    setQueueIndex(startIndex);
+    if (tracks.length > 0) {
+      const track = tracks[startIndex];
+      setActiveState(track);
+      setIsPlaying(true);
+      setAutoPlay(false);
+
+      const audio = audioElementRef.current;
+      if (audio && track.audioUrl) {
+        audio.src = track.audioUrl;
+        audio.play().catch(() => {});
+      }
+    }
+  }, []);
+
+  // ── ───────────────────────────────────────────────────────────────────────
+
   return (
     <PlayerContext.Provider value={{
       active,
@@ -185,6 +250,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       queueCount,
       repeatMode,
       toggleRepeatMode,
+      registerAudioElement,
+      playTrack,
+      playQueue,
     }}>
       {children}
     </PlayerContext.Provider>
