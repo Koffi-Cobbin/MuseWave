@@ -27,7 +27,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PlayScreen } from "@/components/PlayScreen";
 import { QueueSheet } from "@/components/QueueSheet";
 
-// ── Sub-components (defined outside PlayerBar to preserve identity) ────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 interface SupportDialogProps {
   trigger: React.ReactNode;
@@ -187,11 +187,19 @@ function OverflowMenu({
 // ── Main component ────────────────────────────────────────────────────────────
 
 function PlayerBar() {
-  const { active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying, playNext, playPrev, hasNext, hasPrev, queueCount, repeatMode, toggleRepeatMode, registerAudioElement } = usePlayer();
+  const {
+    active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying,
+    playNext, playPrev, hasNext, hasPrev, queueCount, repeatMode,
+    toggleRepeatMode, registerAudioElement, consumeGesturePlay,
+  } = usePlayer();
   const { user, isAuthenticated } = useAuth();
   const { isTrackDownloaded, downloadForOffline, isOnline } = useOffline();
   const { toast } = useToast();
-  const audioSrc = useOfflineAudio(active);
+
+  // useOfflineAudio resolves a blob URL for offline tracks.
+  // We still use it, but we no longer let it drive audio.src directly —
+  // that caused iOS to lose the gesture-unlocked state.
+  const offlineAudioSrc = useOfflineAudio(active);
 
   const [playScreenOpen, setPlayScreenOpen] = useState(false);
   const [barMinimized, setBarMinimized] = useState(false);
@@ -209,21 +217,22 @@ function PlayerBar() {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
 
+  // Track the last track id whose src we loaded so we can detect track changes
+  // without re-loading when only isPlaying toggles.
+  const loadedTrackIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     registerAudioElement(audioRef.current);
     return () => registerAudioElement(null);
   }, [registerAudioElement]);
 
-  // Always-fresh refs so the `ended` handler never captures stale values.
   const playNextRef = useRef(playNext);
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
   const repeatModeRef = useRef(repeatMode);
   useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
 
-  // Tracks the current play session so we can record partial plays on skip
   const playSessionRef = useRef<{ trackId: string } | null>(null);
 
-  // Sends a play event to the backend
   const recordPlay = useCallback(async (trackId: string, durationSec: number, completed: boolean) => {
     try {
       const accessToken = localStorage.getItem("accessToken") ?? "";
@@ -240,7 +249,7 @@ function PlayerBar() {
         body: JSON.stringify(body),
       });
     } catch {
-      // silent — play tracking must never interrupt the user
+      // silent
     }
   }, [user?.id]);
 
@@ -251,21 +260,19 @@ function PlayerBar() {
     if (audio) audio.volume = volume;
   }, [volume]);
 
+  // ── Audio event listeners ─────────────────────────────────────────────────
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
     const updateTime = () => setCurrentTime(audio.currentTime);
     const updateDuration = () => setDuration(audio.duration);
     const handleEnded = () => {
-      // Record a completed play
       if (active) {
         const playedSec = Math.floor(audio.duration || audio.currentTime || 0);
-        if (playedSec > 0) {
-          recordPlay(active.id, playedSec, true);
-        }
+        if (playedSec > 0) recordPlay(active.id, playedSec, true);
       }
       if (repeatModeRef.current === "one") {
-        // Repeat one: restart the current track
         audio.currentTime = 0;
         audio.play().catch(() => {});
       } else {
@@ -282,29 +289,21 @@ function PlayerBar() {
     };
   }, [active]);
 
-  // Ref that always holds the latest audio currentTime (updated from timeupdate)
   const currentTimeRef = useRef(0);
   useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
 
-  // Minimum seconds listened to count as a meaningful partial play
   const MIN_PLAY_SECONDS = 30;
 
-  // Reset minimized state whenever a new track becomes active
   useEffect(() => { if (active?.id) setBarMinimized(false); }, [active?.id]);
 
-  // Record partial play when user switches to a different track before it ends
   useEffect(() => {
     const prevSession = playSessionRef.current;
-
-    // Flush a partial play for the previous track
     if (prevSession && prevSession.trackId !== active?.id) {
       const playedSec = Math.floor(currentTimeRef.current);
       if (playedSec >= MIN_PLAY_SECONDS) {
         recordPlay(prevSession.trackId, playedSec, false);
       }
     }
-
-    // Set up new session
     if (active?.id) {
       playSessionRef.current = { trackId: active.id };
     } else {
@@ -312,17 +311,12 @@ function PlayerBar() {
     }
   }, [active?.id, recordPlay]);
 
-  // Counter to prevent infinite skip-loop when offline + no downloaded tracks remain
   const offlineSkipCountRef = useRef(0);
 
-  // When offline and the active track isn't saved, skip to the next one.
-  // Uses playNextRef (not playNext) to avoid re-triggering when playNext's
-  // useCallback deps (queue/queueIndex) change after every skip.
   useEffect(() => {
     if (isOnline === false && active && !isTrackDownloaded(active.id)) {
       offlineSkipCountRef.current += 1;
       if (offlineSkipCountRef.current > 10) {
-        // Safety valve — stop skipping to avoid an infinite loop
         offlineSkipCountRef.current = 0;
         return;
       }
@@ -332,13 +326,13 @@ function PlayerBar() {
     }
   }, [active?.id, isOnline]);
 
-  // Reset state when track changes
   useEffect(() => {
     setCurrentTime(0);
     setIsLiked(false);
   }, [active?.id]);
 
-  // Fetch like status
+  // ── Fetch like status ─────────────────────────────────────────────────────
+
   useEffect(() => {
     if (!active || !user) return;
     fetch(`${API_BASE_URL}${API_ENDPOINTS.likes.check(active.id, user.id)}`, {
@@ -349,32 +343,107 @@ function PlayerBar() {
       .catch(() => {});
   }, [active?.id, user?.id]);
 
-  // Autoplay
+  // ── Autoplay (non-gesture path — e.g. queue advance) ─────────────────────
+
   useEffect(() => {
     if (!autoPlay || !active) return;
     setAutoPlay(false);
     setIsPlaying(true);
   }, [autoPlay, active]);
 
-  // Sync audio element
+  // ── Core playback sync ────────────────────────────────────────────────────
+  //
+  // This effect handles TWO scenarios:
+  //
+  // A) Track changed (new active.id):
+  //    • If playTrack/playQueue already set audio.src and called play() via
+  //      the gesture path (gesturePlayPending = true), we just update
+  //      loadedTrackIdRef and let the gesture-initiated play continue.
+  //      We do NOT call audio.play() again — that would restart from zero
+  //      on iOS (the second play() call resets position).
+  //    • If the track changed via the non-gesture path (queue advance /
+  //      autoPlay), we load the best src and play normally.
+  //
+  // B) isPlaying toggled on the SAME track (pause/resume):
+  //    • No src change needed.  Just pause or resume.
+  //
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !active) return;
-    if (isPlaying) {
-      if (audio.readyState >= 3) {
-        audio.play().catch(() => setIsPlaying(false));
-      } else {
-        // Audio src just changed — wait for it to be ready before playing
+
+    const trackChanged = loadedTrackIdRef.current !== active.id;
+
+    if (trackChanged) {
+      // Check whether the context's playTrack already handled this via gesture
+      const wasGesturePlay = consumeGesturePlay();
+
+      if (wasGesturePlay) {
+        // Gesture path: audio.src is already set and play() was already called.
+        // Just record that we've loaded this track so future toggles work.
+        loadedTrackIdRef.current = active.id;
+        return;
+      }
+
+      // Non-gesture path (e.g. autoPlay after queue advance):
+      // Use the offline blob if available, otherwise the network URL.
+      const src = offlineAudioSrc ?? active.audioUrl;
+      audio.src = src;
+      audio.load();
+      loadedTrackIdRef.current = active.id;
+
+      if (isPlaying) {
+        // audio may not be ready yet — wait for canplay
         const onCanPlay = () => {
           audio.play().catch(() => setIsPlaying(false));
         };
         audio.addEventListener("canplay", onCanPlay, { once: true });
         return () => audio.removeEventListener("canplay", onCanPlay);
       }
+      return;
+    }
+
+    // Same track — just pause or resume
+    if (isPlaying) {
+      if (audio.paused) {
+        audio.play().catch(() => setIsPlaying(false));
+      }
     } else {
-      audio.pause();
+      if (!audio.paused) {
+        audio.pause();
+      }
     }
   }, [isPlaying, active?.id]);
+
+  // ── When the offline blob resolves for the CURRENT playing track ──────────
+  //
+  // If the track is already playing via the network URL and the offline blob
+  // becomes available later (e.g. background download completes), we don't
+  // interrupt — the blob is only used on next load.
+  //
+  // However: if the track started playing but offlineAudioSrc resolved to a
+  // blob URL BEFORE the network stream returned audio (common on slow
+  // connections), we swap the src now.  We detect this by checking whether
+  // the audio element has actually started producing samples yet.
+  //
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !active || !offlineAudioSrc) return;
+    // Only swap if the element hasn't produced any audio yet (currentTime ~0)
+    // and the current src is the network URL (not already a blob).
+    if (
+      audio.currentTime < 0.5 &&
+      !audio.src.startsWith("blob:") &&
+      offlineAudioSrc.startsWith("blob:")
+    ) {
+      const wasPlaying = !audio.paused;
+      audio.src = offlineAudioSrc;
+      audio.load();
+      if (wasPlaying) {
+        const onCanPlay = () => audio.play().catch(() => {});
+        audio.addEventListener("canplay", onCanPlay, { once: true });
+      }
+    }
+  }, [offlineAudioSrc, active?.id]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -524,12 +593,15 @@ function PlayerBar() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      <audio ref={audioRef} src={audioSrc} preload="metadata" playsInline />
+      {/*
+        The <audio> element has no src prop — we manage src imperatively
+        to avoid React overwriting it between the gesture-initiated play()
+        call and the first render cycle.  This is the key iOS fix.
+      */}
+      <audio ref={audioRef} preload="none" playsInline />
 
-      {/* ── Queue Sheet ── */}
       <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />
 
-      {/* ── Play Screen overlay ── */}
       <PlayScreen
         open={playScreenOpen}
         onClose={() => setPlayScreenOpen(false)}
@@ -550,12 +622,10 @@ function PlayerBar() {
         {active && (
           <>
             {/* ══════════════════════════════════════════════
-                MOBILE  (hidden on lg+)
-                Compact always-visible bar above BottomNav
+                MOBILE
             ══════════════════════════════════════════════ */}
             <AnimatePresence>
               {barMinimized ? (
-                /* ── Minimised pill ── */
                 <motion.button
                   key="mini-pill"
                   type="button"
@@ -569,7 +639,6 @@ function PlayerBar() {
                   data-testid="button-player-pill"
                   aria-label="Restore player"
                 >
-                  {/* Audio wave bars */}
                   <div className="flex items-end gap-[3px] h-4">
                     {[0, 0.2, 0.1, 0.3].map((delay, i) => (
                       <span
@@ -591,7 +660,6 @@ function PlayerBar() {
                   </span>
                 </motion.button>
               ) : (
-                /* ── Full mobile bar ── */
                 <motion.div
                   key="mobile-bar"
                   data-testid="player-bar-mobile"
@@ -602,14 +670,12 @@ function PlayerBar() {
                   className="fixed inset-x-0 z-30 lg:hidden"
                   style={{ bottom: "calc(var(--bottom-nav-h, 64px) + env(safe-area-inset-bottom, 0px))" }}
                 >
-                  {/* Offline banner */}
                   {!isOnline && (
                     <div className="flex items-center justify-center gap-1.5 bg-amber-500/15 py-1 text-[10px] text-amber-400">
                       <WifiOff className="h-3 w-3" />
                       Offline — only saved tracks are available
                     </div>
                   )}
-                  {/* Hairline progress bar at top of bar */}
                   <div className="relative h-[2px] w-full bg-white/10">
                     <div
                       className="absolute inset-y-0 left-0 bg-primary transition-all duration-200 pointer-events-none"
@@ -623,7 +689,6 @@ function PlayerBar() {
                     />
                   </div>
 
-                  {/* Bar body — clickable to open play screen */}
                   <div
                     role="button"
                     tabIndex={0}
@@ -633,7 +698,6 @@ function PlayerBar() {
                     data-testid="button-open-play-screen"
                     aria-label="Open full player"
                   >
-                    {/* Cover art */}
                     <div className={cn(
                       "h-10 w-10 shrink-0 overflow-hidden rounded-xl border border-white/10",
                       !active.coverUrl && "bg-gradient-to-br",
@@ -644,7 +708,6 @@ function PlayerBar() {
                       )}
                     </div>
 
-                    {/* Track info */}
                     <div className="min-w-0 flex-1 overflow-hidden">
                       <div className="truncate text-sm font-semibold leading-tight" data-testid="text-player-title">
                         {active.title}
@@ -654,7 +717,6 @@ function PlayerBar() {
                       </div>
                     </div>
 
-                    {/* Actions — stop propagation so clicks don't open play screen */}
                     <div
                       className="flex shrink-0 items-center gap-0.5"
                       onClick={(e) => e.stopPropagation()}
@@ -734,8 +796,7 @@ function PlayerBar() {
             </AnimatePresence>
 
             {/* ══════════════════════════════════════════════
-                DESKTOP  (hidden below lg)
-                Always-visible full bar at very bottom
+                DESKTOP
             ══════════════════════════════════════════════ */}
             <motion.div
               initial={{ y: 20, opacity: 0 }}
@@ -744,28 +805,23 @@ function PlayerBar() {
               transition={{ type: "spring", stiffness: 400, damping: 35 }}
               className="fixed inset-x-0 bottom-0 z-40 hidden border-t border-white/8 bg-background/85 backdrop-blur-2xl lg:block lg:pl-64"
             >
-              {/* Offline banner */}
               {!isOnline && (
                 <div className="flex items-center justify-center gap-1.5 bg-amber-500/15 py-1.5 text-xs text-amber-400">
                   <WifiOff className="h-3.5 w-3.5" />
                   Offline — only saved tracks are available
                 </div>
               )}
-              {/* Hairline progress bar with time-on-hover + seek */}
               <div className="group/progress relative h-5 w-full">
-                {/* Thin animated fill line at bottom edge */}
                 <div className="absolute bottom-0 inset-x-0 h-[2px] bg-white/10">
                   <div
                     className="absolute inset-y-0 left-0 bg-primary/80 transition-all duration-150 pointer-events-none"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                {/* Time labels — always visible */}
                 <div className="absolute inset-x-0 top-0 flex items-center justify-between px-4 pt-0.5 pointer-events-none">
                   <span className="text-[10px] text-muted-foreground tabular-nums">{formatTime(currentTime)}</span>
                   <span className="text-[10px] text-muted-foreground tabular-nums">{formatTime(duration)}</span>
                 </div>
-                {/* Invisible seek trackpad spanning full width */}
                 <input
                   type="range" min="0" max={duration || 0} value={currentTime}
                   onChange={handleSeekInput}
@@ -775,7 +831,6 @@ function PlayerBar() {
               </div>
 
               <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-2.5">
-                {/* Cover — clickable to open play screen */}
                 <button
                   type="button"
                   onClick={() => setPlayScreenOpen(true)}
@@ -797,7 +852,6 @@ function PlayerBar() {
                   </div>
                 </button>
 
-                {/* Title + artist — clickable to open play screen */}
                 <button
                   type="button"
                   onClick={() => setPlayScreenOpen(true)}
@@ -809,7 +863,6 @@ function PlayerBar() {
                   <div className="truncate text-xs text-muted-foreground" data-testid="text-player-artist-desktop">{active.artist}</div>
                 </button>
 
-                {/* Compact playback controls (no seek bar — moved to hairline above) */}
                 <div className="flex flex-1 min-w-0 items-center justify-center gap-2">
                   <Button size="icon" variant="ghost" onClick={playPrev} disabled={!hasPrev} className="shrink-0" data-testid="button-player-prev-desktop" aria-label="Previous track">
                     <SkipBack className="h-4 w-4" />
@@ -822,34 +875,18 @@ function PlayerBar() {
                   </Button>
                 </div>
 
-                {/* Right actions */}
                 <div className="flex shrink-0 items-center gap-1">
-                  {/* Repeat */}
                   <Button
                     variant="ghost"
                     size="sm"
-                    className={cn(
-                      "px-2",
-                      repeatMode !== "off" ? "text-primary hover:text-primary/80" : "text-muted-foreground",
-                    )}
+                    className={cn("px-2", repeatMode !== "off" ? "text-primary hover:text-primary/80" : "text-muted-foreground")}
                     onClick={toggleRepeatMode}
                     data-testid="button-player-repeat-desktop"
                   >
-                    {repeatMode === "one" ? (
-                      <Repeat1 className="h-3.5 w-3.5" />
-                    ) : (
-                      <Repeat className="h-3.5 w-3.5" />
-                    )}
+                    {repeatMode === "one" ? <Repeat1 className="h-3.5 w-3.5" /> : <Repeat className="h-3.5 w-3.5" />}
                   </Button>
 
-                  {/* Queue */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="relative px-2"
-                    onClick={() => setQueueOpen(true)}
-                    data-testid="button-player-queue-desktop"
-                  >
+                  <Button variant="ghost" size="sm" className="relative px-2" onClick={() => setQueueOpen(true)} data-testid="button-player-queue-desktop">
                     <ListMusic className="h-3.5 w-3.5" />
                     {queueCount > 0 && (
                       <span className="absolute -right-0.5 -top-0.5 flex h-3.5 min-w-[14px] items-center justify-center rounded-full bg-primary px-1 text-[8px] font-bold text-white leading-none">
@@ -858,7 +895,6 @@ function PlayerBar() {
                     )}
                   </Button>
 
-                  {/* Volume */}
                   <div className="flex items-center gap-1.5">
                     <span className="text-xs text-muted-foreground">🔊</span>
                     <input
@@ -886,7 +922,6 @@ function PlayerBar() {
                   <OverflowMenu side="top" align="end" {...desktopMenuProps} />
                 </div>
 
-                {/* Close */}
                 <Button
                   variant="ghost"
                   size="sm"
