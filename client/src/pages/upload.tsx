@@ -371,6 +371,15 @@ export default function Upload() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
 
+  // Android treats `audio/*` as a playback intent → shows "Open With" popup instead of file picker.
+  // Strip the wildcard on Android but keep it on iOS/desktop where it works fine.
+  const audioAccept = useMemo(() => {
+    const isAndroid = /android/i.test(navigator.userAgent);
+    return isAndroid
+      ? ".mp3,.m4a,.aac,.wav,.flac,.ogg,.aiff,.aif"
+      : "audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.aiff,.aif";
+  }, []);
+
   // When auth state resolves (e.g. on page load), sync artist + email into draft
   useEffect(() => {
     if (isLoggedInArtist) {
@@ -941,7 +950,7 @@ export default function Upload() {
 
                     <div className="grid gap-3">
                       <DropZone
-                        accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.aiff,.aif"
+                        accept={audioAccept}
                         label="Audio file *"
                         hint="Tap to choose — MP3, WAV, M4A, FLAC"
                         icon={AudioLines}

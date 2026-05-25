@@ -176,34 +176,32 @@ function MyTrackRow({
         onTrackDeleted={onTrackDeleted}
         onTrackUpdated={onTrackUpdated}
       />
-      {/* Visibility + Share overlaid on the right */}
+      {/* Visibility icon only — no border/padding */}
       {isOwner && (
-      <div
-        className="absolute right-12 sm:right-12 top-1/2 -translate-y-1/2 z-10 flex items-center gap-1 sm:gap-1.5"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button
-          type="button"
-          onClick={() => onToggleVisibility(track)}
-          disabled={isToggling}
-          title={isPrivate ? "Make public" : "Make private"}
-          data-testid={`button-toggle-visibility-${track.id}`}
-          className={cn(
-            "transition cursor-pointer disabled:cursor-not-allowed",
-            isPrivate
-              ? "text-muted-foreground/60 hover:text-amber-300"
-              : "text-muted-foreground/60 hover:text-emerald-300",
-          )}
+        <div
+          className="absolute right-14 top-1/2 -translate-y-1/2 z-10"
+          onClick={(e) => e.stopPropagation()}
         >
-          {isToggling ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : isPrivate ? (
-            <Lock className="h-3 w-3" />
-          ) : (
-            <Globe className="h-3 w-3" />
-          )}
-        </button>
-      </div>
+          <span
+            onClick={() => onToggleVisibility(track)}
+            title={isPrivate ? "Make public" : "Make private"}
+            data-testid={`button-toggle-visibility-${track.id}`}
+            className={cn(
+              isToggling ? "cursor-not-allowed" : "cursor-pointer",
+              isPrivate
+                ? "text-muted-foreground/60 hover:text-amber-300"
+                : "text-muted-foreground/60 hover:text-emerald-300",
+            )}
+          >
+            {isToggling ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : isPrivate ? (
+              <Lock className="h-3 w-3" />
+            ) : (
+              <Globe className="h-3 w-3" />
+            )}
+          </span>
+        </div>
       )}
     </motion.div>
   );
