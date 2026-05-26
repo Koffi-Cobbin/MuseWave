@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Music2, Pause, Play, Heart, Headphones, Lock } from "lucide-react";
+import { Music2, Pause, Play, Heart, Headphones, Lock, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePlayer } from "@/contexts/player-context";
@@ -57,9 +57,10 @@ export function TrackCard({
   onTrackDeleted,
   onTrackUpdated,
 }: TrackCardProps) {
-  const { isPlaying } = usePlayer();
+  const { isPlaying, isBuffering } = usePlayer();
   const [imgLoaded, setImgLoaded] = useState(false);
   const isActiveAndPlaying = isActive && isPlaying;
+  const isActiveAndBuffering = isActive && isBuffering;
 
   const accentStyle = track.coverGradient
     ? { backgroundImage: `linear-gradient(135deg, ${track.coverGradient})` }
@@ -126,15 +127,19 @@ export function TrackCard({
           {/* Gradient fade on the right edge so text doesn't bleed into the image */}
           <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-r from-transparent to-background" />
 
-          {/* Play/pause icon centered vertically */}
+          {/* Play/pause/loading icon centered vertically */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div
               className={cn(
                 "flex h-7 w-7 items-center justify-center rounded-full transition-all",
-                isActiveAndPlaying ? "bg-white/90" : "bg-white/10 opacity-0 group-hover:opacity-100",
+                isActiveAndPlaying || isActiveAndBuffering
+                  ? "bg-white/90"
+                  : "bg-white/10 opacity-0 group-hover:opacity-100",
               )}
             >
-              {isActiveAndPlaying ? (
+              {isActiveAndBuffering ? (
+                <Loader2 className="h-3 w-3 animate-spin text-background" />
+              ) : isActiveAndPlaying ? (
                 <Pause className="h-3 w-3 fill-current text-background" />
               ) : (
                 <Play className="ml-0.5 h-3 w-3 fill-current text-white" />
@@ -262,13 +267,15 @@ export function TrackCard({
             <motion.div
               className="flex h-8 w-8 items-center justify-center rounded-full shadow-lg"
               style={{
-                backgroundColor: isActiveAndPlaying ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0)",
-                backdropFilter: isActiveAndPlaying ? undefined : "blur(4px)",
+                backgroundColor: isActiveAndPlaying || isActiveAndBuffering ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0)",
+                backdropFilter: isActiveAndPlaying || isActiveAndBuffering ? undefined : "blur(4px)",
               }}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.92 }}
             >
-              {isActiveAndPlaying ? (
+              {isActiveAndBuffering ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-background" />
+              ) : isActiveAndPlaying ? (
                 <Pause className="h-3.5 w-3.5 fill-current text-background" />
               ) : (
                 <Play className="ml-0.5 h-3.5 w-3.5 fill-current text-white/80" />

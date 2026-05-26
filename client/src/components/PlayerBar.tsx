@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronDown, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X } from "lucide-react";
+import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronDown, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -189,6 +189,7 @@ function OverflowMenu({
 function PlayerBar() {
   const {
     active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying,
+    isBuffering, setIsBuffering,
     playNext, playPrev, hasNext, hasPrev, queueCount, repeatMode,
     toggleRepeatMode, registerAudioElement, consumeGesturePlay,
   } = usePlayer();
@@ -279,13 +280,22 @@ function PlayerBar() {
         playNextRef.current();
       }
     };
+    const handleWaiting = () => setIsBuffering(true);
+    const handlePlaying = () => setIsBuffering(false);
+    const handlePause   = () => setIsBuffering(false);
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
     audio.addEventListener("ended", handleEnded);
+    audio.addEventListener("waiting", handleWaiting);
+    audio.addEventListener("playing", handlePlaying);
+    audio.addEventListener("pause",   handlePause);
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", updateDuration);
       audio.removeEventListener("ended", handleEnded);
+      audio.removeEventListener("waiting", handleWaiting);
+      audio.removeEventListener("playing", handlePlaying);
+      audio.removeEventListener("pause",   handlePause);
     };
   }, [active]);
 
@@ -726,11 +736,13 @@ function PlayerBar() {
                         onClick={togglePlay}
                         className="flex h-9 w-9 items-center justify-center text-primary transition hover:text-primary/80"
                         data-testid="button-player-play-pause"
-                        aria-label={isPlaying ? "Pause" : "Play"}
+                        aria-label={isBuffering ? "Buffering…" : isPlaying ? "Pause" : "Play"}
                       >
-                        {isPlaying
-                          ? <Pause className="h-4 w-4" />
-                          : <Play className="h-4 w-4 translate-x-px" />
+                        {isBuffering && isPlaying
+                          ? <Loader2 className="h-4 w-4 animate-spin" />
+                          : isPlaying
+                            ? <Pause className="h-4 w-4" />
+                            : <Play className="h-4 w-4 translate-x-px" />
                         }
                       </button>
 
@@ -867,8 +879,10 @@ function PlayerBar() {
                   <Button size="icon" variant="ghost" onClick={playPrev} disabled={!hasPrev} className="shrink-0" data-testid="button-player-prev-desktop" aria-label="Previous track">
                     <SkipBack className="h-4 w-4" />
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={togglePlay} className="shrink-0" data-testid="button-player-play-pause-desktop">
-                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  <Button size="icon" variant="ghost" onClick={togglePlay} className="shrink-0" data-testid="button-player-play-pause-desktop" aria-label={isBuffering ? "Buffering…" : isPlaying ? "Pause" : "Play"}>
+                    {isBuffering && isPlaying
+                      ? <Loader2 className="h-4 w-4 animate-spin" />
+                      : isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   </Button>
                   <Button size="icon" variant="ghost" onClick={playNext} disabled={!hasNext} className="shrink-0" data-testid="button-player-next-desktop" aria-label="Next track">
                     <SkipForward className="h-4 w-4" />

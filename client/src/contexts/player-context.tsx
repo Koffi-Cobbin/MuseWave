@@ -11,6 +11,9 @@ type PlayerContextType = {
   setAutoPlay: (value: boolean) => void;
   isPlaying: boolean;
   setIsPlaying: (value: boolean) => void;
+  /** True while the audio element is fetching / buffering (waiting event). */
+  isBuffering: boolean;
+  setIsBuffering: (value: boolean) => void;
   queue: Track[];
   queueIndex: number;
   setQueue: (tracks: Track[], startIndex?: number) => void;
@@ -50,6 +53,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [active, setActiveState] = useState<Track | null>(null);
   const [autoPlay, setAutoPlay] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isBuffering, setIsBuffering] = useState(false);
   const [queue, setQueueState] = useState<Track[]>([]);
   const [queueIndex, setQueueIndex] = useState(-1);
   const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
@@ -172,6 +176,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // on the very next render and skips the double-load.
     gesturePlayPendingRef.current = true;
 
+    // Show loading indicator immediately — PlayerBar clears it on "playing".
+    setIsBuffering(true);
+
     // ── Step 1: play immediately from the network URL ────────────────────
     audio.src = track.audioUrl;
     audio.load();
@@ -291,6 +298,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setAutoPlay,
       isPlaying,
       setIsPlaying,
+      isBuffering,
+      setIsBuffering,
       queue,
       queueIndex,
       setQueue,
