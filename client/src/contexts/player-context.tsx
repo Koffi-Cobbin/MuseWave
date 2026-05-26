@@ -152,53 +152,64 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Resolve the best src for a track and play it directly on the audio element.
-   * Sets gesturePlayPendingRef SYNCHRONOUSLY (before any await) so the core
-   * sync effect in PlayerBar skips the redundant load when it sees the new
-   * active.id.  Falls back to a canplay listener if play() is initially
-   * rejected (e.g. browser not ready yet).
+   * Play a track on the audio element with minimal latency.
+   *
+   * Strategy:
+   *  1. Set gesturePlayPendingRef synchronously so PlayerBar's core effect
+   *     skips the redundant audio.src/load() it would do on re-render.
+   *  2. Immediately assign audio.src to the network URL and call play() —
+   *     no await, no delay.  The browser starts buffering right away.
+   *  3. In the background, check IndexedDB for an offline blob.  If one is
+   *     found before meaningful playback has started (currentTime < 1 s),
+   *     silently swap to the local src so the rest of the track plays
+   *     without touching the network.
    */
   const resolveAndPlay = useCallback(async (track: Track) => {
     const audio = audioElementRef.current;
     if (!audio) return;
 
-    // Signal the core sync effect synchronously (before any await) so it
-    // skips the redundant audio.src / audio.load() it would otherwise do
-    // when it sees a new active.id.  This prevents a double-load race.
+    // Must be set before any await so the sync effect in PlayerBar sees it
+    // on the very next render and skips the double-load.
     gesturePlayPendingRef.current = true;
 
-    // Try to get an offline blob — if it exists it's returned synchronously
-    // from IndexedDB (already in memory after the first open).  We give it a
-    // short deadline so we don't delay the gesture-initiated play call.
-    let src = track.audioUrl;
-    try {
-      const blob = await Promise.race([
-        getTrackBlob(track.id),
-        new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 50)),
-      ]);
-      if (blob) {
-        src = URL.createObjectURL(blob);
-      }
-    } catch {
-      // fall back to network URL
-    }
-
-    audio.src = src;
+    // ── Step 1: play immediately from the network URL ────────────────────
+    audio.src = track.audioUrl;
     audio.load();
 
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => {
-        // play() was rejected (e.g. autoplay policy or src not ready yet).
-        // Attach a one-shot canplay listener as fallback so playback starts
-        // as soon as the browser allows it.
-        const onCanPlay = () => {
-          audio.play().catch(() => {
-            setIsPlaying(false);
-          });
-        };
-        audio.addEventListener("canplay", onCanPlay, { once: true });
-      });
+    const startPlay = () => {
+      const p = audio.play();
+      if (p !== undefined) {
+        p.catch(() => {
+          // Rejected — attach a one-shot canplay fallback.
+          audio.addEventListener(
+            "canplay",
+            () => { audio.play().catch(() => setIsPlaying(false)); },
+            { once: true },
+          );
+        });
+      }
+    };
+    startPlay();
+
+    // ── Step 2: upgrade to offline blob if available ─────────────────────
+    // Only swap if the same track is still active and hasn't buffered past
+    // 1 second (so the swap is seamless / barely noticeable).
+    try {
+      const blob = await getTrackBlob(track.id);
+      if (
+        blob &&
+        audioElementRef.current === audio &&
+        audio.currentTime < 1.0
+      ) {
+        const blobUrl = URL.createObjectURL(blob);
+        const resumeTime = audio.currentTime;
+        audio.src = blobUrl;
+        audio.load();
+        audio.currentTime = resumeTime;
+        startPlay();
+      }
+    } catch {
+      // No offline blob or DB error — keep playing from network URL.
     }
   }, []);
 
