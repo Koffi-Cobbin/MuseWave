@@ -130,49 +130,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const playNext = useCallback(() => {
-    if (queue.length === 0) {
-      setIsPlaying(false);
-      return;
-    }
-    const nextIndex = queueIndex + 1;
-    if (nextIndex < queue.length) {
-      setQueueIndex(nextIndex);
-      setActiveState(queue[nextIndex]);
-      setAutoPlay(true);
-    } else if (repeatMode === "all" && queue.length > 0) {
-      setQueueIndex(0);
-      setActiveState(queue[0]);
-      setAutoPlay(true);
-    } else {
-      setIsPlaying(false);
-    }
-  }, [queue, queueIndex, repeatMode, setIsPlaying]);
-
-  const playPrev = useCallback(() => {
-    if (queue.length === 0) return;
-    const prevIndex = queueIndex - 1;
-    if (prevIndex >= 0) {
-      setQueueIndex(prevIndex);
-      setActiveState(queue[prevIndex]);
-      setAutoPlay(true);
-    }
-  }, [queue, queueIndex]);
-
-  const hasNext = queue.length > 0 && queueIndex < queue.length - 1;
-  const hasPrev = queue.length > 0 && queueIndex > 0;
-  const queueCount = Math.max(0, queue.length - queueIndex - 1);
-
   // ── iOS user-gesture direct play ─────────────────────────────────────────
 
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
 
   /**
-   * Set to true by playTrack / playQueue after a successful audio.play() call
-   * inside the user gesture.  PlayerBar's isPlaying useEffect checks and clears
-   * this flag; when true it skips calling audio.play() again (which would
-   * restart from 0 on iOS) and also skips attaching a canplay listener that
-   * would fire outside the gesture context.
+   * Set to true by resolveAndPlay before any await so that PlayerBar's core
+   * sync effect sees it synchronously on the next render and skips the
+   * redundant audio.src / audio.load() path.  Cleared by consumeGesturePlay.
    */
   const gesturePlayPendingRef = useRef(false);
 
@@ -187,17 +152,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   /**
-   * Resolve the best src for a track:
-   *  1. Offline blob URL (if available in IndexedDB)
-   *  2. Network audio URL
-   *
-   * This is called synchronously within the user-gesture stack by initiating
-   * a promise that resolves immediately when the blob is cached, or falls back
-   * to the network URL without waiting.
+   * Resolve the best src for a track and play it directly on the audio element.
+   * Sets gesturePlayPendingRef SYNCHRONOUSLY (before any await) so the core
+   * sync effect in PlayerBar skips the redundant load when it sees the new
+   * active.id.  Falls back to a canplay listener if play() is initially
+   * rejected (e.g. browser not ready yet).
    */
   const resolveAndPlay = useCallback(async (track: Track) => {
     const audio = audioElementRef.current;
     if (!audio) return;
+
+    // Signal the core sync effect synchronously (before any await) so it
+    // skips the redundant audio.src / audio.load() it would otherwise do
+    // when it sees a new active.id.  This prevents a double-load race.
+    gesturePlayPendingRef.current = true;
 
     // Try to get an offline blob — if it exists it's returned synchronously
     // from IndexedDB (already in memory after the first open).  We give it a
@@ -221,13 +189,67 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       playPromise.catch(() => {
-        // play() was interrupted (e.g. src changed) — PlayerBar's effect
-        // will retry once canplay fires.
+        // play() was rejected (e.g. autoplay policy or src not ready yet).
+        // Attach a one-shot canplay listener as fallback so playback starts
+        // as soon as the browser allows it.
+        const onCanPlay = () => {
+          audio.play().catch(() => {
+            setIsPlaying(false);
+          });
+        };
+        audio.addEventListener("canplay", onCanPlay, { once: true });
       });
     }
-
-    gesturePlayPendingRef.current = true;
   }, []);
+
+  // ── Queue navigation ──────────────────────────────────────────────────────
+  //
+  // playNext / playPrev use resolveAndPlay directly (same path as playTrack /
+  // playQueue) instead of the autoPlay state → canplay chain.  This ensures
+  // the audio element starts loading and playing immediately without waiting
+  // for a canplay event that may be blocked by browser autoplay policies.
+
+  const playNext = useCallback(() => {
+    if (queue.length === 0) {
+      setIsPlaying(false);
+      return;
+    }
+    const nextIndex = queueIndex + 1;
+    if (nextIndex < queue.length) {
+      const nextTrack = queue[nextIndex];
+      setQueueIndex(nextIndex);
+      setActiveState(nextTrack);
+      setIsPlaying(true);
+      setAutoPlay(false);
+      resolveAndPlay(nextTrack);
+    } else if (repeatMode === "all" && queue.length > 0) {
+      const firstTrack = queue[0];
+      setQueueIndex(0);
+      setActiveState(firstTrack);
+      setIsPlaying(true);
+      setAutoPlay(false);
+      resolveAndPlay(firstTrack);
+    } else {
+      setIsPlaying(false);
+    }
+  }, [queue, queueIndex, repeatMode, resolveAndPlay]);
+
+  const playPrev = useCallback(() => {
+    if (queue.length === 0) return;
+    const prevIndex = queueIndex - 1;
+    if (prevIndex >= 0) {
+      const prevTrack = queue[prevIndex];
+      setQueueIndex(prevIndex);
+      setActiveState(prevTrack);
+      setIsPlaying(true);
+      setAutoPlay(false);
+      resolveAndPlay(prevTrack);
+    }
+  }, [queue, queueIndex, resolveAndPlay]);
+
+  const hasNext = queue.length > 0 && queueIndex < queue.length - 1;
+  const hasPrev = queue.length > 0 && queueIndex > 0;
+  const queueCount = Math.max(0, queue.length - queueIndex - 1);
 
   const playTrack = useCallback((track: Track) => {
     setActiveState(track);
