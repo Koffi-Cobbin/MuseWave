@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from "react";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronDown, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -212,6 +213,8 @@ function PlayerBar() {
   const [isLiking, setIsLiking] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isSavingOffline, setIsSavingOffline] = useState(false);
+  const [shortcutHint, setShortcutHint] = useState<string | null>(null);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -455,6 +458,31 @@ function PlayerBar() {
     }
   }, [offlineAudioSrc, active?.id]);
 
+  // ── Keyboard shortcut HUD ─────────────────────────────────────────────────
+
+  const showShortcutHint = useCallback((label: string) => {
+    setShortcutHint(label);
+    if (hintTimerRef.current) clearTimeout(hintTimerRef.current);
+    hintTimerRef.current = setTimeout(() => setShortcutHint(null), 1200);
+  }, []);
+
+  useKeyboardShortcuts({
+    active,
+    isPlaying,
+    setIsPlaying,
+    audioRef,
+    volume,
+    setVolume,
+    handleSeekDelta: (delta: number) => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      const newTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + delta));
+      audio.currentTime = newTime;
+      setCurrentTime(newTime);
+    },
+    onAction: showShortcutHint,
+  });
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const togglePlay = (e?: React.MouseEvent) => {
@@ -609,6 +637,27 @@ function PlayerBar() {
         call and the first render cycle.  This is the key iOS fix.
       */}
       <audio ref={audioRef} preload="none" playsInline />
+
+      {/* ── Keyboard shortcut HUD badge ────────────────────────────────── */}
+      <AnimatePresence>
+        {shortcutHint && (
+          <motion.div
+            key={shortcutHint + Date.now()}
+            initial={{ opacity: 0, y: 6, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className="fixed left-1/2 z-50 -translate-x-1/2 pointer-events-none"
+            style={{ bottom: "calc(var(--bottom-nav-h, 64px) + 88px)" }}
+            aria-live="polite"
+            aria-label={shortcutHint}
+          >
+            <div className="rounded-full border border-white/15 bg-black/75 px-4 py-1.5 text-sm font-medium text-white/90 backdrop-blur-xl shadow-lg tabular-nums">
+              {shortcutHint}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <QueueSheet open={queueOpen} onClose={() => setQueueOpen(false)} />
 
