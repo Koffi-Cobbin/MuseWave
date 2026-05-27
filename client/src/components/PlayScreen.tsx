@@ -14,7 +14,6 @@ import {
   SkipForward,
   Music2,
   ExternalLink,
-  Volume2,
   ListMusic,
   Repeat,
   Repeat1,
@@ -40,8 +39,6 @@ interface PlayScreenProps {
   onTogglePlay: () => void;
   onLike: () => void;
   onSeekDelta: (delta: number) => void;
-  volume?: number;
-  onVolumeChange?: (v: number) => void;
   onOpenQueue?: () => void;
 }
 
@@ -101,11 +98,9 @@ export function PlayScreen({
   onTogglePlay,
   onLike,
   onSeekDelta,
-  volume = 1,
-  onVolumeChange,
   onOpenQueue,
 }: PlayScreenProps) {
-  const { active, isPlaying, repeatMode, toggleRepeatMode, playNext, playPrev, hasNext, hasPrev } = usePlayer();
+  const { active, isPlaying, repeatMode, toggleRepeatMode, skipNext, skipPrev, hasNext, hasPrev } = usePlayer();
   const { isAuthenticated } = useAuth();
   const { isTrackDownloaded, downloadForOffline, downloadProgress, isOnline } = useOffline();
   const { toast } = useToast();
@@ -444,7 +439,7 @@ export function PlayScreen({
               <div className="mt-6 flex items-center justify-center gap-8 sm:gap-10">
                 <button
                   type="button"
-                  onClick={playPrev}
+                  onClick={skipPrev}
                   disabled={!hasPrev}
                   className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white disabled:opacity-30"
                   data-testid="button-play-screen-prev"
@@ -466,7 +461,7 @@ export function PlayScreen({
                 </button>
                 <button
                   type="button"
-                  onClick={playNext}
+                  onClick={skipNext}
                   disabled={!hasNext}
                   className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white disabled:opacity-30"
                   data-testid="button-play-screen-next"
@@ -659,7 +654,7 @@ export function PlayScreen({
                   <div className="mt-6 flex items-center justify-center gap-10">
                     <button
                       type="button"
-                      onClick={playPrev}
+                      onClick={skipPrev}
                       disabled={!hasPrev}
                       className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white disabled:opacity-30"
                       aria-label="Previous track"
@@ -680,7 +675,7 @@ export function PlayScreen({
                     </button>
                     <button
                       type="button"
-                      onClick={playNext}
+                      onClick={skipNext}
                       disabled={!hasNext}
                       className="flex flex-col items-center gap-0.5 text-white/70 transition hover:text-white disabled:opacity-30"
                       aria-label="Next track"
@@ -689,29 +684,6 @@ export function PlayScreen({
                       <span className="text-[9px] font-bold tabular-nums">NEXT</span>
                     </button>
                   </div>
-
-                  {/* Volume */}
-                  {onVolumeChange && (
-                    <div className="mt-5 flex items-center gap-3">
-                      <Volume2 className="h-4 w-4 shrink-0 text-white/50" />
-                      <div className="relative flex-1 h-1 rounded-full bg-white/20">
-                        <div
-                          className="absolute inset-y-0 left-0 rounded-full bg-white/70 pointer-events-none"
-                          style={{ width: `${volume * 100}%` }}
-                        />
-                        <input
-                          type="range"
-                          min="0"
-                          max="1"
-                          step="0.05"
-                          value={volume}
-                          onChange={(e) => onVolumeChange(parseFloat(e.target.value))}
-                          className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-5 w-full cursor-pointer opacity-0"
-                          data-testid="input-play-screen-volume"
-                        />
-                      </div>
-                    </div>
-                  )}
 
                   {/* Action row */}
                   <div className="mt-6 flex flex-wrap items-center justify-center gap-2 sm:gap-3">

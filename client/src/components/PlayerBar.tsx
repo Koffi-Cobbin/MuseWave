@@ -191,16 +191,17 @@ function PlayerBar() {
   const {
     active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying,
     isBuffering, setIsBuffering,
-    playNext, playPrev, hasNext, hasPrev, queueCount, repeatMode,
+    // playNext = auto-advance (ended event, NOT a gesture)
+    playNext,
+    // skipNext/skipPrev = user tap/click (gesture path, low latency)
+    skipNext, skipPrev,
+    hasNext, hasPrev, queueCount, repeatMode,
     toggleRepeatMode, registerAudioElement, consumeGesturePlay,
   } = usePlayer();
   const { user, isAuthenticated } = useAuth();
   const { isTrackDownloaded, downloadForOffline, isOnline } = useOffline();
   const { toast } = useToast();
 
-  // useOfflineAudio resolves a blob URL for offline tracks.
-  // We still use it, but we no longer let it drive audio.src directly —
-  // that caused iOS to lose the gesture-unlocked state.
   const offlineAudioSrc = useOfflineAudio(active);
 
   const [playScreenOpen, setPlayScreenOpen] = useState(false);
@@ -230,6 +231,7 @@ function PlayerBar() {
     return () => registerAudioElement(null);
   }, [registerAudioElement]);
 
+  // Keep stable refs so event listeners don't go stale
   const playNextRef = useRef(playNext);
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
   const repeatModeRef = useRef(repeatMode);
@@ -271,27 +273,44 @@ function PlayerBar() {
     if (!audio) return;
     const updateTime = () => setCurrentTime(audio.currentTime);
     const updateDuration = () => setDuration(audio.duration);
+
     const handleEnded = () => {
+      // Record completed play
       if (active) {
         const playedSec = Math.floor(audio.duration || audio.currentTime || 0);
         if (playedSec > 0) recordPlay(active.id, playedSec, true);
       }
+
       if (repeatModeRef.current === "one") {
+        // repeat-one: seek back and replay directly on the same element.
+        // This IS allowed without a gesture because it's inside the ended handler.
         audio.currentTime = 0;
-        audio.play().catch(() => {});
+        audio.play().catch(() => {
+          // Fallback for very strict browsers
+          audio.addEventListener("canplay", () => audio.play().catch(() => {}), { once: true });
+          audio.load();
+        });
       } else {
+        // Auto-advance: update React state only — do NOT call audio.play() here.
+        // The "ended" event is NOT a trusted user gesture on iOS/Android.
+        // The core sync effect (isPlaying/active.id) will pick up the new
+        // active track via autoPlay=true and load+play through the canplay path,
+        // which browsers allow for media session auto-advance.
         playNextRef.current();
       }
     };
+
     const handleWaiting = () => setIsBuffering(true);
     const handlePlaying = () => setIsBuffering(false);
     const handlePause   = () => setIsBuffering(false);
+
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
     audio.addEventListener("ended", handleEnded);
     audio.addEventListener("waiting", handleWaiting);
     audio.addEventListener("playing", handlePlaying);
     audio.addEventListener("pause",   handlePause);
+
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", updateDuration);
@@ -356,8 +375,12 @@ function PlayerBar() {
       .catch(() => {});
   }, [active?.id, user?.id]);
 
-  // ── Autoplay (non-gesture path — e.g. queue advance) ─────────────────────
-
+  // ── autoPlay effect ───────────────────────────────────────────────────────
+  //
+  // Triggered by playNext (auto-advance from ended event) and by setQueue.
+  // At this point active has already been updated to the new track.
+  // We set isPlaying=true here; the core sync effect below does the actual
+  // audio.src + canplay load.
   useEffect(() => {
     if (!autoPlay || !active) return;
     setAutoPlay(false);
@@ -366,16 +389,15 @@ function PlayerBar() {
 
   // ── Core playback sync ────────────────────────────────────────────────────
   //
-  // This effect handles TWO scenarios:
+  // Handles two scenarios:
   //
   // A) Track changed (new active.id):
-  //    • If playTrack/playQueue already set audio.src and called play() via
-  //      the gesture path (gesturePlayPending = true), we just update
-  //      loadedTrackIdRef and let the gesture-initiated play continue.
-  //      We do NOT call audio.play() again — that would restart from zero
-  //      on iOS (the second play() call resets position).
-  //    • If the track changed via the non-gesture path (queue advance /
-  //      autoPlay), we load the best src and play normally.
+  //    • Gesture path (playTrack / skipNext / skipPrev):
+  //      consumeGesturePlay() === true → skip entirely; audio.src and play()
+  //      were already called inside resolveAndPlay.
+  //    • Non-gesture path (autoPlay / setQueue):
+  //      consumeGesturePlay() === false → set audio.src, load, wait for
+  //      canplay, then play.  Browsers allow this for media auto-advance.
   //
   // B) isPlaying toggled on the SAME track (pause/resume):
   //    • No src change needed.  Just pause or resume.
@@ -387,30 +409,36 @@ function PlayerBar() {
     const trackChanged = loadedTrackIdRef.current !== active.id;
 
     if (trackChanged) {
-      // Check whether the context's playTrack already handled this via gesture
       const wasGesturePlay = consumeGesturePlay();
 
       if (wasGesturePlay) {
-        // Gesture path: audio.src is already set and play() was already called.
-        // Just record that we've loaded this track so future toggles work.
+        // Gesture path already handled src + play() in resolveAndPlay.
         loadedTrackIdRef.current = active.id;
         return;
       }
 
-      // Non-gesture path (e.g. autoPlay after queue advance):
-      // Use the offline blob if available, otherwise the network URL.
+      // Non-gesture path: load best available src and play when ready.
       const src = offlineAudioSrc ?? active.audioUrl;
       audio.src = src;
-      audio.load();
       loadedTrackIdRef.current = active.id;
 
       if (isPlaying) {
-        // audio may not be ready yet — wait for canplay
+        // Attach canplay listener BEFORE load() so it's ready when data arrives.
         const onCanPlay = () => {
-          audio.play().catch(() => setIsPlaying(false));
+          audio.play().catch(() => {
+            // Last-resort: try once more on a subsequent canplay
+            audio.addEventListener(
+              "canplay",
+              () => audio.play().catch(() => setIsPlaying(false)),
+              { once: true },
+            );
+          });
         };
         audio.addEventListener("canplay", onCanPlay, { once: true });
+        audio.load();
         return () => audio.removeEventListener("canplay", onCanPlay);
+      } else {
+        audio.load();
       }
       return;
     }
@@ -429,28 +457,16 @@ function PlayerBar() {
 
   // ── When the offline blob resolves for the CURRENT playing track ──────────
   //
-  // If the track is already playing via the network URL and the offline blob
-  // becomes available later (e.g. background download completes), we don't
-  // interrupt — the blob is only used on next load.
-  //
-  // However: if the track started playing but offlineAudioSrc resolved to a
-  // blob URL BEFORE the network stream returned audio (common on slow
-  // connections), we swap the src now.  We detect this by checking whether
-  // the audio element has actually started producing samples yet.
-  //
+  // Only swap if the element hasn't produced any audio yet and the current src
+  // is still the network URL (not already a blob).
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !active || !offlineAudioSrc) return;
-    // Only swap if the element hasn't produced any audio yet (currentTime ~0)
-    // and the current src is the network URL (not already a blob).
     if (
       audio.currentTime < 0.5 &&
       !audio.src.startsWith("blob:") &&
       offlineAudioSrc.startsWith("blob:")
     ) {
-      // Do NOT call audio.load() — it causes AbortError on Android Chrome
-      // which blocks the subsequent play() call via autoplay policy.
-      // Setting audio.src and calling play() directly is the correct pattern.
       const wasPlaying = !audio.paused;
       audio.src = offlineAudioSrc;
       if (wasPlaying) {
@@ -676,8 +692,6 @@ function PlayerBar() {
         onTogglePlay={() => setIsPlaying(!isPlaying)}
         onLike={handleLike}
         onSeekDelta={handleSeekDelta}
-        volume={volume}
-        onVolumeChange={setVolume}
         onOpenQueue={() => { setPlayScreenOpen(false); setQueueOpen(true); }}
       />
 
@@ -929,7 +943,8 @@ function PlayerBar() {
                 </button>
 
                 <div className="flex flex-1 min-w-0 items-center justify-center gap-2">
-                  <Button size="icon" variant="ghost" onClick={playPrev} disabled={!hasPrev} className="shrink-0" data-testid="button-player-prev-desktop" aria-label="Previous track">
+                  {/* Use skipPrev — user gesture, low latency */}
+                  <Button size="icon" variant="ghost" onClick={skipPrev} disabled={!hasPrev} className="shrink-0" data-testid="button-player-prev-desktop" aria-label="Previous track">
                     <SkipBack className="h-4 w-4" />
                   </Button>
                   <Button size="icon" variant="ghost" onClick={togglePlay} className="shrink-0" data-testid="button-player-play-pause-desktop" aria-label={isBuffering ? "Buffering…" : isPlaying ? "Pause" : "Play"}>
@@ -937,7 +952,8 @@ function PlayerBar() {
                       ? <Loader2 className="h-4 w-4 animate-spin" />
                       : isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   </Button>
-                  <Button size="icon" variant="ghost" onClick={playNext} disabled={!hasNext} className="shrink-0" data-testid="button-player-next-desktop" aria-label="Next track">
+                  {/* Use skipNext — user gesture, low latency */}
+                  <Button size="icon" variant="ghost" onClick={skipNext} disabled={!hasNext} className="shrink-0" data-testid="button-player-next-desktop" aria-label="Next track">
                     <SkipForward className="h-4 w-4" />
                   </Button>
                 </div>
