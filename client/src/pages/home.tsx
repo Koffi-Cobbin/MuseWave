@@ -15,6 +15,7 @@ import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { TrackCard } from "@/components/TrackCard";
 import { NewReleasesCarousel } from "@/components/NewReleasesCarousel";
+import { RecentlyPlayed } from "@/components/RecentlyPlayed";
 import {
   FeaturedSection,
   type FeaturedTrackItem,
@@ -231,6 +232,11 @@ export default function Home() {
               <div className="mb-5 sm:mb-6">
                 <FeaturedSection items={featuredItems} />
               </div>
+            )}
+
+            {/* ── Recently Played ── */}
+            {!query && (
+              <RecentlyPlayed onPlay={handlePlay} />
             )}
 
             {/* ── New Releases Carousel ── */}
