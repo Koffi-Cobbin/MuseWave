@@ -448,12 +448,16 @@ function PlayerBar() {
       !audio.src.startsWith("blob:") &&
       offlineAudioSrc.startsWith("blob:")
     ) {
+      // Do NOT call audio.load() — it causes AbortError on Android Chrome
+      // which blocks the subsequent play() call via autoplay policy.
+      // Setting audio.src and calling play() directly is the correct pattern.
       const wasPlaying = !audio.paused;
       audio.src = offlineAudioSrc;
-      audio.load();
       if (wasPlaying) {
-        const onCanPlay = () => audio.play().catch(() => {});
-        audio.addEventListener("canplay", onCanPlay, { once: true });
+        audio.play().catch(() => {
+          const onCanPlay = () => audio.play().catch(() => {});
+          audio.addEventListener("canplay", onCanPlay, { once: true });
+        });
       }
     }
   }, [offlineAudioSrc, active?.id]);

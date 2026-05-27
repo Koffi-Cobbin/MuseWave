@@ -179,44 +179,36 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // Show loading indicator immediately — PlayerBar clears it on "playing".
     setIsBuffering(true);
 
-    // ── Step 1: play immediately from the network URL ────────────────────
+    // ── Play immediately ──────────────────────────────────────────────────
+    //
+    // IMPORTANT: do NOT call audio.load() here.
+    //
+    // On Android Chrome, audio.load() synchronously aborts any in-flight
+    // resource selection algorithm queued by setting audio.src, which causes
+    // the subsequent audio.play() call to reject with AbortError.  That
+    // rejection falls through to the canplay fallback, which fires outside
+    // the trusted "ended" event context — and Android's autoplay policy
+    // blocks it.  iOS Safari is unaffected because it keeps the element
+    // gesture-unlocked forever once the user has interacted with it.
+    //
+    // Setting audio.src already resets the element and queues a new load;
+    // audio.play() processes that load and starts playback without needing
+    // an explicit audio.load() call.
     audio.src = track.audioUrl;
-    audio.load();
 
-    const startPlay = () => {
-      const p = audio.play();
-      if (p !== undefined) {
-        p.catch(() => {
-          // Rejected — attach a one-shot canplay fallback.
-          audio.addEventListener(
-            "canplay",
-            () => { audio.play().catch(() => setIsPlaying(false)); },
-            { once: true },
-          );
-        });
-      }
-    };
-    startPlay();
-
-    // ── Step 2: upgrade to offline blob if available ─────────────────────
-    // Only swap if the same track is still active and hasn't buffered past
-    // 1 second (so the swap is seamless / barely noticeable).
-    try {
-      const blob = await getTrackBlob(track.id);
-      if (
-        blob &&
-        audioElementRef.current === audio &&
-        audio.currentTime < 1.0
-      ) {
-        const blobUrl = URL.createObjectURL(blob);
-        const resumeTime = audio.currentTime;
-        audio.src = blobUrl;
-        audio.load();
-        audio.currentTime = resumeTime;
-        startPlay();
-      }
-    } catch {
-      // No offline blob or DB error — keep playing from network URL.
+    const p = audio.play();
+    if (p !== undefined) {
+      p.catch(() => {
+        // play() was rejected — attach a one-shot canplay fallback.
+        // This path is only reached when the browser truly needs more
+        // data before it can start (e.g. very slow connection), not
+        // because of an autoplay policy block from a bad load() call.
+        audio.addEventListener(
+          "canplay",
+          () => { audio.play().catch(() => setIsPlaying(false)); },
+          { once: true },
+        );
+      });
     }
   }, []);
 
