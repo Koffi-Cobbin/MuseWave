@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from "react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
-import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronDown, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X, Loader2 } from "lucide-react";
+import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronDown, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X, Loader2, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -216,6 +216,7 @@ function PlayerBar() {
   const [isSavingOffline, setIsSavingOffline] = useState(false);
   const [shortcutHint, setShortcutHint] = useState<string | null>(null);
   const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const prevVolumeRef = useRef(1);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -264,6 +265,11 @@ function PlayerBar() {
   useEffect(() => {
     const audio = audioRef.current;
     if (audio) audio.volume = volume;
+  }, [volume]);
+
+  // Track the last non-zero volume so we can restore it on unmute
+  useEffect(() => {
+    if (volume > 0) prevVolumeRef.current = volume;
   }, [volume]);
 
   // ── Audio event listeners ─────────────────────────────────────────────────
@@ -528,6 +534,15 @@ function PlayerBar() {
   const handleSeekInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     handleSeek(parseFloat(e.target.value));
   };
+
+  const toggleMute = useCallback(() => {
+    if (volume > 0) {
+      prevVolumeRef.current = volume;
+      setVolume(0);
+    } else {
+      setVolume(prevVolumeRef.current);
+    }
+  }, [volume, setVolume]);
 
   const formatTime = (t: number) => {
     if (!t || isNaN(t)) return "0:00";
@@ -979,7 +994,9 @@ function PlayerBar() {
                   </Button>
 
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">🔊</span>
+                    <Button variant="ghost" size="sm" className="px-1 text-muted-foreground hover:text-foreground" onClick={toggleMute} data-testid="button-player-mute">
+                      {volume === 0 ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+                    </Button>
                     <input
                       type="range" min="0" max="1" step="0.1" value={volume}
                       onChange={(e) => setVolume(parseFloat(e.target.value))}
