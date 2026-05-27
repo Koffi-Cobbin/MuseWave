@@ -1,0 +1,41 @@
+{
+  "id": "playback-reimpl-06",
+  "seq": "06",
+  "title": "Implement AndroidStrategy with hang-timer fallback",
+  "status": "completed",
+  "agent_id": null,
+  "started_at": null,
+  "completed_at": "2026-05-27T20:33:36.149Z",
+  "completion_summary": "Created AndroidStrategy with hang-timer fallback and PlaybackState ref",
+  "depends_on": [
+    "01",
+    "03"
+  ],
+  "parallel": true,
+  "suggested_agent": "CoderAgent",
+  "context_files": [
+    ".opencode/context/development/principles/clean-code.md"
+  ],
+  "reference_files": [
+    "shared/schema.ts"
+  ],
+  "acceptance_criteria": [
+    "AndroidStrategy class implements PlaybackStrategy interface",
+    "Internal _isPlayPending flag, _state: PlaybackState ref, and _hangTimer: number | null tracked",
+    "gesturePlay sets audio.src, calls audio.play(), catches with muted fallback then canplay fallback",
+    "gesturePlay NEVER calls audio.load()",
+    "nonGesturePlay sets _isPlayPending=true, audio.src=url, mutes, calls audio.play()",
+    "nonGesturePlay sets 500ms _hangTimer: if timeout fires, adds canplay listener and calls muted play()",
+    "nonGesturePlay .then() clears _hangTimer, _isPlayPending=false, unmutes",
+    "nonGesturePlay .catch() clears _hangTimer, _isPlayPending=false, adds canplay listener, calls muted play()",
+    "pause calls audio.pause()",
+    "isPlayPending getter returns _isPlayPending",
+    "destroy() clears _hangTimer if set",
+    "Never calls audio.load() anywhere",
+    "Imports PlaybackStrategy and HANG_TIMEOUT_MS from ../types",
+    "TypeScript compiles with zero errors"
+  ],
+  "deliverables": [
+    "client/src/playback/strategies/android.ts"
+  ]
+}

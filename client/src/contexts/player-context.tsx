@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
 import type { Track } from "../../../shared/schema";
-import { getTrackBlob } from "@/lib/offlineStorage";
 
 export type RepeatMode = "off" | "all" | "one";
 
@@ -24,41 +23,35 @@ type PlayerContextType = {
   clearQueue: () => void;
   /**
    * Auto-advance to next track (called from the audio "ended" event — NOT a
-   * user gesture).  Updates state only; the core PlayerBar sync effect handles
-   * loading and playing via the canplay-listener path, which browsers allow
-   * for media auto-advance even without a user gesture.
+   * user gesture).  Updates state only; the usePlayback hook handles loading
+   * and playing via the canplay-listener path, which browsers allow for media
+   * auto-advance even without a user gesture.
    */
   playNext: () => void;
   /**
-   * Skip to next track initiated by a user tap/click.  Uses resolveAndPlay for
-   * minimum latency (sets audio.src + calls play() inside the gesture stack).
+   * Skip to next track initiated by a user tap/click.
+   * Updates state only — audio playback is handled by usePlayback hook.
+   * @returns The next track to play, or null if no more tracks.
    */
-  skipNext: () => void;
+  skipNext: () => Track | null;
   /**
-   * Skip to previous track initiated by a user tap/click.  Same gesture path.
+   * Skip to previous track initiated by a user tap/click.
+   * Updates state only — audio playback is handled by usePlayback hook.
+   * @returns The previous track to play, or null if at start of queue.
    */
-  skipPrev: () => void;
+  skipPrev: () => Track | null;
   hasNext: boolean;
   hasPrev: boolean;
   queueCount: number;
   repeatMode: RepeatMode;
   toggleRepeatMode: () => void;
-  registerAudioElement: (el: HTMLAudioElement | null) => void;
   /**
    * Direct-initiation play for a single track.
-   * Resolves an offline blob URL if available, sets audio.src, and calls
-   * audio.play() synchronously within the user-gesture stack so iOS Safari
-   * allows playback.  Sets gesturePlayPending so PlayerBar's useEffect skips
-   * the canplay-listener path and does not overwrite src mid-play.
+   * Updates state only — audio playback is handled by usePlayback hook.
+   * @returns The track that was set as active.
    */
-  playTrack: (track: Track) => void;
-  playQueue: (tracks: Track[], startIndex?: number) => void;
-  /**
-   * True when playTrack / playQueue initiated playback directly via a user
-   * gesture.  PlayerBar reads and clears this flag to avoid a redundant
-   * audio.play() call (which would restart the track from zero on iOS).
-   */
-  consumeGesturePlay: () => boolean;
+  playTrack: (track: Track) => Track;
+  playQueue: (tracks: Track[], startIndex?: number) => Track | null;
 };
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -148,73 +141,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // ── iOS user-gesture direct play ─────────────────────────────────────────
-
-  const audioElementRef = useRef<HTMLAudioElement | null>(null);
-
-  /**
-   * Set to true by resolveAndPlay before any await so that PlayerBar's core
-   * sync effect sees it synchronously on the next render and skips the
-   * redundant audio.src / audio.load() path.  Cleared by consumeGesturePlay.
-   */
-  const gesturePlayPendingRef = useRef(false);
-
-  const registerAudioElement = useCallback((el: HTMLAudioElement | null) => {
-    audioElementRef.current = el;
-  }, []);
-
-  const consumeGesturePlay = useCallback((): boolean => {
-    const was = gesturePlayPendingRef.current;
-    gesturePlayPendingRef.current = false;
-    return was;
-  }, []);
-
-  /**
-   * Play a track on the audio element with minimal latency.
-   * ONLY call this from a synchronous user-gesture handler.
-   */
-  const resolveAndPlay = useCallback(async (track: Track) => {
-    const audio = audioElementRef.current;
-    if (!audio) return;
-
-    // Must be set before any await so the sync effect in PlayerBar sees it
-    // on the very next render and skips the double-load.
-    gesturePlayPendingRef.current = true;
-
-    // Show loading indicator immediately — PlayerBar clears it on "playing".
-    setIsBuffering(true);
-
-    // IMPORTANT: do NOT call audio.load() here.
-    // On Android Chrome, audio.load() synchronously aborts any in-flight
-    // resource selection algorithm queued by setting audio.src, which causes
-    // the subsequent audio.play() call to reject with AbortError.
-    audio.src = track.audioUrl;
-
-    const p = audio.play();
-    if (p !== undefined) {
-      p.catch(() => {
-        // play() was rejected — attach a one-shot canplay fallback.
-        audio.addEventListener(
-          "canplay",
-          () => { audio.play().catch(() => setIsPlaying(false)); },
-          { once: true },
-        );
-      });
-    }
-  }, []);
-
-  // ── playNext: auto-advance (NOT a user gesture) ───────────────────────────
+  // ── Auto-advance (NOT a user gesture) ─────────────────────────────────────
   //
   // Called only from the audio "ended" event handler in PlayerBar.
-  // We must NOT call resolveAndPlay / audio.play() here because:
+  // We must NOT call audio.play() here because:
   //   • The "ended" event is NOT a trusted user gesture on iOS/Android.
   //   • Calling audio.play() outside a gesture stack will be blocked by the
   //     browser's autoplay policy and the promise will silently reject.
   //
   // Instead, we update React state (active track + autoPlay flag).
-  // PlayerBar's core sync effect detects the new active.id, sees
-  // consumeGesturePlay() === false, and takes the non-gesture path:
-  //   audio.src = src; audio.load(); canplay → audio.play()
+  // The usePlayback hook or PlayerBar's sync effect detects the new active.id
+  // and takes the non-gesture path: audio.src = src; canplay → play()
   // Browsers explicitly allow this pattern for media session auto-advance.
   //
   // We use refs inside so the callback is stable and doesn't need to be
@@ -255,66 +192,65 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // ── skipNext / skipPrev: user-gesture skip buttons ────────────────────────
   //
-  // These ARE called from user tap/click handlers so they can safely use
-  // resolveAndPlay for minimum perceived latency.
+  // These ARE called from user tap/click handlers.  They update state only;
+  // audio playback is handled by the usePlayback hook in PlayerBar.
 
-  const skipNext = useCallback(() => {
+  const skipNext = useCallback((): Track | null => {
     const q = queueRef.current;
     const idx = queueIndexRef.current;
     const repeat = repeatModeRef.current;
 
     if (q.length === 0) {
       setIsPlaying(false);
-      return;
+      return null;
     }
     const nextIndex = idx + 1;
     if (nextIndex < q.length) {
-      const nextTrack = q[nextIndex];
       setQueueIndex(nextIndex);
-      setActiveState(nextTrack);
+      setActiveState(q[nextIndex]);
       setIsPlaying(true);
       setAutoPlay(false);
-      resolveAndPlay(nextTrack);
+      return q[nextIndex];
     } else if (repeat === "all" && q.length > 0) {
-      const firstTrack = q[0];
       setQueueIndex(0);
-      setActiveState(firstTrack);
+      setActiveState(q[0]);
       setIsPlaying(true);
       setAutoPlay(false);
-      resolveAndPlay(firstTrack);
+      return q[0];
     } else {
       setIsPlaying(false);
+      return null;
     }
-  }, [resolveAndPlay]);
+  }, []);
 
-  const skipPrev = useCallback(() => {
+  const skipPrev = useCallback((): Track | null => {
     const q = queueRef.current;
     const idx = queueIndexRef.current;
 
-    if (q.length === 0) return;
+    if (q.length === 0) return null;
     const prevIndex = idx - 1;
     if (prevIndex >= 0) {
-      const prevTrack = q[prevIndex];
       setQueueIndex(prevIndex);
-      setActiveState(prevTrack);
+      setActiveState(q[prevIndex]);
       setIsPlaying(true);
       setAutoPlay(false);
-      resolveAndPlay(prevTrack);
+      return q[prevIndex];
     }
-  }, [resolveAndPlay]);
+    return null;
+  }, []);
 
   const hasNext = queue.length > 0 && queueIndex < queue.length - 1;
   const hasPrev = queue.length > 0 && queueIndex > 0;
   const queueCount = Math.max(0, queue.length - queueIndex - 1);
 
-  const playTrack = useCallback((track: Track) => {
+  const playTrack = useCallback((track: Track): Track => {
     setActiveState(track);
     setIsPlaying(true);
     setAutoPlay(false);
-    resolveAndPlay(track);
-  }, [resolveAndPlay]);
+    return track;
+  }, []);
 
-  const playQueue = useCallback((tracks: Track[], startIndex = 0) => {
+  const playQueue = useCallback((tracks: Track[], startIndex = 0): Track | null => {
     setQueueState(tracks);
     setQueueIndex(startIndex);
     if (tracks.length > 0) {
@@ -322,9 +258,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       setActiveState(track);
       setIsPlaying(true);
       setAutoPlay(false);
-      resolveAndPlay(track);
+      return track;
     }
-  }, [resolveAndPlay]);
+    return null;
+  }, []);
 
   return (
     <PlayerContext.Provider value={{
@@ -352,8 +289,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       queueCount,
       repeatMode,
       toggleRepeatMode,
-      registerAudioElement,
-      consumeGesturePlay,
       playTrack,
       playQueue,
     }}>

@@ -1,0 +1,37 @@
+{
+  "id": "playback-reimpl-05",
+  "seq": "05",
+  "title": "Implement iOSStrategy for Safari on iPhone/iPad",
+  "status": "completed",
+  "depends_on": ["01", "03"],
+  "parallel": true,
+  "suggested_agent": "CoderAgent",
+  "context_files": [
+    ".opencode/context/development/principles/clean-code.md"
+  ],
+  "reference_files": [
+    "shared/schema.ts"
+  ],
+  "acceptance_criteria": [
+    "iOSStrategy class implements PlaybackStrategy interface",
+    "Internal _isPlayPending flag and _state: PlaybackState ref tracked",
+    "gesturePlay sets audio.src, calls audio.play() (within gesture stack = works on iOS)",
+    "gesturePlay fallback on rejection: mutes audio, plays, then unmutes in .then()",
+    "gesturePlay sets _isPlayPending=true before play, false in .then()/.catch()",
+    "nonGesturePlay sets _isPlayPending=true, audio.src=url, mutes, calls audio.play()",
+    "nonGesturePlay .then() clears _isPlayPending and unmutes",
+    "nonGesturePlay .catch() clears _isPlayPending",
+    "pause calls audio.pause()",
+    "isPlayPending getter returns _isPlayPending",
+    "destroy() clears no timers (no-op for iOS)",
+    "Imports PlaybackStrategy from ../types, PlaybackState from ../types",
+    "TypeScript compiles with zero errors"
+  ],
+  "deliverables": [
+    "client/src/playback/strategies/ios.ts"
+  ],
+  "agent_id": "coder-agent",
+  "started_at": "2026-05-27T00:00:00Z",
+  "completed_at": "2026-05-27T00:00:00Z",
+  "completion_summary": "Created client/src/playback/strategies/ios.ts with iOSStrategy class"
+}

@@ -1,0 +1,31 @@
+{
+  "id": "playback-reimpl-01",
+  "seq": "01",
+  "title": "Create playback types: Platform, PlaybackStrategy, PlaybackState",
+  "status": "completed",
+  "depends_on": [],
+  "parallel": true,
+  "suggested_agent": "CoderAgent",
+  "context_files": [
+    ".opencode/context/development/principles/clean-code.md"
+  ],
+  "reference_files": [
+    "shared/schema.ts"
+  ],
+  "acceptance_criteria": [
+    "Platform = 'ios' | 'android' | 'desktop' union type defined and exported",
+    "PlaybackStrategy interface defined with gesturePlay, nonGesturePlay, pause, isPlayPending, destroy",
+    "PlaybackState interface defined with isPlayPending and lastTrackId fields",
+    "HANG_TIMEOUT_MS = 500 constant exported",
+    "Track type imported from ../../../shared/schema using correct relative path",
+    "File exports all types and the constant",
+    "TypeScript compiles with zero errors"
+  ],
+  "deliverables": [
+    "client/src/playback/types.ts"
+  ],
+  "agent_id": "coder-agent",
+  "started_at": "2026-05-27T00:00:00Z",
+  "completed_at": "2026-05-27T00:00:00Z",
+  "completion_summary": "Created client/src/playback/types.ts with Platform, PlaybackStrategy, PlaybackState"
+}

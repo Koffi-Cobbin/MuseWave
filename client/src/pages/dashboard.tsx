@@ -509,7 +509,7 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 export default function Dashboard() {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const { active, isPlaying, playTrack, setIsPlaying } = usePlayer();
+  const { active, isPlaying, playTrack, playQueue, setIsPlaying } = usePlayer();
 
   // ── Data state
   const [userStats, setUserStats] = useState<UserStats | null>(null);
@@ -659,7 +659,7 @@ export default function Dashboard() {
     if (active?.id === track.id) {
       setIsPlaying(!isPlaying);
     } else {
-      playTrack(track, tracks);
+      playQueue([track, ...tracks.filter(t => t.id !== track.id)]);
     }
   };
 

@@ -1,0 +1,36 @@
+{
+  "id": "playback-reimpl",
+  "name": "Cross-Platform Playback Re-implementation",
+  "status": "active",
+  "objective": "Re-implement audio playback with platform-specific strategies (iOS/Android/Desktop) using strategy pattern",
+  "context_files": [
+    ".opencode/context/ui/web/react-patterns.md",
+    ".opencode/context/development/principles/clean-code.md"
+  ],
+  "reference_files": [
+    "client/src/contexts/player-context.tsx",
+    "client/src/components/PlayerBar.tsx",
+    "client/src/components/PlayScreen.tsx",
+    "client/src/hooks/useOfflineAudio.ts",
+    "client/src/lib/offlineStorage.ts",
+    "client/src/lib/apiConfig.ts",
+    "shared/schema.ts",
+    "docs/PLAYBACK_REIMPLEMENTATION_PLAN.md"
+  ],
+  "exit_criteria": [
+    "7 new playback files created with correct implementations",
+    "player-context.tsx cleansed of resolveAndPlay / gesturePlayPendingRef / consumeGesturePlay",
+    "PlayerBar.tsx under 700 lines (was 1114)",
+    "TypeScript compiles with zero errors",
+    "Auto-advance produces audio on all platforms (emulated via UA spoofing)",
+    "Gesture path (skip/play) produces audio on all platforms",
+    "Pause/resume works on same track",
+    "Repeat-one and repeat-all work",
+    "Offline blob swap works (no infinite spinner)",
+    "Error recovery: bad URL → isPlaying=false → next tap plays"
+  ],
+  "subtask_count": 10,
+  "completed_count": 9,
+  "created_at": "2026-05-27T20:00:00Z",
+  "completed_at": null
+}

@@ -1,0 +1,32 @@
+{
+  "id": "playback-reimpl-04",
+  "seq": "04",
+  "title": "Implement DesktopStrategy for Chrome/Firefox/Edge",
+  "status": "completed",
+  "depends_on": ["01", "03"],
+  "parallel": true,
+  "suggested_agent": "CoderAgent",
+  "context_files": [
+    ".opencode/context/development/principles/clean-code.md"
+  ],
+  "reference_files": [
+    "shared/schema.ts"
+  ],
+  "acceptance_criteria": [
+    "DesktopStrategy class implements PlaybackStrategy interface",
+    "gesturePlay sets audio.src from track.audioUrl and calls audio.play(), catches silently",
+    "nonGesturePlay sets audio.src, adds canplay listener, then calls audio.play()",
+    "pause calls audio.pause()",
+    "isPlayPending getter returns false (no guard needed for desktop)",
+    "destroy() is a no-op",
+    "Imports PlaybackStrategy from ../types and Track from ../../../shared/schema",
+    "TypeScript compiles with zero errors"
+  ],
+  "deliverables": [
+    "client/src/playback/strategies/desktop.ts"
+  ],
+  "agent_id": "coder-agent",
+  "started_at": "2026-05-27T00:00:00Z",
+  "completed_at": "2026-05-27T00:00:00Z",
+  "completion_summary": "Created client/src/playback/strategies/desktop.ts with DesktopStrategy class implementing PlaybackStrategy for Chrome/Firefox/Edge"
+}

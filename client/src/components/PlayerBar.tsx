@@ -27,6 +27,8 @@ import { useOffline } from "@/contexts/offline-context";
 import { motion, AnimatePresence } from "framer-motion";
 import { PlayScreen } from "@/components/PlayScreen";
 import { QueueSheet } from "@/components/QueueSheet";
+import { usePlayback } from "@/playback/usePlayback";
+import type { Track } from "../../../shared/schema";
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -191,12 +193,11 @@ function PlayerBar() {
   const {
     active, setActive, autoPlay, setAutoPlay, isPlaying, setIsPlaying,
     isBuffering, setIsBuffering,
-    // playNext = auto-advance (ended event, NOT a gesture)
     playNext,
-    // skipNext/skipPrev = user tap/click (gesture path, low latency)
     skipNext, skipPrev,
+    playTrack,
     hasNext, hasPrev, queueCount, repeatMode,
-    toggleRepeatMode, registerAudioElement, consumeGesturePlay,
+    toggleRepeatMode,
   } = usePlayer();
   const { user, isAuthenticated } = useAuth();
   const { isTrackDownloaded, downloadForOffline, isOnline } = useOffline();
@@ -204,41 +205,36 @@ function PlayerBar() {
 
   const offlineAudioSrc = useOfflineAudio(active);
 
-  const [playScreenOpen, setPlayScreenOpen] = useState(false);
-  const [barMinimized, setBarMinimized] = useState(false);
-  const [queueOpen, setQueueOpen] = useState(false);
-  const [supportOpen, setSupportOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isLiking, setIsLiking] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isSavingOffline, setIsSavingOffline] = useState(false);
-  const [shortcutHint, setShortcutHint] = useState<string | null>(null);
-  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const prevVolumeRef = useRef(1);
-
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
 
-  // Track the last track id whose src we loaded so we can detect track changes
-  // without re-loading when only isPlaying toggles.
-  const loadedTrackIdRef = useRef<string | null>(null);
+  // ── usePlayback hook — owns all audio events + strategies ───────────────
 
-  useEffect(() => {
-    registerAudioElement(audioRef.current);
-    return () => registerAudioElement(null);
-  }, [registerAudioElement]);
+  const {
+    nonGesturePlay,
+    togglePlay, seek,
+    currentTime, duration,
+    isPlayPending, onEndedRef,
+  } = usePlayback(audioRef, { setIsPlaying, setIsBuffering });
 
-  // Keep stable refs so event listeners don't go stale
+  // ── Stable refs for callbacks inside event handlers ─────────────────────
+
   const playNextRef = useRef(playNext);
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
   const repeatModeRef = useRef(repeatMode);
   useEffect(() => { repeatModeRef.current = repeatMode; }, [repeatMode]);
+  const activeRef = useRef(active);
+  useEffect(() => { activeRef.current = active; }, [active]);
+  const currentTimeRef = useRef(0);
+  useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
+  const setIsPlayingRef = useRef(setIsPlaying);
+  useEffect(() => { setIsPlayingRef.current = setIsPlaying; }, [setIsPlaying]);
 
   const playSessionRef = useRef<{ trackId: string } | null>(null);
+  const prevVolumeRef = useRef(1);
+  const MIN_PLAY_SECONDS = 30;
+
+  // ── Play recording (defined before ended handler which references it) ──
 
   const recordPlay = useCallback(async (trackId: string, durationSec: number, completed: boolean) => {
     try {
@@ -260,6 +256,92 @@ function PlayerBar() {
     }
   }, [user?.id]);
 
+  // ── Ended handler — sets onEndedRef for usePlayback to call ────────────
+
+  useEffect(() => {
+    onEndedRef.current = () => {
+      // Record completed play for the track that just ended
+      const curActive = activeRef.current;
+      if (curActive) {
+        const playedSec = Math.floor(currentTimeRef.current);
+        if (playedSec > 0) recordPlay(curActive.id, playedSec, true);
+      }
+
+      const audio = audioRef.current;
+      if (!audio) return;
+
+      if (repeatModeRef.current === "one") {
+        audio.currentTime = 0;
+        // Muted play works outside gesture context on all platforms,
+        // avoiding the Android Chrome hang bug with audio.load().
+        const wasMuted = audio.muted;
+        audio.muted = true;
+        audio.play().then(() => { audio.muted = wasMuted; }).catch(() => { audio.muted = wasMuted; });
+      } else {
+        playNextRef.current();
+        // active state change triggers the watcher effect below,
+        // which calls nonGesturePlay on the new active track.
+      }
+    };
+  }, [onEndedRef, activeRef, currentTimeRef, audioRef, repeatModeRef, playNextRef, recordPlay]);
+
+  // ── Track the previous active ID so we don't re-play on isPlaying toggle ─
+
+  const prevActiveIdRef = useRef<string | null>(null);
+
+  // ── Watcher effect: active changes + isPlaying → nonGesturePlay ─────────
+  //
+  // Fires when `active` or `isPlaying` changes but uses prevActiveIdRef to
+  // distinguish between:
+  //
+  //   • New track (active.id changed) → play via nonGesturePlay
+  //   • Pause/resume (isPlaying toggled, same track) → skip (no restart)
+  //
+  // Also guards against double-play when a gesture handler
+  // (handleSkipNext / handleSkipPrev / handlePlayTrack) has already called
+  // gesturePlay() synchronously — the strategy's isPlayPending flag is set
+  // while the play() Promise is in-flight.
+
+  useEffect(() => {
+    const currentId = active?.id ?? null;
+    if (currentId === prevActiveIdRef.current) return; // same track — pause/resume only
+    prevActiveIdRef.current = currentId;
+
+    if (!active || !isPlaying) return;
+    if (isPlayPending) return;
+    setAutoPlay(false);
+    nonGesturePlay(active).catch(() => setIsPlaying(false));
+  }, [active, isPlaying, isPlayPending, setAutoPlay, setIsPlaying, nonGesturePlay]);
+
+  // ── Wrapped skip handlers (state-only; watcher calls nonGesturePlay) ─────
+
+  const handleSkipNext = useCallback(() => {
+    skipNext();
+  }, [skipNext]);
+
+  const handleSkipPrev = useCallback(() => {
+    skipPrev();
+  }, [skipPrev]);
+
+  const handlePlayTrack = useCallback((track: Track) => {
+    playTrack(track);
+  }, [playTrack]);
+
+  // ── UI state ─────────────────────────────────────────────────────────────
+
+  const [playScreenOpen, setPlayScreenOpen] = useState(false);
+  const [barMinimized, setBarMinimized] = useState(false);
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [desktopMenuOpen, setDesktopMenuOpen] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isLiking, setIsLiking] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isSavingOffline, setIsSavingOffline] = useState(false);
+  const [shortcutHint, setShortcutHint] = useState<string | null>(null);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
   useEffect(() => {
@@ -267,70 +349,9 @@ function PlayerBar() {
     if (audio) audio.volume = volume;
   }, [volume]);
 
-  // Track the last non-zero volume so we can restore it on unmute
   useEffect(() => {
     if (volume > 0) prevVolumeRef.current = volume;
   }, [volume]);
-
-  // ── Audio event listeners ─────────────────────────────────────────────────
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const updateTime = () => setCurrentTime(audio.currentTime);
-    const updateDuration = () => setDuration(audio.duration);
-
-    const handleEnded = () => {
-      // Record completed play
-      if (active) {
-        const playedSec = Math.floor(audio.duration || audio.currentTime || 0);
-        if (playedSec > 0) recordPlay(active.id, playedSec, true);
-      }
-
-      if (repeatModeRef.current === "one") {
-        // repeat-one: seek back and replay directly on the same element.
-        // This IS allowed without a gesture because it's inside the ended handler.
-        audio.currentTime = 0;
-        audio.play().catch(() => {
-          // Fallback for very strict browsers
-          audio.addEventListener("canplay", () => audio.play().catch(() => {}), { once: true });
-          audio.load();
-        });
-      } else {
-        // Auto-advance: update React state only — do NOT call audio.play() here.
-        // The "ended" event is NOT a trusted user gesture on iOS/Android.
-        // The core sync effect (isPlaying/active.id) will pick up the new
-        // active track via autoPlay=true and load+play through the canplay path,
-        // which browsers allow for media session auto-advance.
-        playNextRef.current();
-      }
-    };
-
-    const handleWaiting = () => setIsBuffering(true);
-    const handlePlaying = () => setIsBuffering(false);
-    const handlePause   = () => setIsBuffering(false);
-
-    audio.addEventListener("timeupdate", updateTime);
-    audio.addEventListener("loadedmetadata", updateDuration);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("waiting", handleWaiting);
-    audio.addEventListener("playing", handlePlaying);
-    audio.addEventListener("pause",   handlePause);
-
-    return () => {
-      audio.removeEventListener("timeupdate", updateTime);
-      audio.removeEventListener("loadedmetadata", updateDuration);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("waiting", handleWaiting);
-      audio.removeEventListener("playing", handlePlaying);
-      audio.removeEventListener("pause",   handlePause);
-    };
-  }, [active]);
-
-  const currentTimeRef = useRef(0);
-  useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
-
-  const MIN_PLAY_SECONDS = 30;
 
   useEffect(() => { if (active?.id) setBarMinimized(false); }, [active?.id]);
 
@@ -365,7 +386,6 @@ function PlayerBar() {
   }, [active?.id, isOnline]);
 
   useEffect(() => {
-    setCurrentTime(0);
     setIsLiked(false);
   }, [active?.id]);
 
@@ -381,90 +401,8 @@ function PlayerBar() {
       .catch(() => {});
   }, [active?.id, user?.id]);
 
-  // ── autoPlay effect ───────────────────────────────────────────────────────
-  //
-  // Triggered by playNext (auto-advance from ended event) and by setQueue.
-  // At this point active has already been updated to the new track.
-  // We set isPlaying=true here; the core sync effect below does the actual
-  // audio.src + canplay load.
-  useEffect(() => {
-    if (!autoPlay || !active) return;
-    setAutoPlay(false);
-    setIsPlaying(true);
-  }, [autoPlay, active]);
-
-  // ── Core playback sync ────────────────────────────────────────────────────
-  //
-  // Handles two scenarios:
-  //
-  // A) Track changed (new active.id):
-  //    • Gesture path (playTrack / skipNext / skipPrev):
-  //      consumeGesturePlay() === true → skip entirely; audio.src and play()
-  //      were already called inside resolveAndPlay.
-  //    • Non-gesture path (autoPlay / setQueue):
-  //      consumeGesturePlay() === false → set audio.src, load, wait for
-  //      canplay, then play.  Browsers allow this for media auto-advance.
-  //
-  // B) isPlaying toggled on the SAME track (pause/resume):
-  //    • No src change needed.  Just pause or resume.
-  //
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !active) return;
-
-    const trackChanged = loadedTrackIdRef.current !== active.id;
-
-    if (trackChanged) {
-      const wasGesturePlay = consumeGesturePlay();
-
-      if (wasGesturePlay) {
-        // Gesture path already handled src + play() in resolveAndPlay.
-        loadedTrackIdRef.current = active.id;
-        return;
-      }
-
-      // Non-gesture path: load best available src and play when ready.
-      const src = offlineAudioSrc ?? active.audioUrl;
-      audio.src = src;
-      loadedTrackIdRef.current = active.id;
-
-      if (isPlaying) {
-        // Attach canplay listener BEFORE load() so it's ready when data arrives.
-        const onCanPlay = () => {
-          audio.play().catch(() => {
-            // Last-resort: try once more on a subsequent canplay
-            audio.addEventListener(
-              "canplay",
-              () => audio.play().catch(() => setIsPlaying(false)),
-              { once: true },
-            );
-          });
-        };
-        audio.addEventListener("canplay", onCanPlay, { once: true });
-        audio.load();
-        return () => audio.removeEventListener("canplay", onCanPlay);
-      } else {
-        audio.load();
-      }
-      return;
-    }
-
-    // Same track — just pause or resume
-    if (isPlaying) {
-      if (audio.paused) {
-        audio.play().catch(() => setIsPlaying(false));
-      }
-    } else {
-      if (!audio.paused) {
-        audio.pause();
-      }
-    }
-  }, [isPlaying, active?.id]);
-
   // ── When the offline blob resolves for the CURRENT playing track ──────────
-  //
-  // Only swap if the element hasn't produced any audio yet and the current src
-  // is still the network URL (not already a blob).
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio || !active || !offlineAudioSrc) return;
@@ -504,35 +442,14 @@ function PlayerBar() {
       if (!audio) return;
       const newTime = Math.max(0, Math.min(audio.duration || 0, audio.currentTime + delta));
       audio.currentTime = newTime;
-      setCurrentTime(newTime);
     },
     onAction: showShortcutHint,
   });
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const togglePlay = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    setIsPlaying(!isPlaying);
-  };
-
-  const handleSeek = (time: number) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = time;
-    setCurrentTime(time);
-  };
-
-  const handleSeekDelta = (delta: number) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const newTime = Math.max(0, Math.min(duration, audio.currentTime + delta));
-    audio.currentTime = newTime;
-    setCurrentTime(newTime);
-  };
-
   const handleSeekInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    handleSeek(parseFloat(e.target.value));
+    seek(parseFloat(e.target.value));
   };
 
   const toggleMute = useCallback(() => {
@@ -703,10 +620,12 @@ function PlayerBar() {
         duration={duration}
         isLiked={isLiked}
         isLiking={isLiking}
-        onSeek={handleSeek}
-        onTogglePlay={() => setIsPlaying(!isPlaying)}
+        onSeek={seek}
+        onTogglePlay={togglePlay}
         onLike={handleLike}
-        onSeekDelta={handleSeekDelta}
+        onSkipNext={handleSkipNext}
+        onSkipPrev={handleSkipPrev}
+        onPlayTrack={handlePlayTrack}
         onOpenQueue={() => { setPlayScreenOpen(false); setQueueOpen(true); }}
       />
 
@@ -958,8 +877,7 @@ function PlayerBar() {
                 </button>
 
                 <div className="flex flex-1 min-w-0 items-center justify-center gap-2">
-                  {/* Use skipPrev — user gesture, low latency */}
-                  <Button size="icon" variant="ghost" onClick={skipPrev} disabled={!hasPrev} className="shrink-0" data-testid="button-player-prev-desktop" aria-label="Previous track">
+                  <Button size="icon" variant="ghost" onClick={handleSkipPrev} disabled={!hasPrev} className="shrink-0" data-testid="button-player-prev-desktop" aria-label="Previous track">
                     <SkipBack className="h-4 w-4" />
                   </Button>
                   <Button size="icon" variant="ghost" onClick={togglePlay} className="shrink-0" data-testid="button-player-play-pause-desktop" aria-label={isBuffering ? "Buffering…" : isPlaying ? "Pause" : "Play"}>
@@ -967,8 +885,7 @@ function PlayerBar() {
                       ? <Loader2 className="h-4 w-4 animate-spin" />
                       : isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                   </Button>
-                  {/* Use skipNext — user gesture, low latency */}
-                  <Button size="icon" variant="ghost" onClick={skipNext} disabled={!hasNext} className="shrink-0" data-testid="button-player-next-desktop" aria-label="Next track">
+                  <Button size="icon" variant="ghost" onClick={handleSkipNext} disabled={!hasNext} className="shrink-0" data-testid="button-player-next-desktop" aria-label="Next track">
                     <SkipForward className="h-4 w-4" />
                   </Button>
                 </div>

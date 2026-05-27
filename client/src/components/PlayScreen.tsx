@@ -38,7 +38,12 @@ interface PlayScreenProps {
   onSeek: (time: number) => void;
   onTogglePlay: () => void;
   onLike: () => void;
-  onSeekDelta: (delta: number) => void;
+  /** Wrapped skip handler + gesturePlay. Overrides context skipNext. */
+  onSkipNext?: () => void;
+  /** Wrapped skip handler + gesturePlay. Overrides context skipPrev. */
+  onSkipPrev?: () => void;
+  /** Wrapped playTrack + gesturePlay. Overrides context playTrack in MoreTrackRow. */
+  onPlayTrack?: (track: Track) => void;
   onOpenQueue?: () => void;
 }
 
@@ -97,10 +102,14 @@ export function PlayScreen({
   onSeek,
   onTogglePlay,
   onLike,
-  onSeekDelta,
+  onSkipNext,
+  onSkipPrev,
+  onPlayTrack,
   onOpenQueue,
 }: PlayScreenProps) {
-  const { active, isPlaying, repeatMode, toggleRepeatMode, skipNext, skipPrev, hasNext, hasPrev } = usePlayer();
+  const { active, isPlaying, repeatMode, toggleRepeatMode, skipNext: ctxSkipNext, skipPrev: ctxSkipPrev, hasNext, hasPrev } = usePlayer();
+  const skipNext = onSkipNext ?? ctxSkipNext;
+  const skipPrev = onSkipPrev ?? ctxSkipPrev;
   const { isAuthenticated } = useAuth();
   const { isTrackDownloaded, downloadForOffline, downloadProgress, isOnline } = useOffline();
   const { toast } = useToast();
@@ -288,7 +297,7 @@ export function PlayScreen({
         ) : artistTracks.length > 0 ? (
           <div className="space-y-1">
             {artistTracks.map((track) => (
-              <MoreTrackRow key={track.id} track={track} onClose={onClose} />
+              <MoreTrackRow key={track.id} track={track} onClose={onClose} onPlayTrack={onPlayTrack} />
             ))}
           </div>
         ) : (
@@ -890,9 +899,10 @@ export function PlayScreen({
   );
 }
 
-function MoreTrackRow({ track, onClose }: { track: Track; onClose: () => void }) {
-  const { active, playTrack } = usePlayer();
+function MoreTrackRow({ track, onClose, onPlayTrack }: { track: Track; onClose: () => void; onPlayTrack?: (track: Track) => void }) {
+  const { active, playTrack: ctxPlayTrack } = usePlayer();
   const isActive = active?.id === track.id;
+  const playTrack = onPlayTrack ?? ctxPlayTrack;
 
   const handlePlay = () => {
     playTrack(track);

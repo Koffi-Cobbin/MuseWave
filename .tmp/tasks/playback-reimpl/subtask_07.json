@@ -1,0 +1,45 @@
+{
+  "id": "playback-reimpl-07",
+  "seq": "07",
+  "title": "Create usePlayback React hook wrapping all strategies",
+  "status": "completed",
+  "depends_on": [
+    "04",
+    "05",
+    "06",
+    "02"
+  ],
+  "parallel": false,
+  "suggested_agent": "CoderAgent",
+  "context_files": [
+    ".opencode/context/ui/web/react-patterns.md",
+    ".opencode/context/development/principles/clean-code.md"
+  ],
+  "reference_files": [
+    "client/src/components/PlayerBar.tsx",
+    "client/src/contexts/player-context.tsx",
+    "client/src/hooks/useOfflineAudio.ts",
+    "shared/schema.ts"
+  ],
+  "acceptance_criteria": [
+    "usePlayback(audioRef, setters) custom hook exported",
+    "Creates strategy instance via useMemo with switch(getPlatform()) — Desktop/iOS/Android",
+    "Strategy instance never changes after mount (stable reference)",
+    "Single useEffect owns ALL audio event listeners: timeupdate, loadedmetadata, ended, waiting, playing, pause, error",
+    "Exports: { gesturePlay, nonGesturePlay, togglePlay, seek, currentTime, duration, isPlayPending, onEndedRef }",
+    "gesturePlay(track) calls strategy.gesturePlay(track, audio)",
+    "nonGesturePlay(track) calls strategy.nonGesturePlay(track, audio)",
+    "togglePlay() pauses if playing, plays if paused with isPlayPending guard",
+    "seek(time) sets audio.currentTime = time",
+    "onEndedRef pattern delegates ended handling to PlayerBar",
+    "Strategy cleanup on unmount via destroy()",
+    "TypeScript compiles with zero errors"
+  ],
+  "deliverables": [
+    "client/src/playback/usePlayback.ts"
+  ],
+  "agent_id": "coder-agent",
+  "started_at": "2026-05-27T00:00:00Z",
+  "completed_at": "2026-05-27T20:39:30.191Z",
+  "completion_summary": "Created client/src/playback/usePlayback.ts -- central hook wrapping all strategies + owning audio event listeners"
+}

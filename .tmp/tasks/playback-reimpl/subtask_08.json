@@ -1,0 +1,37 @@
+{
+  "id": "playback-reimpl-08",
+  "seq": "08",
+  "title": "Refactor player-context: remove audio DOM management",
+  "status": "completed",
+  "agent_id": "coder-agent",
+  "started_at": "2026-05-27T00:00:00Z",
+  "depends_on": [],
+  "parallel": true,
+  "suggested_agent": "CoderAgent",
+  "context_files": [
+    ".opencode/context/ui/web/react-patterns.md",
+    ".opencode/context/development/principles/clean-code.md"
+  ],
+  "reference_files": [
+    "client/src/contexts/player-context.tsx"
+  ],
+  "acceptance_criteria": [
+    "resolveAndPlay removed from context",
+    "gesturePlayPendingRef removed from context",
+    "consumeGesturePlay removed from context",
+    "registerAudioElement removed from context entirely",
+    "audioElementRef removed from context",
+    "All state fields kept: active, autoPlay, isPlaying, isBuffering, queue, queueIndex, repeatMode",
+    "All action functions kept: playNext, skipNext, skipPrev, playTrack, playQueue",
+    "playTrack no longer calls resolveAndPlay — only sets state",
+    "skipNext/skipPrev no longer manage audio — only set state",
+    "Ref-based stable callbacks pattern preserved (queueRef, queueIndexRef, repeatModeRef)",
+    "Context stays pure state — no DOM or audio element manipulation",
+    "TypeScript compiles with zero errors"
+  ],
+  "deliverables": [
+    "client/src/contexts/player-context.tsx"
+  ],
+  "completed_at": "2026-05-27T20:27:23.661Z",
+  "completion_summary": "Refactored player-context: removed resolveAndPlay, gesturePlayPendingRef, consumeGesturePlay, registerAudioElement"
+}

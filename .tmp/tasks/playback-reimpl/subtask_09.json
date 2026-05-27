@@ -1,0 +1,46 @@
+{
+  "id": "playback-reimpl-09",
+  "seq": "09",
+  "title": "Refactor PlayerBar: delegate audio logic to usePlayback",
+  "status": "pending",
+  "depends_on": ["07", "08"],
+  "parallel": false,
+  "suggested_agent": "CoderAgent",
+  "context_files": [
+    ".opencode/context/ui/web/react-patterns.md",
+    ".opencode/context/development/principles/clean-code.md"
+  ],
+  "reference_files": [
+    "client/src/components/PlayerBar.tsx",
+    "client/src/contexts/player-context.tsx",
+    "client/src/hooks/useOfflineAudio.ts",
+    "shared/schema.ts"
+  ],
+  "acceptance_criteria": [
+    "canplayHandlerRef removed from PlayerBar",
+    "loadedTrackIdRef removed from PlayerBar",
+    "playNextRef removed (moved to usePlayback)",
+    "repeatModeRef removed (moved to usePlayback)",
+    "playSessionRef removed (moved to usePlayback)",
+    "registerAudioElement call removed",
+    "autoPlay useEffect removed (lines ~394-398)",
+    "core sync useEffect removed (lines ~415-521)",
+    "offline blob swap useEffect removed (lines ~538-555)",
+    "Audio event listeners useEffect removed (lines ~278-332)",
+    "recordPlay removed (moved to usePlayback)",
+    "play session tracking useEffect removed (lines ~341-354)",
+    "usePlayback(audioRef, { setIsPlaying, setIsBuffering, setActive, setAutoPlay }) added",
+    "currentTime and duration sourced from usePlayback (local state removed)",
+    "togglePlay delegated to usePlayback",
+    "UI rendering, keyboard shortcuts, volume, like/share/download, overflow menu, queue sheet, play screen preserved",
+    "Final file size ~600-700 lines (was 1114)",
+    "TypeScript compiles with zero errors"
+  ],
+  "deliverables": [
+    "client/src/components/PlayerBar.tsx"
+  ],
+  "agent_id": null,
+  "started_at": null,
+  "completed_at": null,
+  "completion_summary": null
+}

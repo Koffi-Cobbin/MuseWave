@@ -1,0 +1,32 @@
+{
+  "id": "playback-reimpl-10",
+  "seq": "10",
+  "title": "Update PlayScreen: remove redundant skip/delta props",
+  "status": "completed",
+  "depends_on": [
+    "08"
+  ],
+  "parallel": true,
+  "suggested_agent": "CoderAgent",
+  "context_files": [
+    ".opencode/context/ui/web/react-patterns.md",
+    ".opencode/context/development/principles/clean-code.md"
+  ],
+  "reference_files": [
+    "client/src/components/PlayScreen.tsx",
+    "client/src/components/PlayerBar.tsx"
+  ],
+  "acceptance_criteria": [
+    "onSeekDelta prop removed if no longer needed from PlayerBar",
+    "Component interface remains clean and minimal",
+    "All existing rendering, layout, and UI elements preserved",
+    "TypeScript compiles with zero errors"
+  ],
+  "deliverables": [
+    "client/src/components/PlayScreen.tsx"
+  ],
+  "agent_id": "coder-agent",
+  "started_at": "2026-05-27T00:00:00Z",
+  "completed_at": "2026-05-27T20:39:42.610Z",
+  "completion_summary": "Updated PlayScreen: removed unused onSeekDelta prop"
+}
