@@ -244,6 +244,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const queueCount = Math.max(0, queue.length - queueIndex - 1);
 
   const playTrack = useCallback((track: Track): Track => {
+    // Reset queue to just this track so stale playlist data doesn't persist.
+    // When the track ends, playNext sees a single-element queue and stops
+    // playback instead of advancing through a previous playlist queue.
+    setQueueState([track]);
+    setQueueIndex(0);
     setActiveState(track);
     setIsPlaying(true);
     setAutoPlay(false);

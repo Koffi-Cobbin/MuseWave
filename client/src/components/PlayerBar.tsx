@@ -289,28 +289,40 @@ function PlayerBar() {
 
   const prevActiveIdRef = useRef<string | null>(null);
 
-  // ── Watcher effect: active changes + isPlaying → nonGesturePlay ─────────
+  // ── Watcher effect: sync isPlaying + active to the audio element ───────
   //
-  // Fires when `active` or `isPlaying` changes but uses prevActiveIdRef to
-  // distinguish between:
+  // This single effect handles ALL playback state synchronization:
   //
-  //   • New track (active.id changed) → play via nonGesturePlay
-  //   • Pause/resume (isPlaying toggled, same track) → skip (no restart)
+  //   • New track (active.id changed) + isPlaying → nonGesturePlay
+  //   • Same-track pause (isPlaying=false)        → audio.pause()
+  //   • Same-track resume (isPlaying=true)        → audio.play()
   //
-  // Also guards against double-play when a gesture handler
-  // (handleSkipNext / handleSkipPrev / handlePlayTrack) has already called
-  // gesturePlay() synchronously — the strategy's isPlayPending flag is set
-  // while the play() Promise is in-flight.
+  // Previously the effect returned early for same-track changes, which broke
+  // pause/resume from track cards and the PlayerBar togglePlay fix.
 
   useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !active) return;
+
     const currentId = active?.id ?? null;
-    if (currentId === prevActiveIdRef.current) return; // same track — pause/resume only
+    const isNewTrack = currentId !== prevActiveIdRef.current;
     prevActiveIdRef.current = currentId;
 
-    if (!active || !isPlaying) return;
-    if (isPlayPending) return;
-    setAutoPlay(false);
-    nonGesturePlay(active).catch(() => setIsPlaying(false));
+    if (!isPlaying) {
+      // Pause the audio (handles same-track pause from track cards / pages)
+      audio.pause();
+      return;
+    }
+
+    if (isNewTrack) {
+      // New track: let the platform strategy load and play
+      if (isPlayPending) return;
+      setAutoPlay(false);
+      nonGesturePlay(active).catch(() => setIsPlaying(false));
+    } else if (audio.paused && !isPlayPending) {
+      // Same track, user resumed (from track card / page toggle)
+      audio.play().catch(() => setIsPlaying(false));
+    }
   }, [active, isPlaying, isPlayPending, setAutoPlay, setIsPlaying, nonGesturePlay]);
 
   // ── Wrapped skip handlers (state-only; watcher calls nonGesturePlay) ─────

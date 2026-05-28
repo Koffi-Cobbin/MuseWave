@@ -211,10 +211,13 @@ export function usePlayback(
   /**
    * Toggle play/pause on the current audio element.
    *
-   * - If paused and no play is in-flight → calls play().
+   * - If paused and no play is in-flight → calls play() + setIsPlaying(true).
    * - If paused but a nonGesturePlay is still resolving → does nothing
    *   (prevents the Android double-play bug).
-   * - If playing → pauses.
+   * - If playing → pauses + setIsPlaying(false).
+   *
+   * Calling setIsPlaying here keeps React state in sync with the audio element
+   * so the UI (Play/Pause icons) immediately reflects the actual audio state.
    */
   const togglePlay = useCallback(() => {
     const audio = audioRef.current;
@@ -223,9 +226,11 @@ export function usePlayback(
     if (audio.paused) {
       // Guard: prevent calling play() while auto-advance is in-flight
       if (!strategy.isPlayPending) {
+        setIsPlaying(true);
         audio.play().catch(() => setIsPlaying(false));
       }
     } else {
+      setIsPlaying(false);
       strategy.pause(audio);
     }
   }, [audioRef, strategy, setIsPlaying]);
