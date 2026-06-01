@@ -218,7 +218,28 @@ function PlayerBar() {
   const nextOfflineAudioSrc = useOfflineAudio(nextTrack);
 
   const audioRef = useRef<HTMLAudioElement>(null);
-  const [volume, setVolume] = useState(1);
+
+  // ── Volume persistence ────────────────────────────────────────────────────
+  const [volume, setVolume] = useState<number>(() => {
+    try {
+      const v = parseFloat(localStorage.getItem("musewave_player_volume") ?? "1");
+      return isNaN(v) ? 1 : Math.max(0, Math.min(1, v));
+    } catch {
+      return 1;
+    }
+  });
+
+  // ── Playback-position persistence ─────────────────────────────────────────
+  // Captured once at mount; never changes after initial render.
+  const [savedPlaybackTime] = useState<number>(() => {
+    try {
+      return parseFloat(localStorage.getItem("musewave_player_time") ?? "0") || 0;
+    } catch {
+      return 0;
+    }
+  });
+  // True once we've restored the position (so the effect never re-runs for new tracks)
+  const positionRestoredRef = useRef(false);
 
   // ── usePlayback hook — owns all audio events + strategies ───────────────
 
@@ -531,6 +552,56 @@ function PlayerBar() {
       }
     }
   }, [offlineAudioSrc, active?.id]);
+
+  // ── Playback persistence effects ──────────────────────────────────────────
+
+  // 1. Restore position once on mount: load the audio src silently so the user
+  //    sees the track + seeked position without clicking play.
+  useEffect(() => {
+    if (positionRestoredRef.current) return;     // only ever runs once
+    if (!active || !offlineAudioSrc) return;
+
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    positionRestoredRef.current = true;
+
+    // Prime the audio element with the src (no play call — respects autoplay policy)
+    audio.src = offlineAudioSrc;
+
+    if (savedPlaybackTime > 0) {
+      const handleMeta = () => {
+        const target = Math.min(savedPlaybackTime, isFinite(audio.duration) ? audio.duration : savedPlaybackTime);
+        audio.currentTime = target;
+        seek(target);           // syncs React currentTime state so the seek bar updates
+      };
+      audio.addEventListener("loadedmetadata", handleMeta, { once: true });
+      return () => audio.removeEventListener("loadedmetadata", handleMeta);
+    }
+  }, [active?.id, offlineAudioSrc, savedPlaybackTime, seek]);
+
+  // 2. Save volume to localStorage whenever it changes
+  useEffect(() => {
+    try { localStorage.setItem("musewave_player_volume", String(volume)); } catch { /* ignore */ }
+  }, [volume]);
+
+  // 3. Save playback position every 5 s while playing
+  useEffect(() => {
+    if (!active || !isPlaying) return;
+    const id = setInterval(() => {
+      try {
+        localStorage.setItem("musewave_player_time", String(Math.floor(currentTimeRef.current)));
+      } catch { /* ignore */ }
+    }, 5000);
+    return () => clearInterval(id);
+  }, [active?.id, isPlaying]);
+
+  // 4. When the active track changes (user switches to a new track), reset the
+  //    saved time so a future refresh starts that track from the beginning.
+  useEffect(() => {
+    if (!positionRestoredRef.current) return;    // skip on initial mount
+    try { localStorage.setItem("musewave_player_time", "0"); } catch { /* ignore */ }
+  }, [active?.id]);
 
   // ── Keyboard shortcut HUD ─────────────────────────────────────────────────
 

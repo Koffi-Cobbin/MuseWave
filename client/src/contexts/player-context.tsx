@@ -1,7 +1,28 @@
-import { createContext, useContext, useState, useCallback, useRef, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useRef, ReactNode, useEffect } from "react";
 import type { Track } from "../../../shared/schema";
 
 export type RepeatMode = "off" | "all" | "one";
+
+// ── Playback persistence ──────────────────────────────────────────────────────
+
+const PLAYER_STATE_KEY = "musewave_player_state";
+
+interface PersistedPlayerState {
+  active: Track | null;
+  queue: Track[];
+  queueIndex: number;
+  repeatMode: RepeatMode;
+}
+
+function readPlayerState(field: keyof PersistedPlayerState) {
+  try {
+    const raw = localStorage.getItem(PLAYER_STATE_KEY);
+    if (!raw) return undefined;
+    return (JSON.parse(raw) as PersistedPlayerState)[field];
+  } catch {
+    return undefined;
+  }
+}
 
 type PlayerContextType = {
   active: Track | null;
@@ -57,13 +78,21 @@ type PlayerContextType = {
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 export function PlayerProvider({ children }: { children: ReactNode }) {
-  const [active, setActiveState] = useState<Track | null>(null);
+  const [active, setActiveState] = useState<Track | null>(
+    () => (readPlayerState("active") as Track | null) ?? null
+  );
   const [autoPlay, setAutoPlay] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false); // always start paused (autoplay policy)
   const [isBuffering, setIsBuffering] = useState(false);
-  const [queue, setQueueState] = useState<Track[]>([]);
-  const [queueIndex, setQueueIndex] = useState(-1);
-  const [repeatMode, setRepeatMode] = useState<RepeatMode>("off");
+  const [queue, setQueueState] = useState<Track[]>(
+    () => (readPlayerState("queue") as Track[] | undefined) ?? []
+  );
+  const [queueIndex, setQueueIndex] = useState<number>(
+    () => (readPlayerState("queueIndex") as number | undefined) ?? -1
+  );
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>(
+    () => (readPlayerState("repeatMode") as RepeatMode | undefined) ?? "off"
+  );
 
   const setActive = useCallback((track: Track | null) => {
     setActiveState(track);
@@ -267,6 +296,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
     return null;
   }, []);
+
+  // ── Persist queue / active / repeatMode to localStorage ──────────────────
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        PLAYER_STATE_KEY,
+        JSON.stringify({ active, queue, queueIndex, repeatMode })
+      );
+    } catch {
+      // ignore quota / private-browsing errors
+    }
+  }, [active, queue, queueIndex, repeatMode]);
 
   return (
     <PlayerContext.Provider value={{
