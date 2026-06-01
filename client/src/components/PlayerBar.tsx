@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Play, Pause, Crown, Heart, MoreVertical, Download, CloudDownload, Share2, Link2, ChevronDown, ChevronUp, SkipBack, SkipForward, ListMusic, Repeat, Repeat1, X, Loader2, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -198,12 +198,24 @@ function PlayerBar() {
     playTrack,
     hasNext, hasPrev, queueCount, repeatMode,
     toggleRepeatMode,
+    queue, queueIndex,
   } = usePlayer();
   const { user, isAuthenticated } = useAuth();
   const { isTrackDownloaded, downloadForOffline, isOnline } = useOffline();
   const { toast } = useToast();
 
   const offlineAudioSrc = useOfflineAudio(active);
+
+  // Resolve the next track and its audio src (incl. offline blob) for preloading
+  const nextTrack = useMemo(() => {
+    if (queue.length === 0) return null;
+    const nextIndex = queueIndex + 1;
+    if (nextIndex < queue.length) return queue[nextIndex];
+    if (repeatMode === "all") return queue[0];
+    return null;
+  }, [queue, queueIndex, repeatMode]);
+
+  const nextOfflineAudioSrc = useOfflineAudio(nextTrack);
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const [volume, setVolume] = useState(1);
@@ -229,6 +241,18 @@ function PlayerBar() {
   useEffect(() => { currentTimeRef.current = currentTime; }, [currentTime]);
   const setIsPlayingRef = useRef(setIsPlaying);
   useEffect(() => { setIsPlayingRef.current = setIsPlaying; }, [setIsPlaying]);
+
+  // Stable ref so the onEnded handler always sees the current next track
+  const nextTrackRef = useRef(nextTrack);
+  useEffect(() => { nextTrackRef.current = nextTrack; }, [nextTrack]);
+
+  // ── Gapless preload state ────────────────────────────────────────────────
+  // preloadAudioRef  — hidden <audio> element used to buffer the next track
+  // preloadedTrackId — which track is currently loaded into the preload element
+  // gaplessReady     — true once the preload element has buffered enough to play
+  const preloadAudioRef = useRef<HTMLAudioElement | null>(null);
+  const preloadedTrackIdRef = useRef<string | null>(null);
+  const gaplessReadyRef = useRef(false);
 
   const playSessionRef = useRef<{ trackId: string } | null>(null);
   const prevVolumeRef = useRef(1);
@@ -278,9 +302,32 @@ function PlayerBar() {
         audio.muted = true;
         audio.play().then(() => { audio.muted = wasMuted; }).catch(() => { audio.muted = wasMuted; });
       } else {
+        // ── Gapless transition ──────────────────────────────────────────
+        // If the next track is already buffered in the preload element,
+        // swap the src and call play() immediately — inside the "ended"
+        // event, which browsers treat as a trusted media context (no
+        // autoplay block). This eliminates the audible gap between tracks.
+        //
+        // The watcher effect that fires after playNextRef() will see
+        // !audio.paused and skip the redundant nonGesturePlay() call.
+        const preload = preloadAudioRef.current;
+        const nextTrk = nextTrackRef.current;
+        if (
+          gaplessReadyRef.current &&
+          preload &&
+          nextTrk &&
+          preloadedTrackIdRef.current === nextTrk.id
+        ) {
+          audio.src = preload.src;
+          audio.play().catch(() => {
+            // Gapless play failed; reset so the watcher takes the normal path
+            gaplessReadyRef.current = false;
+          });
+        }
+
         playNextRef.current();
-        // active state change triggers the watcher effect below,
-        // which calls nonGesturePlay on the new active track.
+        // active state change triggers the watcher effect below.
+        // If gapless play already started, the watcher skips nonGesturePlay.
       }
     };
   }, [onEndedRef, activeRef, currentTimeRef, audioRef, repeatModeRef, playNextRef, recordPlay]);
@@ -318,12 +365,63 @@ function PlayerBar() {
       // New track: let the platform strategy load and play
       if (isPlayPending) return;
       setAutoPlay(false);
+      // Gapless: if the onEnded handler already started playing this track
+      // from the preload element, skip nonGesturePlay — the audio is live.
+      if (!audio.paused) return;
       nonGesturePlay(active).catch(() => setIsPlaying(false));
     } else if (audio.paused && !isPlayPending) {
       // Same track, user resumed (from track card / page toggle)
       audio.play().catch(() => setIsPlaying(false));
     }
   }, [active, isPlaying, isPlayPending, setAutoPlay, setIsPlaying, nonGesturePlay]);
+
+  // ── Gapless preload effects ───────────────────────────────────────────────
+  //
+  // Two effects work together:
+  //   1. Reset — when the next track changes, clear the old preload buffer
+  //      immediately so we don't accidentally use a stale src.
+  //   2. Preload — when we're within PRELOAD_THRESHOLD_SECS of the end,
+  //      start loading the next track into the hidden audio element.
+  //      gaplessReadyRef is set to true once enough data is buffered.
+
+  const PRELOAD_THRESHOLD_SECS = 20;
+
+  // 1. Reset preload whenever the upcoming next track changes
+  useEffect(() => {
+    const preload = preloadAudioRef.current;
+    if (!preload) return;
+    if (preloadedTrackIdRef.current && preloadedTrackIdRef.current !== nextTrack?.id) {
+      preload.pause();
+      preload.src = "";
+      preload.load();
+      preloadedTrackIdRef.current = null;
+      gaplessReadyRef.current = false;
+    }
+  }, [nextTrack?.id]);
+
+  // 2. Start preloading when close to the end of the current track
+  useEffect(() => {
+    const preload = preloadAudioRef.current;
+    if (!preload || !nextTrack || !nextOfflineAudioSrc) return;
+    if (duration <= 0 || duration - currentTime > PRELOAD_THRESHOLD_SECS) return;
+    if (preloadedTrackIdRef.current === nextTrack.id) return; // already loading/loaded
+
+    preloadedTrackIdRef.current = nextTrack.id;
+    gaplessReadyRef.current = false;
+    preload.volume = 0;
+    preload.src = nextOfflineAudioSrc;
+    preload.load();
+
+    const onReady = () => { gaplessReadyRef.current = true; };
+    const onError = () => { gaplessReadyRef.current = false; };
+    preload.addEventListener("canplaythrough", onReady, { once: true });
+    preload.addEventListener("error", onError, { once: true });
+
+    return () => {
+      preload.removeEventListener("canplaythrough", onReady);
+      preload.removeEventListener("error", onError);
+    };
+  }, [currentTime, duration, nextTrack?.id, nextOfflineAudioSrc]);
 
   // ── Wrapped skip handlers (state-only; watcher calls nonGesturePlay) ─────
 
@@ -601,6 +699,8 @@ function PlayerBar() {
         call and the first render cycle.  This is the key iOS fix.
       */}
       <audio ref={audioRef} preload="none" playsInline />
+      {/* Hidden preload element — buffers the next track for gapless playback */}
+      <audio ref={preloadAudioRef} preload="auto" playsInline style={{ display: "none" }} />
 
       {/* ── Keyboard shortcut HUD badge ────────────────────────────────── */}
       <AnimatePresence>
