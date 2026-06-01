@@ -35,7 +35,7 @@ export default function PlaylistDetailPage() {
     fetchPlaylistById, removeSongFromPlaylist, deletePlaylist, reorderPlaylistTracks,
     setCurrentPlaylist,
   } = usePlaylists();
-  const { playQueue, active } = usePlayer();
+  const { playQueue, active, isPlaying, setIsPlaying } = usePlayer();
   const { toast } = useToast();
 
   const [showEditModal, setShowEditModal] = useState(false);
@@ -134,6 +134,10 @@ export default function PlaylistDetailPage() {
 
   const handlePlayTrack = (index: number) => {
     const tracks = localTracks.map((t) => t.track);
+    if (active?.id === tracks[index].id) {
+      setIsPlaying(!isPlaying);
+      return;
+    }
     playQueue(tracks, index);
   };
 

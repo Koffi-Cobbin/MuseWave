@@ -16,7 +16,7 @@ type PlaylistTrack = { id: string; track: Track; position?: number };
 export default function SharedPlaylistPage() {
   const [, params] = useRoute("/playlists/link/:token");
   const { fetchPlaylistByLink } = usePlaylists();
-  const { playQueue, active } = usePlayer();
+  const { playQueue, active, isPlaying, setIsPlaying } = usePlayer();
   const { toast } = useToast();
 
   const [playlist, setPlaylist] = useState<(Playlist & { tracks?: Track[] }) | null>(null);
@@ -82,6 +82,10 @@ export default function SharedPlaylistPage() {
 
   const handlePlayTrack = (index: number) => {
     const tracks = localTracks.map((t) => t.track);
+    if (active?.id === tracks[index].id) {
+      setIsPlaying(!isPlaying);
+      return;
+    }
     playQueue(tracks, index);
   };
 
