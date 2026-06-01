@@ -67,9 +67,15 @@ export class iOSStrategy implements PlaybackStrategy {
    * Play a track without a user gesture (e.g., auto-advance from `ended`).
    *
    * iOS blocks unmuted `play()` outside a gesture context. The reliable
-   * workaround is to mute the element, call `play()`, then unmute once
-   * playback starts (the `usePlayback` hook handles unmuting via the
-   * `playing` event listener, but we also restore here as a safety net).
+   * workaround is to mute the element, call `play()`, then restore the
+   * original mute state once playback starts.
+   *
+   * NOTE: Unmuting is done here in the strategy directly. The `playing`
+   * event listener in usePlayback only calls setIsBuffering(false) — it
+   * does NOT unmute. This is the sole unmute path.
+   *
+   * If the muted `play()` call itself is rejected, we fall back to a
+   * `canplay` listener and retry — the same recovery used by AndroidStrategy.
    */
   async nonGesturePlay(track: Track, audio: HTMLAudioElement): Promise<void> {
     this._isPlayPending = true;
@@ -84,6 +90,17 @@ export class iOSStrategy implements PlaybackStrategy {
       audio.muted = wasMuted;
     } catch {
       audio.muted = wasMuted;
+
+      // Fallback: wait for canplay then retry with muted play (Bug B fix)
+      await new Promise<void>((resolve) => {
+        const onCanPlay = () => {
+          audio.muted = true;
+          audio.play()
+            .then(() => { audio.muted = wasMuted; resolve(); })
+            .catch(() => resolve());
+        };
+        audio.addEventListener('canplay', onCanPlay, { once: true });
+      });
     } finally {
       this._isPlayPending = false;
       this._state.current = { isPlayPending: false, lastTrackId: track.id };

@@ -301,6 +301,32 @@ function PlayerBar() {
     }
   }, [user?.id]);
 
+  // ── safePlay: muted play for non-gesture contexts (Bug C & D fix) ────────
+  //
+  // Calling audio.play() directly from a React effect is blocked on iOS when
+  // no user gesture has occurred in the last ~30 seconds (autoplay policy).
+  // The reliable workaround on ALL platforms: mute → play → unmute on start.
+  // If the muted play itself fails, retry via a 'canplay' listener.
+  //
+  // This must NOT be used from inside a user-gesture handler (togglePlay,
+  // keyboard shortcuts) — those call audio.play() directly, which is correct.
+  const safePlay = useCallback((audio: HTMLAudioElement): Promise<void> => {
+    const wasMuted = audio.muted;
+    audio.muted = true;
+    return audio.play()
+      .then(() => { audio.muted = wasMuted; })
+      .catch(() => {
+        audio.muted = wasMuted;
+        return new Promise<void>((resolve) => {
+          const onCanPlay = () => {
+            audio.muted = true;
+            audio.play().then(() => { audio.muted = wasMuted; resolve(); }).catch(() => resolve());
+          };
+          audio.addEventListener("canplay", onCanPlay, { once: true });
+        });
+      });
+  }, []);
+
   // ── Ended handler — sets onEndedRef for usePlayback to call ────────────
 
   useEffect(() => {
@@ -391,10 +417,12 @@ function PlayerBar() {
       if (!audio.paused) return;
       nonGesturePlay(active).catch(() => setIsPlaying(false));
     } else if (audio.paused && !isPlayPending) {
-      // Same track, user resumed (from track card / page toggle)
-      audio.play().catch(() => setIsPlaying(false));
+      // Same track, user resumed (from track card / page toggle).
+      // Bug D fix: use safePlay — this effect runs outside the gesture stack,
+      // so direct audio.play() would be blocked by iOS autoplay policy.
+      safePlay(audio).catch(() => setIsPlaying(false));
     }
-  }, [active, isPlaying, isPlayPending, setAutoPlay, setIsPlaying, nonGesturePlay]);
+  }, [active, isPlaying, isPlayPending, setAutoPlay, setIsPlaying, nonGesturePlay, safePlay]);
 
   // ── Gapless preload effects ───────────────────────────────────────────────
   //
@@ -544,14 +572,13 @@ function PlayerBar() {
     ) {
       const wasPlaying = !audio.paused;
       audio.src = offlineAudioSrc;
+      // Bug C fix: use safePlay (muted trick) — this fires from a React effect,
+      // outside the gesture stack. Direct audio.play() would be blocked on iOS.
       if (wasPlaying) {
-        audio.play().catch(() => {
-          const onCanPlay = () => audio.play().catch(() => {});
-          audio.addEventListener("canplay", onCanPlay, { once: true });
-        });
+        safePlay(audio);
       }
     }
-  }, [offlineAudioSrc, active?.id]);
+  }, [offlineAudioSrc, active?.id, safePlay]);
 
   // ── Playback persistence effects ──────────────────────────────────────────
 
