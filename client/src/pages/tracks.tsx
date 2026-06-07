@@ -19,6 +19,7 @@ import {
   Search,
   X,
   RefreshCw,
+  ArrowUpFromLine,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
 import { useSharedTracks } from "@/hooks/use-shared-tracks";
+import { useSharedByMe } from "@/hooks/use-shared-by-me";
 import { useSearchFilter } from "@/hooks/useSearchFilter";
 import { TrackCard } from "@/components/TrackCard";
 import { PaginationControls } from "@/components/PaginationControls";
@@ -40,7 +42,7 @@ import type { SharedTrack } from "@shared/schema";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type PrimaryTab = "tracks" | "albums";
-type TracksSubTab = "my" | "shared";
+type TracksSubTab = "my" | "shared" | "sharedByMe";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -213,6 +215,11 @@ export default function MyTracks() {
   const { user, isAuthenticated } = useAuth();
   const { active, isPlaying, setIsPlaying, playTrack } = usePlayer();
   const { sharedTracks, loading: sharedTracksLoading, fetchSharedTracks } = useSharedTracks();
+  const {
+    sharedByMeTracks,
+    loadingTracks: sharedByMeLoading,
+    fetchSharedByMeTracks,
+  } = useSharedByMe();
   const { toast } = useToast();
 
   // ── Primary tab: Tracks / Playlists ────────────────────────────────────
@@ -230,6 +237,9 @@ export default function MyTracks() {
 
   // ── State: Shared with Me ──────────────────────────────────────────────
   const [sharedSearch, setSharedSearch] = useState("");
+
+  // ── State: Shared by Me ────────────────────────────────────────────────
+  const [sharedByMeSearch, setSharedByMeSearch] = useState("");
   const [sharedSortBy, setSharedSortBy] = useState<SharedSortBy>("sharedAt");
   const [sharedShowFilters, setSharedShowFilters] = useState(false);
   const [sharedPage, setSharedPage] = useState(1);
@@ -288,6 +298,10 @@ export default function MyTracks() {
   useEffect(() => {
     fetchSharedTracks();
   }, [fetchSharedTracks]);
+
+  useEffect(() => {
+    fetchSharedByMeTracks();
+  }, [fetchSharedByMeTracks]);
 
   // ── Load albums ────────────────────────────────────────────────────────
   const loadAlbums = useCallback(async () => {
@@ -538,6 +552,17 @@ export default function MyTracks() {
 
   useEffect(() => { setSharedPage(1); }, [sharedSearch, sharedSortBy]);
 
+  // ── Shared by Me: filter ───────────────────────────────────────────────
+  const filteredSharedByMeTracks = useMemo(() => {
+    if (!sharedByMeSearch) return sharedByMeTracks;
+    const q = sharedByMeSearch.toLowerCase();
+    return sharedByMeTracks.filter((t) =>
+      ["title", "artist", "sharedWithUsername", "sharedWithEmail"].some((f) =>
+        String((t as any)[f] ?? "").toLowerCase().includes(q),
+      ),
+    );
+  }, [sharedByMeTracks, sharedByMeSearch]);
+
   // ── Albums: filter ─────────────────────────────────────────────────────
   const filteredAlbums = useMemo(() => {
     if (!albumSearch) return albums;
@@ -610,7 +635,7 @@ export default function MyTracks() {
 
   // ── Primary tabs config ────────────────────────────────────────────────
   const primaryTabs: { key: PrimaryTab; label: string; icon: React.ElementType; count: number }[] = [
-    { key: "tracks", label: "Tracks", icon: Music2, count: myTracks.length + sharedTracks.length },
+    { key: "tracks", label: "Tracks", icon: Music2, count: myTracks.length + sharedTracks.length + sharedByMeTracks.length },
     { key: "albums", label: "Albums", icon: Disc3, count: albums.length },
   ];
 
@@ -618,6 +643,7 @@ export default function MyTracks() {
   const tracksSubTabs: { key: TracksSubTab; label: string; icon: React.ElementType; count: number }[] = [
     { key: "my", label: "My Tracks", icon: Headphones, count: myTracks.length },
     { key: "shared", label: "Shared with Me", icon: Share2, count: sharedTracks.length },
+    { key: "sharedByMe", label: "Shared by Me", icon: ArrowUpFromLine, count: sharedByMeTracks.length },
   ];
 
   // ── Shared with Me: sort badge helper ──────────────────────────────────
@@ -662,7 +688,7 @@ export default function MyTracks() {
                 <p className="hidden text-xs text-muted-foreground sm:block">
                   {isArtistView
                     ? `${artistTracks.length} track${artistTracks.length !== 1 ? "s" : ""}`
-                    : `${myTracks.length} track${myTracks.length !== 1 ? "s" : ""}${sharedTracks.length > 0 ? ` \u00b7 ${sharedTracks.length} shared` : ""}`
+                    : `${myTracks.length} track${myTracks.length !== 1 ? "s" : ""}${sharedTracks.length > 0 ? ` \u00b7 ${sharedTracks.length} shared with me` : ""}${sharedByMeTracks.length > 0 ? ` \u00b7 ${sharedByMeTracks.length} shared by me` : ""}`
                   }
                 </p>
               </div>
@@ -1278,6 +1304,109 @@ export default function MyTracks() {
                         <SimplePagination page={sharedSafePage} totalPages={sharedTotalPages} onPage={setSharedPage} />
                       </div>
                     )}
+                  </motion.div>
+                )}
+                {/* ──── SHARED BY ME ──── */}
+                {activeTracksTab === "sharedByMe" && (
+                  <motion.div
+                    key="shared-by-me-tracks"
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex flex-1 flex-col"
+                  >
+                    {/* Search */}
+                    <div className="mb-4 flex items-center gap-2">
+                      <div className="relative flex-1 sm:max-w-sm">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                          type="text"
+                          value={sharedByMeSearch}
+                          onChange={(e) => setSharedByMeSearch(e.target.value)}
+                          placeholder="Search tracks you've shared…"
+                          data-testid="input-shared-by-me-search"
+                          className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
+                        />
+                        {sharedByMeSearch && (
+                          <button
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            onClick={() => setSharedByMeSearch("")}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Result header */}
+                    <div className="mb-3">
+                      <p className="text-sm font-medium text-muted-foreground">
+                        {sharedByMeLoading ? (
+                          "Loading\u2026"
+                        ) : filteredSharedByMeTracks.length === 0 ? (
+                          "No tracks found"
+                        ) : (
+                          <>
+                            <span className="text-foreground font-semibold">{filteredSharedByMeTracks.length}</span>{" "}
+                            track{filteredSharedByMeTracks.length !== 1 ? "s" : ""}
+                            {sharedByMeSearch && ` matching "${sharedByMeSearch}"`}
+                          </>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Tracks grid */}
+                    <div className="flex-1 grid gap-2 sm:gap-3 lg:grid-cols-2 content-start" data-testid="shared-by-me-tracks-list">
+                      {sharedByMeLoading ? (
+                        Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="h-20 animate-pulse rounded-2xl bg-white/5" />
+                        ))
+                      ) : filteredSharedByMeTracks.length > 0 ? (
+                        filteredSharedByMeTracks.map((track, i) => (
+                          <div key={`${track.id}-${i}`} className="relative">
+                            <TrackCard
+                              track={track}
+                              onPlay={handlePlay}
+                              isActive={active?.id === track.id}
+                              index={i}
+                            />
+                            {(track.sharedWithUsername || track.sharedWithEmail) && (
+                              <div className="absolute top-2 right-11 sm:top-3 sm:right-13 z-10 flex items-center gap-1 rounded-full bg-black/40 backdrop-blur-sm px-2 py-0.5 text-[10px] text-white/70 border border-white/10 pointer-events-none">
+                                <Share2 className="h-2.5 w-2.5" />
+                                <span className="truncate max-w-[100px] sm:max-w-[140px]">
+                                  {track.sharedWithUsername || track.sharedWithEmail}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="glass rounded-2xl p-12 text-center col-span-full">
+                          <ArrowUpFromLine className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                          <p className="text-sm text-muted-foreground">
+                            {sharedByMeSearch
+                              ? `No tracks matching "${sharedByMeSearch}"`
+                              : "You haven't shared any tracks yet"}
+                          </p>
+                          {!sharedByMeSearch && (
+                            <p className="mt-1 text-xs text-muted-foreground/60">
+                              Use the \u00b7\u00b7\u00b7 menu on any track to share it with someone
+                            </p>
+                          )}
+                          {sharedByMeSearch && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              className="mt-4 border-white/10 bg-white/5"
+                              onClick={() => setSharedByMeSearch("")}
+                            >
+                              Clear search
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
