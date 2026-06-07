@@ -50,6 +50,7 @@ export const API_ENDPOINTS = {
     shares: (id: string) => `/api/tracks/${id}/shares`,
     shareById: (id: string, shareId: string) => `/api/tracks/${id}/shares/${shareId}`,
     sharedWithMe: '/api/tracks/shared-with-me',
+    sharedByMe: '/api/tracks/shared-by-me',
   },
   
   // Albums
@@ -80,6 +81,7 @@ export const API_ENDPOINTS = {
     byLink: (token: string) => `/api/playlists/link/${token}`,
     // Shared with me
     sharedWithMe: '/api/playlists/shared-with-me',
+    sharedByMe: '/api/playlists/shared-by-me',
     // Public playlists by user
     byUser: (userId: string) => `/api/users/${userId}/playlists`,
   },

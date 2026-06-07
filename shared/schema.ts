@@ -241,6 +241,19 @@ export const sharedTrackSchema = trackSchema.extend({
 
 export type SharedTrack = z.infer<typeof sharedTrackSchema>;
 
+// ============================================================================
+// "SHARED BY ME" SCHEMAS (content the authenticated user shared with others)
+// ============================================================================
+
+/** A track the current user shared with another user. */
+export const mySharedTrackSchema = trackSchema.extend({
+  sharedWithUsername: z.string().optional(),
+  sharedWithEmail: z.string().optional(),
+  sharedWithAvatar: z.string().optional(),
+  sharedAt: z.string().optional(),
+});
+export type MySharedTrack = z.infer<typeof mySharedTrackSchema>;
+
 export const playlistSchema = z.object({
   id: z.string(),
   userId: z.string(),
