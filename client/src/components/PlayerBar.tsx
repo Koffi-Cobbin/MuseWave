@@ -274,6 +274,10 @@ function PlayerBar() {
   const preloadAudioRef = useRef<HTMLAudioElement | null>(null);
   const preloadedTrackIdRef = useRef<string | null>(null);
   const gaplessReadyRef = useRef(false);
+  // Set to the track ID whenever the onEnded handler starts a gapless
+  // transition so the watcher effect can distinguish "gapless already live"
+  // from "user switched while playing" (Bug 2 fix).
+  const gaplessActiveRef = useRef<string | null>(null);
 
   const playSessionRef = useRef<{ trackId: string } | null>(null);
   const prevVolumeRef = useRef(1);
@@ -365,9 +369,13 @@ function PlayerBar() {
           nextTrk &&
           preloadedTrackIdRef.current === nextTrk.id
         ) {
+          // Mark that gapless play is starting for this track ID so the
+          // watcher effect can recognise "already playing" vs "user switch".
+          gaplessActiveRef.current = nextTrk.id;
           audio.src = preload.src;
           audio.play().catch(() => {
-            // Gapless play failed; reset so the watcher takes the normal path
+            // Gapless play failed; clear the marker so the watcher retries.
+            gaplessActiveRef.current = null;
             gaplessReadyRef.current = false;
           });
         }
@@ -412,9 +420,19 @@ function PlayerBar() {
       // New track: let the platform strategy load and play
       if (isPlayPending) return;
       setAutoPlay(false);
-      // Gapless: if the onEnded handler already started playing this track
-      // from the preload element, skip nonGesturePlay — the audio is live.
-      if (!audio.paused) return;
+      // Gapless check: the onEnded handler explicitly marks gaplessActiveRef
+      // with the new track's ID when it starts a gapless transition.  Only
+      // in that case do we skip nonGesturePlay — audio is already live.
+      //
+      // We must NOT use `!audio.paused` alone here: a user-initiated track
+      // switch while audio is playing also satisfies that condition, which
+      // would leave the OLD track playing while the UI shows the new one
+      // (Bug 2 fix).
+      if (!audio.paused && gaplessActiveRef.current === active.id) {
+        gaplessActiveRef.current = null;
+        return;
+      }
+      gaplessActiveRef.current = null; // clear stale marker if track changed
       nonGesturePlay(active).catch(() => setIsPlaying(false));
     } else if (audio.paused && !isPlayPending) {
       // Same track, user resumed (from track card / page toggle).
@@ -582,21 +600,47 @@ function PlayerBar() {
 
   // ── Playback persistence effects ──────────────────────────────────────────
 
-  // 1. Restore position once on mount: load the audio src silently so the user
-  //    sees the track + seeked position without clicking play.
+  // 1. Restore position once on mount: seek to the saved position so the user
+  //    sees where they left off without having to click play.
+  //
+  // Bug 1 fix — why `isPlaying` is a guard here:
+  //
+  // `offlineAudioSrc` resolves asynchronously (IndexedDB lookup).  On a fresh
+  // page load the user may click a track BEFORE `offlineAudioSrc` settles.
+  // When it finally settles this effect re-fires with the new value.  Without
+  // the `isPlaying` guard it would execute `audio.src = offlineAudioSrc`,
+  // which aborts any `play()` already in flight from the watcher effect —
+  // leaving React state showing "playing" but the audio element paused.
+  // The user sees the correct track in the bar but hears nothing; only
+  // clicking pause-then-play fixes it.
+  //
+  // Fix: if `isPlaying` is already true the user has started playback through
+  // the normal path.  Mark restore done immediately and return without
+  // touching `audio.src`.  The watcher effect owns the src in this case.
+  //
+  // Additionally, only set `audio.src` when there is actually a saved position
+  // to seek to (`savedPlaybackTime > 0`).  When there is no saved position
+  // the src assignment is pointless and could race with the watcher.
   useEffect(() => {
-    if (positionRestoredRef.current) return;     // only ever runs once
+    if (positionRestoredRef.current) return;
     if (!active || !offlineAudioSrc) return;
+
+    // User already started playing — restore is no longer needed.
+    if (isPlaying) {
+      positionRestoredRef.current = true;
+      return;
+    }
 
     const audio = audioRef.current;
     if (!audio) return;
 
     positionRestoredRef.current = true;
 
-    // Prime the audio element with the src (no play call — respects autoplay policy)
-    audio.src = offlineAudioSrc;
-
+    // Only prime the element when there is a saved position to seek to.
+    // A savedPlaybackTime of 0 means "start from beginning" — no src
+    // assignment needed, and doing so here would race with the watcher.
     if (savedPlaybackTime > 0) {
+      audio.src = offlineAudioSrc;
       const handleMeta = () => {
         const target = Math.min(savedPlaybackTime, isFinite(audio.duration) ? audio.duration : savedPlaybackTime);
         audio.currentTime = target;
@@ -605,7 +649,7 @@ function PlayerBar() {
       audio.addEventListener("loadedmetadata", handleMeta, { once: true });
       return () => audio.removeEventListener("loadedmetadata", handleMeta);
     }
-  }, [active?.id, offlineAudioSrc, savedPlaybackTime, seek]);
+  }, [active?.id, offlineAudioSrc, savedPlaybackTime, seek, isPlaying]);
 
   // 2. Save volume to localStorage whenever it changes
   useEffect(() => {
