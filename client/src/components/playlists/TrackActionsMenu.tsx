@@ -304,50 +304,54 @@ export function TrackActionsMenu({
             <>
               {hasAnyPlaylist ? (
                 <>
-                  {/* My playlists */}
-                  {playlists.length > 0 && (
-                    <>
-                      <DropdownMenuLabel className="text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1.5">
-                          <ListMusic className="h-3 w-3" /> Add to my playlist
-                        </span>
-                      </DropdownMenuLabel>
-                      {playlists.map((playlist) => (
-                        <DropdownMenuItem
-                          key={playlist.id}
-                          onClick={() => handleAddToPlaylist(playlist.id, playlist.name)}
-                          disabled={loading}
-                          data-testid={`menu-add-to-playlist-${playlist.id}`}
-                        >
-                          <Music className="h-3 w-3 mr-2 text-muted-foreground shrink-0" />
-                          <span className="truncate">{playlist.name}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </>
-                  )}
+                  {/* Scrollable playlist list — capped so the dropdown never
+                      grows taller than the viewport regardless of playlist count */}
+                  <div className="max-h-48 overflow-y-auto [scrollbar-width:thin]">
+                    {/* My playlists */}
+                    {playlists.length > 0 && (
+                      <>
+                        <DropdownMenuLabel className="text-xs text-muted-foreground sticky top-0 bg-popover z-10">
+                          <span className="flex items-center gap-1.5">
+                            <ListMusic className="h-3 w-3" /> Add to my playlist
+                          </span>
+                        </DropdownMenuLabel>
+                        {playlists.map((playlist) => (
+                          <DropdownMenuItem
+                            key={playlist.id}
+                            onClick={() => handleAddToPlaylist(playlist.id, playlist.name)}
+                            disabled={loading}
+                            data-testid={`menu-add-to-playlist-${playlist.id}`}
+                          >
+                            <Music className="h-3 w-3 mr-2 text-muted-foreground shrink-0" />
+                            <span className="truncate">{playlist.name}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    )}
 
-                  {/* Shared editable playlists */}
-                  {editableShared.length > 0 && (
-                    <>
-                      {playlists.length > 0 && <DropdownMenuSeparator />}
-                      <DropdownMenuLabel className="text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1.5">
-                          <Users className="h-3 w-3" /> Add to shared playlist
-                        </span>
-                      </DropdownMenuLabel>
-                      {editableShared.map((playlist) => (
-                        <DropdownMenuItem
-                          key={playlist.id}
-                          onClick={() => handleAddToPlaylist(playlist.id, playlist.name)}
-                          disabled={loading}
-                          data-testid={`menu-add-to-shared-playlist-${playlist.id}`}
-                        >
-                          <Users className="h-3 w-3 mr-2 text-muted-foreground shrink-0" />
-                          <span className="truncate">{playlist.name}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </>
-                  )}
+                    {/* Shared editable playlists */}
+                    {editableShared.length > 0 && (
+                      <>
+                        {playlists.length > 0 && <DropdownMenuSeparator />}
+                        <DropdownMenuLabel className="text-xs text-muted-foreground sticky top-0 bg-popover z-10">
+                          <span className="flex items-center gap-1.5">
+                            <Users className="h-3 w-3" /> Add to shared playlist
+                          </span>
+                        </DropdownMenuLabel>
+                        {editableShared.map((playlist) => (
+                          <DropdownMenuItem
+                            key={playlist.id}
+                            onClick={() => handleAddToPlaylist(playlist.id, playlist.name)}
+                            disabled={loading}
+                            data-testid={`menu-add-to-shared-playlist-${playlist.id}`}
+                          >
+                            <Users className="h-3 w-3 mr-2 text-muted-foreground shrink-0" />
+                            <span className="truncate">{playlist.name}</span>
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    )}
+                  </div>
 
                   <DropdownMenuSeparator />
                 </>
