@@ -1,7 +1,8 @@
-import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, ReactNode } from "react";
 import { Playlist, PlaylistShare, Track } from "../../../shared/schema";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
+import { useAuth } from "./auth-context";
 
 interface PlaylistContextType {
   playlists: Playlist[];
@@ -37,6 +38,8 @@ interface PlaylistContextType {
 const PlaylistContext = createContext<PlaylistContextType | undefined>(undefined);
 
 export function PlaylistProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
+
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [sharedWithMe, setSharedWithMe] = useState<Playlist[]>([]);
   const [currentPlaylist, setCurrentPlaylist] = useState<(Playlist & { tracks?: Track[] }) | null>(null);
@@ -61,6 +64,19 @@ export function PlaylistProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     }
   }, []);
+
+  // Auto-fetch playlists on login so action menus on every page (Home,
+  // Discover, etc.) already have the list without requiring a visit to
+  // the Playlists page first.  Clear the list on logout.
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchPlaylists();
+    } else {
+      setPlaylists([]);
+      setSharedWithMe([]);
+      setCurrentPlaylist(null);
+    }
+  }, [isAuthenticated, fetchPlaylists]);
 
   const fetchSharedWithMe = useCallback(async () => {
     try {
