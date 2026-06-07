@@ -1391,7 +1391,7 @@ export default function MyTracks() {
                           </p>
                           {!sharedByMeSearch && (
                             <p className="mt-1 text-xs text-muted-foreground/60">
-                              Use the \u00b7\u00b7\u00b7 menu on any track to share it with someone
+                              Use the ··· menu on any track to share it with someone
                             </p>
                           )}
                           {sharedByMeSearch && (
