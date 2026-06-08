@@ -28,6 +28,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { PlayScreen } from "@/components/PlayScreen";
 import { QueueSheet } from "@/components/QueueSheet";
 import { usePlayback } from "@/playback/usePlayback";
+import { useMediaSession } from "@/hooks/useMediaSession";
 import type { Track } from "../../../shared/schema";
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -503,6 +504,29 @@ function PlayerBar() {
   const handlePlayTrack = useCallback((track: Track) => {
     playTrack(track);
   }, [playTrack]);
+
+  // ── Media Session play/pause — guard against calling togglePlay in the
+  //    wrong direction (the API guarantees it but be defensive) ─────────────
+  const handleMediaSessionPlay = useCallback(() => {
+    if (!isPlaying) togglePlay();
+  }, [isPlaying, togglePlay]);
+
+  const handleMediaSessionPause = useCallback(() => {
+    if (isPlaying) togglePlay();
+  }, [isPlaying, togglePlay]);
+
+  // ── Media Session API — lock screen / notification / hardware controls ───
+  useMediaSession({
+    active,
+    isPlaying,
+    currentTime,
+    duration,
+    onPlay:     handleMediaSessionPlay,
+    onPause:    handleMediaSessionPause,
+    onSkipNext: handleSkipNext,
+    onSkipPrev: handleSkipPrev,
+    onSeek:     seek,
+  });
 
   // ── UI state ─────────────────────────────────────────────────────────────
 
