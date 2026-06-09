@@ -21,7 +21,6 @@ import {
   Eye,
   EyeOff,
   Trash2,
-  Disc3,
   Play,
   ExternalLink,
   Clock,
@@ -31,13 +30,11 @@ import {
   Lock,
   TrendingUp,
   BarChart3,
-  ChevronRight,
   AlertTriangle,
   ArrowUpDown,
   SlidersHorizontal,
   UserCheck,
   Zap,
-  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -70,20 +67,6 @@ type TrackStats = {
   completionRate: number;
   updatedAt: string;
 };
-
-type Album = {
-  id: string;
-  title: string;
-  artist: string;
-  genre?: string;
-  description?: string;
-  releaseDate?: string;
-  published: boolean;
-  coverUrl?: string;
-  coverGradient?: string;
-};
-
-type SortKey = "plays" | "likes" | "downloads" | "newest" | "title";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -462,52 +445,6 @@ function AnalyticsPanel({
   );
 }
 
-// ─── Album Card ───────────────────────────────────────────────────────────────
-
-function AlbumCard({ album, isShared = false }: { album: Album; isShared?: boolean }) {
-  return (
-    <div
-      className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.10] hover:bg-white/[0.04]"
-      data-testid={`card-album-${album.id}`}
-    >
-      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-white/8">
-        {album.coverUrl ? (
-          <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <Disc3 className="h-5 w-5 text-muted-foreground/40" />
-          </div>
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold">{album.title}</div>
-        <div className="text-xs text-muted-foreground/70">
-          {album.genre ?? ""}
-          {album.releaseDate && (
-            <span> · {new Date(album.releaseDate).getFullYear()}</span>
-          )}
-        </div>
-      </div>
-      <div className="flex shrink-0 items-center gap-1.5">
-        {isShared && (
-          <span
-            className="flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-400"
-            data-testid={`badge-album-shared-${album.id}`}
-          >
-            <Share2 className="h-2.5 w-2.5" />
-            Shared
-          </span>
-        )}
-        {!album.published && (
-          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">
-            Draft
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Dashboard Page ───────────────────────────────────────────────────────────
 
 const SORT_OPTIONS: { key: SortKey; label: string }[] = [
@@ -526,8 +463,6 @@ export default function Dashboard() {
   // ── Data state
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
-  const [albums, setAlbums] = useState<Album[]>([]);
-  const [sharedByMeIds, setSharedByMeIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -549,25 +484,17 @@ export default function Dashboard() {
     else setRefreshing(true);
 
     try {
-      const [tracksData, albumsData, sharedByMeData] = await Promise.all([
-        apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, { userId: user.id }),
-        apiRequestJson<Album[]>("GET", API_ENDPOINTS.albums.byUser(user.id)).catch(() => []),
-        apiRequestJson<{ id: string; albumId?: string }[]>("GET", API_ENDPOINTS.albums.sharedByMe).catch(() => []),
-      ]);
+      const tracksData = await apiRequestJson<Track[]>(
+        "GET",
+        API_ENDPOINTS.tracks.list,
+        undefined,
+        { userId: user.id },
+      );
 
       const myTracks = (Array.isArray(tracksData) ? tracksData : []).filter(
         (t) => t.userId === user.id || (t as any).user_id === user.id,
       );
       setTracks(myTracks);
-      setAlbums(Array.isArray(albumsData) ? albumsData : []);
-
-      // Build a set of album IDs the user has shared with others (deduplicated)
-      const sharedIds = new Set<string>(
-        (Array.isArray(sharedByMeData) ? sharedByMeData : [])
-          .map((s) => s.albumId ?? s.id)
-          .filter(Boolean),
-      );
-      setSharedByMeIds(sharedIds);
 
       // Auto-select top track
       if (!selectedTrackId && myTracks.length > 0) {
@@ -936,56 +863,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── Albums ── */}
-        <div className="mb-6">
-          <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Disc3 className="h-5 w-5 shrink-0 text-sky-400" />
-              <h2 className="text-base font-semibold sm:text-lg">Albums</h2>
-              {!loading && albums.length > 0 && (
-                <span className="rounded-full bg-white/8 px-2 py-0.5 text-xs text-muted-foreground">
-                  {albums.length}
-                </span>
-              )}
-            </div>
-            {user?.username && (
-              <Link href={`/artist/${user.username}`}>
-                <button
-                  type="button"
-                  className="flex items-center gap-1 text-xs text-muted-foreground transition hover:text-foreground"
-                  data-testid="button-create-album"
-                >
-                  <span>Manage albums</span>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </Link>
-            )}
-          </div>
-
-          {loading ? (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-[68px] animate-pulse rounded-xl bg-white/5" />
-              ))}
-            </div>
-          ) : albums.length === 0 ? (
-            <div className="flex items-center justify-center gap-3 rounded-2xl border border-dashed border-white/10 py-8 text-center">
-              <div>
-                <Disc3 className="mx-auto mb-2 h-6 w-6 text-muted-foreground/30" />
-                <p className="text-sm text-muted-foreground/60">
-                  No albums yet — create one from your artist profile
-                </p>
-              </div>
-            </div>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {albums.map((album) => (
-                <AlbumCard key={album.id} album={album} isShared={sharedByMeIds.has(album.id)} />
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* ── Footer quick links ── */}
         <div className="flex flex-wrap items-center gap-3 border-t border-white/8 pt-6 text-xs text-muted-foreground">
           <Link href="/upload">
@@ -1003,6 +880,11 @@ export default function Dashboard() {
           <Link href="/playlists">
             <span className="flex items-center gap-1.5 transition hover:text-foreground cursor-pointer">
               <Music2 className="h-3.5 w-3.5" /> My playlists
+            </span>
+          </Link>
+          <Link href="/albums">
+            <span className="flex items-center gap-1.5 transition hover:text-foreground cursor-pointer">
+              <ExternalLink className="h-3.5 w-3.5" /> My albums
             </span>
           </Link>
           {userStats && (

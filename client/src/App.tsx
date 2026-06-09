@@ -24,6 +24,7 @@ import Playlists from "./pages/playlists";
 import PlaylistDetail from "./pages/playlist-detail";
 import SharedPlaylist from "./pages/shared-playlist";
 import Dashboard from "./pages/dashboard";
+import MyAlbums from "./pages/albums";
 
 // Scrolls to top on every route change
 function ScrollToTop() {
@@ -48,6 +49,7 @@ function Router() {
         <Route path="/playlists/link/:token" component={SharedPlaylist} />
         <Route path="/playlists/:id" component={PlaylistDetail} />
         <Route path="/downloads" component={Downloads} />
+        <Route path="/albums" component={MyAlbums} />
         <Route path="/dashboard" component={Dashboard} />
         <Route path="/reset-password/:uid/:token" component={ResetPassword} />
         <Route path="/verify-email/:uidb64/:token" component={VerifyEmail} />

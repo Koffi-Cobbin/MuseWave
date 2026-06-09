@@ -19,6 +19,7 @@ import {
   X,
   LayoutDashboard,
   Headphones,
+  Disc3,
 } from "lucide-react";
 
 // ─── Logo ────────────────────────────────────────────────────────────────────
@@ -83,6 +84,7 @@ export function SidebarNav({ onMobileClose }: SidebarNavProps) {
   const authenticatedItems = [
     { href: "/playlists", label: "My Playlists", icon: Music2, testId: "link-nav-playlists" },
     { href: "/tracks", label: "My Tracks", icon: Headphones, testId: "link-nav-my-tracks" },
+    { href: "/albums", label: "My Albums", icon: Disc3, testId: "link-nav-my-albums" },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, testId: "link-nav-dashboard" },
   ];
 
