@@ -334,10 +334,12 @@ export default function MyAlbums() {
                       className="group rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
                       data-testid={`card-album-${album.id}`}
                     >
-                      <AlbumCover album={album} />
+                      <Link href={`/albums/${album.id}`}>
+                        <AlbumCover album={album} />
+                      </Link>
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold">{album.title}</div>
+                        <Link href={`/albums/${album.id}`} className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold hover:text-primary transition-colors">{album.title}</div>
                           <div className="mt-0.5 text-xs text-muted-foreground">
                             {album.genre}
                             {(album as any).trackCount
@@ -349,7 +351,7 @@ export default function MyAlbums() {
                               Draft
                             </span>
                           )}
-                        </div>
+                        </Link>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -409,9 +411,11 @@ export default function MyAlbums() {
                       className="rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
                       data-testid={`card-shared-with-me-album-${album.id}`}
                     >
-                      <AlbumCover album={album} />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold">{album.title}</div>
+                      <Link href={`/albums/${album.id}`}>
+                        <AlbumCover album={album} />
+                      </Link>
+                      <Link href={`/albums/${album.id}`} className="block min-w-0">
+                        <div className="truncate text-sm font-semibold hover:text-primary transition-colors">{album.title}</div>
                         <div className="mt-0.5 text-xs text-muted-foreground">
                           {album.genre}
                           {(album as any).trackCount
@@ -432,7 +436,7 @@ export default function MyAlbums() {
                             </span>
                           )}
                         </div>
-                      </div>
+                      </Link>
                     </motion.div>
                   ))}
                 </div>
@@ -477,9 +481,11 @@ export default function MyAlbums() {
                       className="rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
                       data-testid={`card-shared-by-me-album-${album.id}`}
                     >
-                      <AlbumCover album={album} />
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold">{album.title}</div>
+                      <Link href={`/albums/${album.id}`}>
+                        <AlbumCover album={album} />
+                      </Link>
+                      <Link href={`/albums/${album.id}`} className="block min-w-0">
+                        <div className="truncate text-sm font-semibold hover:text-primary transition-colors">{album.title}</div>
                         <div className="mt-0.5 text-xs text-muted-foreground">
                           {album.genre}
                           {(album as any).trackCount
@@ -502,7 +508,7 @@ export default function MyAlbums() {
                             )}
                           </div>
                         )}
-                      </div>
+                      </Link>
                     </motion.div>
                   ))}
                 </div>
