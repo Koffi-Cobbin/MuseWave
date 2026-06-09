@@ -60,6 +60,12 @@ export const API_ENDPOINTS = {
     create: '/api/albums',
     update: (id: string) => `/api/albums/${id}/update`,
     delete: (id: string) => `/api/albums/${id}/delete`,
+    // Sharing — direct user grants
+    shares: (id: string) => `/api/albums/${id}/shares`,
+    shareById: (id: string, shareId: string) => `/api/albums/${id}/shares/${shareId}`,
+    // Sharing — discovery
+    sharedWithMe: '/api/albums/shared-with-me',
+    sharedByMe: '/api/albums/shared-by-me',
   },
 
   // Playlists

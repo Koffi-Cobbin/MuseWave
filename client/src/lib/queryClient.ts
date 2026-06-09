@@ -16,7 +16,7 @@ import {
 // QueryClient
 // ---------------------------------------------------------------------------
 
-import type { TrackShare, SharedTrack } from "@shared/schema";
+import type { TrackShare, SharedTrack, AlbumShare, SharedAlbum, MySharedAlbum } from "@shared/schema";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -135,6 +135,41 @@ export async function revokeTrackShare(
 /** List all tracks shared with the authenticated user. */
 export async function listSharedTracks(): Promise<SharedTrack[]> {
   return apiRequestJson<SharedTrack[]>("GET", API_ENDPOINTS.tracks.sharedWithMe);
+}
+
+// ---------------------------------------------------------------------------
+// Album shares
+// ---------------------------------------------------------------------------
+
+/** List all shares for an album (owner only). */
+export async function listAlbumShares(albumId: string): Promise<AlbumShare[]> {
+  return apiRequestJson<AlbumShare[]>("GET", API_ENDPOINTS.albums.shares(albumId));
+}
+
+/** Share an album with a user by username or email, with a permission level. */
+export async function shareAlbumWithUser(
+  albumId: string,
+  payload: { username?: string; email?: string; permission: "view" | "edit" }
+): Promise<AlbumShare> {
+  return apiRequestJson<AlbumShare>("POST", API_ENDPOINTS.albums.shares(albumId), payload);
+}
+
+/** Update the permission level for an existing album share. */
+export async function updateAlbumShare(
+  albumId: string,
+  shareId: string,
+  permission: "view" | "edit"
+): Promise<AlbumShare> {
+  return apiRequestJson<AlbumShare>(
+    "PATCH",
+    API_ENDPOINTS.albums.shareById(albumId, shareId),
+    { permission }
+  );
+}
+
+/** Revoke a user's access to an album. */
+export async function revokeAlbumShare(albumId: string, shareId: string): Promise<void> {
+  await apiRequestJson("DELETE", API_ENDPOINTS.albums.shareById(albumId, shareId));
 }
 
 async function attemptTokenRefresh(): Promise<boolean> {

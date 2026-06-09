@@ -1,0 +1,1 @@
+- [Album sharing integration](album-sharing.md) — full album share feature: schema types, apiConfig endpoints, queryClient helpers, ShareAlbumModal, and albums sub-tabs all implemented together.

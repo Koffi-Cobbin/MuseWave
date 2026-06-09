@@ -36,13 +36,15 @@ import { PaginationControls } from "@/components/PaginationControls";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Track, Album, User } from "../../../shared/schema";
+import type { Track, Album, User, MySharedAlbum, SharedAlbum } from "../../../shared/schema";
 import type { SharedTrack } from "@shared/schema";
+import { ShareAlbumModal } from "@/components/albums/ShareAlbumModal";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type PrimaryTab = "tracks" | "albums";
 type TracksSubTab = "my" | "shared" | "sharedByMe";
+type AlbumSubTab = "mine" | "sharedWithMe" | "sharedByMe";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -219,6 +221,12 @@ export default function MyTracks() {
     sharedByMeTracks,
     loadingTracks: sharedByMeLoading,
     fetchSharedByMeTracks,
+    sharedByMeAlbums,
+    loadingSharedByMeAlbums,
+    fetchSharedByMeAlbums,
+    sharedWithMeAlbums,
+    loadingSharedWithMeAlbums,
+    fetchSharedWithMeAlbums,
   } = useSharedByMe();
   const { toast } = useToast();
 
@@ -248,6 +256,9 @@ export default function MyTracks() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [albumsLoading, setAlbumsLoading] = useState(true);
   const [albumSearch, setAlbumSearch] = useState("");
+  const [albumSubTab, setAlbumSubTab] = useState<AlbumSubTab>("mine");
+  const [albumShareOpen, setAlbumShareOpen] = useState(false);
+  const [albumShareTarget, setAlbumShareTarget] = useState<Album | null>(null);
 
   // ── My Tracks: sort config ─────────────────────────────────────────────
   const myTrackSortConfig = useMemo(() => [
@@ -337,6 +348,13 @@ export default function MyTracks() {
   useEffect(() => {
     if (user?.id) loadAlbums();
   }, [user?.id, loadAlbums]);
+
+  useEffect(() => {
+    if (activeTab === "albums") {
+      if (albumSubTab === "sharedWithMe") fetchSharedWithMeAlbums();
+      else if (albumSubTab === "sharedByMe") fetchSharedByMeAlbums();
+    }
+  }, [activeTab, albumSubTab, fetchSharedWithMeAlbums, fetchSharedByMeAlbums]);
 
   // ── Artist View: resolve slug to user and fetch their tracks ────────────
   const artistSlug = new URLSearchParams(window.location.search).get("artist");
@@ -636,7 +654,13 @@ export default function MyTracks() {
   // ── Primary tabs config ────────────────────────────────────────────────
   const primaryTabs: { key: PrimaryTab; label: string; icon: React.ElementType; count: number }[] = [
     { key: "tracks", label: "Tracks", icon: Music2, count: myTracks.length + sharedTracks.length + sharedByMeTracks.length },
-    { key: "albums", label: "Albums", icon: Disc3, count: albums.length },
+    { key: "albums", label: "Albums", icon: Disc3, count: albums.length + sharedWithMeAlbums.length + sharedByMeAlbums.length },
+  ];
+
+  const albumSubTabs: { key: AlbumSubTab; label: string; icon: React.ElementType; count: number }[] = [
+    { key: "mine", label: "My Albums", icon: Disc3, count: albums.length },
+    { key: "sharedWithMe", label: "Shared with Me", icon: Share2, count: sharedWithMeAlbums.length },
+    { key: "sharedByMe", label: "Shared by Me", icon: ArrowUpFromLine, count: sharedByMeAlbums.length },
   ];
 
   // ── Sub-tabs config (within Tracks) ────────────────────────────────────
@@ -1425,88 +1449,271 @@ export default function MyTracks() {
               transition={{ duration: 0.2 }}
               className="flex-1"
             >
-              {/* Search */}
-              <div className="mb-6">
-                <div className="relative max-w-xs">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                  <input
-                    type="text"
-                    value={albumSearch}
-                    onChange={(e) => setAlbumSearch(e.target.value)}
-                    placeholder="Search albums…"
-                    data-testid="input-album-search"
-                    className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
-                  />
-                </div>
+              {/* Album sub-tabs */}
+              <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl border border-white/8 bg-white/3 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {albumSubTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setAlbumSubTab(tab.key)}
+                    data-testid={`button-album-subtab-${tab.key}`}
+                    className={cn(
+                      "flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-medium transition-all",
+                      albumSubTab === tab.key
+                        ? "bg-white/10 text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <tab.icon className="h-3.5 w-3.5 shrink-0" />
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span className={cn("rounded-full px-1.5 py-0.5 text-[10px] tabular-nums", albumSubTab === tab.key ? "bg-primary/20 text-primary" : "bg-white/8 text-muted-foreground")}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
 
-              {/* Album content */}
-              {albumsLoading ? (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-52 animate-pulse rounded-2xl bg-white/5" />
-                  ))}
-                </div>
-              ) : filteredAlbums.length === 0 && albums.length > 0 ? (
-                <div className="glass rounded-2xl p-12 text-center">
-                  <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">
-                    No albums matching "{albumSearch}"
-                  </p>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-4 border-white/10 bg-white/5"
-                    onClick={() => setAlbumSearch("")}
-                  >
-                    Clear search
-                  </Button>
-                </div>
-              ) : albums.length === 0 ? (
-                <div className="glass rounded-2xl p-12 text-center">
-                  <Disc3 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">No albums yet</p>
-                  <p className="mt-1 text-xs text-muted-foreground/60">
-                    Create your first album to organize your tracks.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredAlbums.map((album, idx) => (
-                    <motion.div
-                      key={album.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: idx * 0.06 }}
-                      className="group rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
-                    >
-                      <div
-                        className={cn(
-                          "mb-3 h-36 w-full overflow-hidden rounded-xl border border-white/10",
-                          !album.coverUrl && "bg-gradient-to-br",
-                          album.coverUrl ? "" : (album.coverGradient ?? "from-emerald-500/20 to-fuchsia-500/20"),
-                        )}
+              {/* ── My Albums ─────────────────────────────────────────────── */}
+              {albumSubTab === "mine" && (
+                <>
+                  {/* Search */}
+                  <div className="mb-5">
+                    <div className="relative max-w-xs">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                      <input
+                        type="text"
+                        value={albumSearch}
+                        onChange={(e) => setAlbumSearch(e.target.value)}
+                        placeholder="Search albums…"
+                        data-testid="input-album-search"
+                        className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm placeholder:text-muted-foreground/50 focus:border-white/20 focus:bg-white/8 focus:outline-none transition"
+                      />
+                    </div>
+                  </div>
+
+                  {albumsLoading ? (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-52 animate-pulse rounded-2xl bg-white/5" />
+                      ))}
+                    </div>
+                  ) : filteredAlbums.length === 0 && albums.length > 0 ? (
+                    <div className="glass rounded-2xl p-12 text-center">
+                      <Search className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">
+                        No albums matching "{albumSearch}"
+                      </p>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="mt-4 border-white/10 bg-white/5"
+                        onClick={() => setAlbumSearch("")}
                       >
-                        {album.coverUrl ? (
-                          <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <Disc3 className="h-8 w-8 text-white/20" />
+                        Clear search
+                      </Button>
+                    </div>
+                  ) : albums.length === 0 ? (
+                    <div className="glass rounded-2xl p-12 text-center">
+                      <Disc3 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">No albums yet</p>
+                      <p className="mt-1 text-xs text-muted-foreground/60">
+                        Create your first album to organize your tracks.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {filteredAlbums.map((album, idx) => (
+                        <motion.div
+                          key={album.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.06 }}
+                          className="group rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
+                          data-testid={`card-album-${album.id}`}
+                        >
+                          <div
+                            className={cn(
+                              "mb-3 h-36 w-full overflow-hidden rounded-xl border border-white/10",
+                              !album.coverUrl && "bg-gradient-to-br",
+                              album.coverUrl ? "" : (album.coverGradient ?? "from-emerald-500/20 to-fuchsia-500/20"),
+                            )}
+                          >
+                            {album.coverUrl ? (
+                              <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <Disc3 className="h-8 w-8 text-white/20" />
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold">{album.title}</div>
-                          <div className="mt-0.5 text-xs text-muted-foreground">
-                            {album.genre}
-                            {(album as any).trackCount ? ` · ${(album as any).trackCount} track${(album as any).trackCount !== 1 ? "s" : ""}` : ""}
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-semibold">{album.title}</div>
+                              <div className="mt-0.5 text-xs text-muted-foreground">
+                                {album.genre}
+                                {(album as any).trackCount ? ` · ${(album as any).trackCount} track${(album as any).trackCount !== 1 ? "s" : ""}` : ""}
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setAlbumShareTarget(album);
+                                setAlbumShareOpen(true);
+                              }}
+                              data-testid={`button-share-album-${album.id}`}
+                              title="Share album"
+                            >
+                              <Share2 className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ── Shared with Me ─────────────────────────────────────────── */}
+              {albumSubTab === "sharedWithMe" && (
+                <>
+                  {loadingSharedWithMeAlbums ? (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-52 animate-pulse rounded-2xl bg-white/5" />
+                      ))}
+                    </div>
+                  ) : sharedWithMeAlbums.length === 0 ? (
+                    <div className="glass rounded-2xl p-12 text-center">
+                      <Share2 className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">No albums shared with you yet</p>
+                      <p className="mt-1 text-xs text-muted-foreground/60">
+                        When an artist shares an album with you, it will appear here.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {sharedWithMeAlbums.map((album, idx) => (
+                        <motion.div
+                          key={album.shareId ?? album.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.06 }}
+                          className="rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
+                          data-testid={`card-shared-album-${album.id}`}
+                        >
+                          <div
+                            className={cn(
+                              "mb-3 h-36 w-full overflow-hidden rounded-xl border border-white/10",
+                              !album.coverUrl && "bg-gradient-to-br",
+                              album.coverUrl ? "" : (album.coverGradient ?? "from-emerald-500/20 to-fuchsia-500/20"),
+                            )}
+                          >
+                            {album.coverUrl ? (
+                              <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <Disc3 className="h-8 w-8 text-white/20" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold">{album.title}</div>
+                            <div className="mt-0.5 text-xs text-muted-foreground">
+                              {album.genre}
+                              {(album as any).trackCount ? ` · ${(album as any).trackCount} track${(album as any).trackCount !== 1 ? "s" : ""}` : ""}
+                            </div>
+                            <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/70">
+                              <Share2 className="h-3 w-3 shrink-0" />
+                              <span className="truncate">
+                                from <span className="font-medium text-muted-foreground">{(album as SharedAlbum).sharedByUsername}</span>
+                              </span>
+                              {(album as SharedAlbum).permission && (
+                                <span className="ml-auto shrink-0 rounded-full bg-white/8 px-1.5 py-0.5 text-[10px] capitalize">
+                                  {(album as SharedAlbum).permission}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* ── Shared by Me ───────────────────────────────────────────── */}
+              {albumSubTab === "sharedByMe" && (
+                <>
+                  {loadingSharedByMeAlbums ? (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="h-52 animate-pulse rounded-2xl bg-white/5" />
+                      ))}
+                    </div>
+                  ) : sharedByMeAlbums.length === 0 ? (
+                    <div className="glass rounded-2xl p-12 text-center">
+                      <ArrowUpFromLine className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">You haven't shared any albums yet</p>
+                      <p className="mt-1 text-xs text-muted-foreground/60">
+                        Share one of your albums with someone using the share button on each card.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {sharedByMeAlbums.map((album, idx) => (
+                        <motion.div
+                          key={(album as MySharedAlbum).shareId ?? album.id + idx}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.06 }}
+                          className="rounded-2xl border border-white/8 bg-white/2 p-3 transition hover:border-white/15 hover:bg-white/5"
+                          data-testid={`card-shared-by-me-album-${album.id}`}
+                        >
+                          <div
+                            className={cn(
+                              "mb-3 h-36 w-full overflow-hidden rounded-xl border border-white/10",
+                              !album.coverUrl && "bg-gradient-to-br",
+                              album.coverUrl ? "" : (album.coverGradient ?? "from-emerald-500/20 to-fuchsia-500/20"),
+                            )}
+                          >
+                            {album.coverUrl ? (
+                              <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center">
+                                <Disc3 className="h-8 w-8 text-white/20" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold">{album.title}</div>
+                            <div className="mt-0.5 text-xs text-muted-foreground">
+                              {album.genre}
+                              {(album as any).trackCount ? ` · ${(album as any).trackCount} track${(album as any).trackCount !== 1 ? "s" : ""}` : ""}
+                            </div>
+                            {(album as MySharedAlbum).sharedWithUsername && (
+                              <div className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/70">
+                                <ArrowUpFromLine className="h-3 w-3 shrink-0" />
+                                <span className="truncate">
+                                  shared with <span className="font-medium text-muted-foreground">{(album as MySharedAlbum).sharedWithUsername}</span>
+                                </span>
+                                {(album as MySharedAlbum).permission && (
+                                  <span className="ml-auto shrink-0 rounded-full bg-white/8 px-1.5 py-0.5 text-[10px] capitalize">
+                                    {(album as MySharedAlbum).permission}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </motion.div>
           )}
@@ -1515,6 +1722,18 @@ export default function MyTracks() {
         )}
         <div className="h-8" aria-hidden="true" />
       </div>
+
+      {/* ── Album Share Modal ─────────────────────────────────────────────── */}
+      {albumShareTarget && (
+        <ShareAlbumModal
+          album={albumShareTarget}
+          open={albumShareOpen}
+          onOpenChange={(open) => {
+            setAlbumShareOpen(open);
+            if (!open) setAlbumShareTarget(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -346,3 +346,46 @@ export const trackStatsSchema = z.object({
 });
 
 export type TrackStats = z.infer<typeof trackStatsSchema>;
+
+// ============================================================================
+// ALBUM SHARE SCHEMAS
+// ============================================================================
+
+export const albumShareSchema = z.object({
+  id: z.string(),
+  albumId: z.string(),
+  sharedByUsername: z.string(),
+  sharedWithUsername: z.string().optional(),
+  sharedWithDisplayName: z.string().optional(),
+  sharedWithEmail: z.string().optional(),
+  sharedWithAvatar: z.string().optional(),
+  permission: z.enum(["view", "edit"]),
+  createdAt: z.string(),
+});
+
+export type AlbumShare = z.infer<typeof albumShareSchema>;
+
+/** An album that was shared WITH the authenticated user (received). */
+export const sharedAlbumSchema = albumSchema.extend({
+  shareId: z.string().optional(),
+  sharedByUsername: z.string(),
+  sharedByDisplayName: z.string().optional(),
+  sharedByAvatar: z.string().optional(),
+  sharedAt: z.string(),
+  permission: z.enum(["view", "edit"]).optional(),
+});
+
+export type SharedAlbum = z.infer<typeof sharedAlbumSchema>;
+
+/** An album the authenticated user shared WITH someone else (sent). */
+export const mySharedAlbumSchema = albumSchema.extend({
+  shareId: z.string().optional(),
+  sharedWithUsername: z.string().optional(),
+  sharedWithDisplayName: z.string().optional(),
+  sharedWithEmail: z.string().optional(),
+  sharedWithAvatar: z.string().optional(),
+  permission: z.enum(["view", "edit"]).optional(),
+  sharedAt: z.string().optional(),
+});
+
+export type MySharedAlbum = z.infer<typeof mySharedAlbumSchema>;

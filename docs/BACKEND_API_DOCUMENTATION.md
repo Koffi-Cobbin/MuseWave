@@ -12,6 +12,8 @@ Database is SQLite.
 - **Search**: Full-text search for tracks and users
 - **Track Visibility**: Every track has a `visibility` field (`public` / `private`) controlling who can view, stream, and discover it
 - **Track Sharing**: Share individual private tracks with specific users by username or email
+- **Album Sharing**: Share albums with specific users (`view` or `edit` permission), with full shared-by-me / shared-with-me discovery endpoints
+- **Playlist Sharing**: Share playlists with specific users (`view` or `edit` permission) or via a public link token, with shared-by-me / shared-with-me discovery endpoints
 - **Playlist Privacy**: Private tracks in playlists respect access control — only visible to users who received a direct share from the track owner
 - **RESTful API**: Clean, well-documented REST endpoints
 
@@ -75,6 +77,20 @@ Database is SQLite.
 - `PATCH /api/albums/<album_id>/update` - Update album details
 - `DELETE /api/albums/<album_id>/delete` - Delete album (tracks remain, album association removed)
 
+#### Album Sharing
+
+Share albums with specific users (`view` or `edit` permission):
+
+- `GET /api/albums/<album_id>/shares` - List all direct shares for this album. Owner only
+- `POST /api/albums/<album_id>/shares` - Share with a specific user. Body: `{"username": "..." OR "email": "...", "permission": "view"|"edit"}` (default `view`). Owner only. Re-POSTing an existing share updates the permission
+- `PATCH /api/albums/<album_id>/shares/<share_id>` - Change a user's permission level. Body: `{"permission": "view"|"edit"}`. Owner only
+- `DELETE /api/albums/<album_id>/shares/<share_id>` - Revoke a user's access. Owner only
+
+#### Album Sharing — discovery
+
+- `GET /api/albums/shared-by-me` - List all albums the authenticated user has shared with others. Returns **one entry per recipient** — if the same album was shared with multiple people there are multiple entries. Each entry is the full album object plus: `share_id`, `shared_with_username`, `shared_with_display_name`, `shared_with_avatar`, `shared_with_email`, `shared_at`. Auth required
+- `GET /api/albums/shared-with-me` - List all albums that have been shared with the authenticated user. Each entry is the full album object plus: `share_id`, `shared_by_username`, `shared_by_display_name`, `shared_by_avatar`, `shared_at`. Auth required
+
 ### Tracks
 
 Track have a `visibility` field controlling access:
@@ -114,6 +130,11 @@ Share individual private tracks with specific users:
 - `GET /api/tracks/<track_id>/shares` - List all shares for a track. Owner only
 - `DELETE /api/tracks/<track_id>/shares/<share_id>` - Revoke a user's access. Owner only
 
+#### Track Sharing — discovery
+
+- `GET /api/tracks/shared-by-me` - List all tracks the authenticated user has shared with others. Returns **one entry per recipient** — if the same track was shared with multiple people there are multiple entries. Each entry is the full track object plus: `share_id`, `shared_with_username`, `shared_with_display_name`, `shared_with_avatar`, `shared_with_email`, `shared_at`. Auth required
+- `GET /api/tracks/shared-with-me` - List all tracks that have been shared with the authenticated user. Each entry is the full track object plus: `share_id`, `shared_by_username`, `shared_by_display_name`, `shared_by_avatar`, `shared_at`. Auth required
+
 ### Playlists
 
 #### Core
@@ -140,10 +161,11 @@ Share individual private tracks with specific users:
 - `PATCH /api/playlists/<playlist_id>/link` - Update link permission without regenerating token. Body: `{"permission": "view"|"edit"}`
 - `DELETE /api/playlists/<playlist_id>/link` - Revoke the link (invalidates the token immediately)
 
-#### Sharing — access
+#### Sharing — access & discovery
 
 - `GET /api/playlists/link/<token>` - Access a playlist via its public share link. No authentication required
-- `GET /api/playlists/shared-with-me` - List all playlists directly shared with the authenticated user (auth required)
+- `GET /api/playlists/shared-with-me` - List all playlists directly shared with the authenticated user. Each entry is the full playlist object. Auth required
+- `GET /api/playlists/shared-by-me` - List all playlists the authenticated user has shared with others. Returns **one entry per recipient** — if the same playlist was shared with multiple people there are multiple entries. Each entry is the full playlist object plus: `share_id`, `shared_with_username`, `shared_with_display_name`, `shared_with_avatar`, `shared_with_email`, `share_permission`, `shared_at`. Auth required
 - `GET /api/users/<user_id>/playlists` - List a user's public playlists (visible on their profile, no auth required)
 
 ### Featured Tracks
@@ -468,6 +490,89 @@ DELETE /api/tracks/track-uuid-1/shares/SHARE_UUID
 Authorization: Bearer <owner-token>
 ```
 
+### Get Tracks Shared by Me
+
+**Request:**
+```bash
+GET /api/tracks/shared-by-me
+Authorization: Bearer <your-jwt-token>
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "track-uuid-1",
+    "title": "Summer Vibes",
+    "artist": "John Doe",
+    "visibility": "private",
+    "audio_url": "https://cdn.example.com/tracks/summer-vibes.mp3",
+    "share_id": "share-uuid",
+    "shared_with_username": "bob",
+    "shared_with_display_name": "Bob Smith",
+    "shared_with_avatar": "https://...",
+    "shared_with_email": "bob@test.com",
+    "shared_at": "2024-06-02T08:00:00Z"
+  }
+]
+```
+
+> One entry per recipient. If the same track was shared with three users, three entries appear.
+
+### Get Tracks Shared with Me
+
+**Request:**
+```bash
+GET /api/tracks/shared-with-me
+Authorization: Bearer <your-jwt-token>
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "track-uuid-1",
+    "title": "Summer Vibes",
+    "artist": "John Doe",
+    "visibility": "private",
+    "share_id": "share-uuid",
+    "shared_by_username": "john_doe",
+    "shared_by_display_name": "John Doe",
+    "shared_by_avatar": "https://...",
+    "shared_at": "2024-06-02T08:00:00Z"
+  }
+]
+```
+
+### Get Playlists Shared by Me
+
+**Request:**
+```bash
+GET /api/playlists/shared-by-me
+Authorization: Bearer <your-jwt-token>
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "playlist-uuid",
+    "name": "My Favorite Tracks",
+    "description": "A collection of my favorite songs",
+    "public": false,
+    "share_id": "share-uuid",
+    "shared_with_username": "bob",
+    "shared_with_display_name": "Bob Smith",
+    "shared_with_avatar": "https://...",
+    "shared_with_email": "bob@test.com",
+    "share_permission": "view",
+    "shared_at": "2024-06-02T08:00:00Z"
+  }
+]
+```
+
+> One entry per recipient. `share_permission` reflects the current permission level granted to the recipient.
+
 ### Update a Track (add/edit video or lyrics)
 
 **Request:**
@@ -517,6 +622,110 @@ Content-Type: application/json
   "created_at": "2024-02-04T10:30:00Z",
   "updated_at": "2024-02-04T10:30:00Z"
 }
+```
+
+### Share an Album with a User
+
+**Request:**
+```bash
+POST /api/albums/album-uuid/shares
+Authorization: Bearer <owner-token>
+Content-Type: application/json
+
+{
+  "username": "bob",
+  "permission": "edit"
+}
+```
+
+> Use `"username"` or `"email"` to identify the recipient. `permission` defaults to `"view"` if omitted. Re-POSTing an existing share updates the permission level.
+
+**Response:**
+```json
+{
+  "id": "share-uuid",
+  "album_id": "album-uuid",
+  "album_title": "Summer Collection",
+  "album_cover_url": "https://cdn.example.com/covers/summer.jpg",
+  "shared_by_username": "john_doe",
+  "shared_with_username": "bob",
+  "shared_with_email": "bob@test.com",
+  "shared_with_avatar": "https://...",
+  "permission": "edit",
+  "created_at": "2024-06-01T10:00:00Z"
+}
+```
+
+### Update an Album Share Permission
+
+**Request:**
+```bash
+PATCH /api/albums/album-uuid/shares/share-uuid
+Authorization: Bearer <owner-token>
+Content-Type: application/json
+
+{
+  "permission": "view"
+}
+```
+
+**Response:** Updated share object (same shape as POST above).
+
+### Get Albums Shared by Me
+
+**Request:**
+```bash
+GET /api/albums/shared-by-me
+Authorization: Bearer <your-jwt-token>
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "album-uuid",
+    "title": "Summer Collection",
+    "artist": "John Doe",
+    "genre": "Electronic",
+    "cover_url": "https://cdn.example.com/covers/summer.jpg",
+    "published": true,
+    "created_at": "2024-06-01T10:00:00Z",
+    "updated_at": "2024-06-01T10:00:00Z",
+    "share_id": "share-uuid",
+    "shared_with_username": "bob",
+    "shared_with_display_name": "Bob Smith",
+    "shared_with_avatar": "https://...",
+    "shared_with_email": "bob@test.com",
+    "shared_at": "2024-06-02T08:00:00Z"
+  }
+]
+```
+
+> One entry per recipient. If the same album was shared with three users, three entries appear.
+
+### Get Albums Shared with Me
+
+**Request:**
+```bash
+GET /api/albums/shared-with-me
+Authorization: Bearer <your-jwt-token>
+```
+
+**Response:**
+```json
+[
+  {
+    "id": "album-uuid",
+    "title": "Summer Collection",
+    "artist": "John Doe",
+    "cover_url": "https://cdn.example.com/covers/summer.jpg",
+    "share_id": "share-uuid",
+    "shared_by_username": "john_doe",
+    "shared_by_display_name": "John Doe",
+    "shared_by_avatar": "https://...",
+    "shared_at": "2024-06-02T08:00:00Z"
+  }
+]
 ```
 
 ### Create a Playlist
@@ -832,6 +1041,13 @@ Response fields vary by caller permission:
 - Ordering: `order` (integer for track sequence)
 - Timestamp: `added_at`
 
+### AlbumShare
+- References: `album`, `shared_by` (granting user), `shared_with` (recipient)
+- Permission: `permission` — `"view"` or `"edit"`
+- Timestamps: `created_at`, `updated_at`
+- Constraint: one grant per `(album, shared_with)` pair; re-sharing the same user updates the permission
+- Table: `album_shares`
+
 ### TrackShare
 - References: `track`, `shared_by` (granting user), `shared_with` (recipient)
 - Permission: `permission` — always `"view"` (currently the only level)
@@ -1007,4 +1223,44 @@ curl -X DELETE http://localhost:5000/api/playlists/PLAYLIST_UUID/link \
 # 20. Revoke a direct user share
 curl -X DELETE http://localhost:5000/api/playlists/PLAYLIST_UUID/shares/SHARE_UUID \
   -H "Authorization: Bearer OWNER_JWT_TOKEN"
+
+# 21. Share an album with a specific user (edit access)
+curl -X POST http://localhost:5000/api/albums/ALBUM_UUID/shares \
+  -H "Authorization: Bearer OWNER_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"username": "bob", "permission": "edit"}'
+
+# 21b. Downgrade that user to view-only
+curl -X PATCH http://localhost:5000/api/albums/ALBUM_UUID/shares/SHARE_UUID \
+  -H "Authorization: Bearer OWNER_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"permission": "view"}'
+
+# 21c. List all shares on an album
+curl http://localhost:5000/api/albums/ALBUM_UUID/shares \
+  -H "Authorization: Bearer OWNER_JWT_TOKEN"
+
+# 21d. Revoke an album share
+curl -X DELETE http://localhost:5000/api/albums/ALBUM_UUID/shares/SHARE_UUID \
+  -H "Authorization: Bearer OWNER_JWT_TOKEN"
+
+# 22. See all albums I've shared (one entry per recipient)
+curl http://localhost:5000/api/albums/shared-by-me \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# 23. See all albums shared with me
+curl http://localhost:5000/api/albums/shared-with-me \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# 24. See all tracks I've shared (one entry per recipient)
+curl http://localhost:5000/api/tracks/shared-by-me \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# 25. See all tracks shared with me
+curl http://localhost:5000/api/tracks/shared-with-me \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# 26. See all playlists I've shared (one entry per recipient)
+curl http://localhost:5000/api/playlists/shared-by-me \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
 ```
