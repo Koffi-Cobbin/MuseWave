@@ -37,6 +37,7 @@ import {
   SlidersHorizontal,
   UserCheck,
   Zap,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -463,7 +464,7 @@ function AnalyticsPanel({
 
 // ─── Album Card ───────────────────────────────────────────────────────────────
 
-function AlbumCard({ album }: { album: Album }) {
+function AlbumCard({ album, isShared = false }: { album: Album; isShared?: boolean }) {
   return (
     <div
       className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.10] hover:bg-white/[0.04]"
@@ -487,11 +488,22 @@ function AlbumCard({ album }: { album: Album }) {
           )}
         </div>
       </div>
-      {!album.published && (
-        <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">
-          Draft
-        </span>
-      )}
+      <div className="flex shrink-0 items-center gap-1.5">
+        {isShared && (
+          <span
+            className="flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-400"
+            data-testid={`badge-album-shared-${album.id}`}
+          >
+            <Share2 className="h-2.5 w-2.5" />
+            Shared
+          </span>
+        )}
+        {!album.published && (
+          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-400">
+            Draft
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -515,6 +527,7 @@ export default function Dashboard() {
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [sharedByMeIds, setSharedByMeIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -536,9 +549,10 @@ export default function Dashboard() {
     else setRefreshing(true);
 
     try {
-      const [tracksData, albumsData] = await Promise.all([
+      const [tracksData, albumsData, sharedByMeData] = await Promise.all([
         apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, { userId: user.id }),
         apiRequestJson<Album[]>("GET", API_ENDPOINTS.albums.byUser(user.id)).catch(() => []),
+        apiRequestJson<{ id: string; albumId?: string }[]>("GET", API_ENDPOINTS.albums.sharedByMe).catch(() => []),
       ]);
 
       const myTracks = (Array.isArray(tracksData) ? tracksData : []).filter(
@@ -546,6 +560,14 @@ export default function Dashboard() {
       );
       setTracks(myTracks);
       setAlbums(Array.isArray(albumsData) ? albumsData : []);
+
+      // Build a set of album IDs the user has shared with others (deduplicated)
+      const sharedIds = new Set<string>(
+        (Array.isArray(sharedByMeData) ? sharedByMeData : [])
+          .map((s) => s.albumId ?? s.id)
+          .filter(Boolean),
+      );
+      setSharedByMeIds(sharedIds);
 
       // Auto-select top track
       if (!selectedTrackId && myTracks.length > 0) {
@@ -958,7 +980,7 @@ export default function Dashboard() {
           ) : (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {albums.map((album) => (
-                <AlbumCard key={album.id} album={album} />
+                <AlbumCard key={album.id} album={album} isShared={sharedByMeIds.has(album.id)} />
               ))}
             </div>
           )}
