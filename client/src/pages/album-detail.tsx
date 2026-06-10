@@ -93,7 +93,6 @@ export default function AlbumDetailPage() {
   const [album, setAlbum] = useState<Album | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tracksLoading, setTracksLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const [shareOpen, setShareOpen] = useState(false);
@@ -105,18 +104,20 @@ export default function AlbumDetailPage() {
     if (!isAuthenticated) navigate("/");
   }, [isAuthenticated, navigate]);
 
-  // ── Fetch album ─────────────────────────────────────────────────────────────
+  // ── Fetch album (tracks are embedded in the response per the API docs) ───────
   const fetchAlbum = useCallback(
     async (silent = false) => {
       if (!albumId) return;
       if (!silent) setLoading(true);
       else setRefreshing(true);
       try {
-        const data = await apiRequestJson<Album>(
+        const data = await apiRequestJson<Album & { tracks?: Track[] }>(
           "GET",
           API_ENDPOINTS.albums.byId(albumId),
         );
         setAlbum(data);
+        // The GET /api/albums/<id> endpoint includes the album's tracks directly.
+        setTracks(Array.isArray(data.tracks) ? data.tracks : []);
       } catch (err) {
         toast({
           variant: "destructive",
@@ -131,34 +132,9 @@ export default function AlbumDetailPage() {
     [albumId, toast],
   );
 
-  // ── Fetch tracks in this album ──────────────────────────────────────────────
-  const fetchTracks = useCallback(async () => {
-    if (!albumId) return;
-    setTracksLoading(true);
-    try {
-      const data = await apiRequestJson<Track[]>(
-        "GET",
-        API_ENDPOINTS.tracks.list,
-        undefined,
-        { album_id: albumId },
-      );
-      const all = Array.isArray(data) ? data : [];
-      // Filter client-side as a safety net in case the backend doesn't honour
-      // the album_id query param and returns all tracks.
-      setTracks(all.filter((t) => t.albumId === albumId));
-    } catch {
-      setTracks([]);
-    } finally {
-      setTracksLoading(false);
-    }
-  }, [albumId]);
-
   useEffect(() => {
-    if (albumId) {
-      fetchAlbum();
-      fetchTracks();
-    }
-  }, [albumId, fetchAlbum, fetchTracks]);
+    if (albumId) fetchAlbum();
+  }, [albumId, fetchAlbum]);
 
   // ── Derived ─────────────────────────────────────────────────────────────────
   const isOwner = !!user && !!album && album.userId === user.id;
@@ -281,7 +257,7 @@ export default function AlbumDetailPage() {
           <Button
             variant="secondary"
             size="icon"
-            onClick={() => { fetchAlbum(true); fetchTracks(); }}
+            onClick={() => fetchAlbum(true)}
             disabled={refreshing}
             className="h-8 w-8 border-white/10 bg-white/5"
             title="Refresh"
@@ -377,7 +353,7 @@ export default function AlbumDetailPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   onClick={handlePlayAll}
-                  disabled={tracksLoading || tracks.length === 0}
+                  disabled={loading || tracks.length === 0}
                   size="default"
                   className="gap-2 glow"
                   data-testid="button-album-play-all"
@@ -421,7 +397,7 @@ export default function AlbumDetailPage() {
         <Separator className="mb-6 opacity-20" />
 
         {/* ── Track list ─────────────────────────────────────────────────── */}
-        {tracksLoading ? (
+        {loading ? (
           <div className="space-y-2">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-14 animate-pulse rounded-xl bg-white/5" />
