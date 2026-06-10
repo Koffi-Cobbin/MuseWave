@@ -8,6 +8,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -21,22 +22,30 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { usePlaylists } from "@/contexts/playlist-context";
-import { MoreVertical, Music, Trash2, Edit2, Share2, Globe, Users } from "lucide-react";
+import { usePlayer } from "@/contexts/player-context";
+import { MoreVertical, Music, Trash2, Edit2, Share2, Globe, Users, ListEnd, ListOrdered, Loader2 } from "lucide-react";
 import { RenamePlaylistModal } from "./RenamePlaylistModal";
 import { SharePlaylistModal } from "./SharePlaylistModal";
+import { API_ENDPOINTS } from "@/lib/apiConfig";
+import { apiRequestJson } from "@/lib/queryClient";
+import type { Track } from "../../../../shared/schema";
 
 interface PlaylistCardProps {
   playlist: Playlist;
   onPlaylistDeleted?: () => void;
 }
 
+type PlaylistWithTracks = { tracks?: Array<{ track: Track }> };
+
 export function PlaylistCard({ playlist, onPlaylistDeleted }: PlaylistCardProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { deletePlaylist } = usePlaylists();
+  const { insertAllNext, addAllToQueue } = usePlayer();
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [isQueueing, setIsQueueing] = useState<"next" | "queue" | null>(null);
 
   const isOwner = !playlist.myPermission || playlist.myPermission === "owner";
   const isSharedWithMe = playlist.myPermission === "view" || playlist.myPermission === "edit";
@@ -49,6 +58,32 @@ export function PlaylistCard({ playlist, onPlaylistDeleted }: PlaylistCardProps)
       onPlaylistDeleted?.();
     } catch {
       toast({ variant: "destructive", title: "Error", description: "Failed to delete playlist" });
+    }
+  };
+
+  const handleQueuePlaylist = async (mode: "next" | "queue") => {
+    setIsQueueing(mode);
+    try {
+      const data = await apiRequestJson<PlaylistWithTracks>(
+        "GET",
+        API_ENDPOINTS.playlists.byId(playlist.id),
+      );
+      const tracks = (data.tracks ?? []).map((pt) => pt.track).filter(Boolean);
+      if (tracks.length === 0) {
+        toast({ title: "No tracks", description: "This playlist has no tracks yet." });
+        return;
+      }
+      if (mode === "next") {
+        insertAllNext(tracks);
+        toast({ title: "Playing next", description: `${tracks.length} track${tracks.length === 1 ? "" : "s"} queued next` });
+      } else {
+        addAllToQueue(tracks);
+        toast({ title: "Added to queue", description: `${tracks.length} track${tracks.length === 1 ? "" : "s"} added to queue` });
+      }
+    } catch {
+      toast({ variant: "destructive", title: "Error", description: "Could not load playlist tracks." });
+    } finally {
+      setIsQueueing(null);
     }
   };
 
@@ -90,38 +125,65 @@ export function PlaylistCard({ playlist, onPlaylistDeleted }: PlaylistCardProps)
               )}
             </div>
 
-            {/* Dropdown — only for owner */}
-            {isOwner && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                    data-testid={`button-playlist-menu-${playlist.id}`}
-                  >
+            {/* Dropdown — always visible */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0 transition-opacity"
+                  disabled={isQueueing !== null}
+                  data-testid={`button-playlist-menu-${playlist.id}`}
+                >
+                  {isQueueing !== null ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
                     <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowRenameModal(true); }}>
-                    <Edit2 className="h-4 w-4 mr-2" />
-                    Rename
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowShareModal(true); }}>
-                    <Share2 className="h-4 w-4 mr-2" />
-                    Share
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={(e) => { e.stopPropagation(); setShowDeleteAlert(true); }}
-                    className="text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {/* Queue actions — available to everyone */}
+                <DropdownMenuItem
+                  onClick={(e) => { e.stopPropagation(); handleQueuePlaylist("next"); }}
+                  disabled={isQueueing !== null}
+                  data-testid={`menu-play-next-playlist-${playlist.id}`}
+                >
+                  <ListEnd className="h-4 w-4 mr-2 text-muted-foreground" />
+                  Play next
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={(e) => { e.stopPropagation(); handleQueuePlaylist("queue"); }}
+                  disabled={isQueueing !== null}
+                  data-testid={`menu-add-to-queue-playlist-${playlist.id}`}
+                >
+                  <ListOrdered className="h-4 w-4 mr-2 text-muted-foreground" />
+                  Add to queue
+                </DropdownMenuItem>
+
+                {/* Owner-only actions */}
+                {isOwner && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowRenameModal(true); }}>
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShowShareModal(true); }}>
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Share
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={(e) => { e.stopPropagation(); setShowDeleteAlert(true); }}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
         {playlist.description && (

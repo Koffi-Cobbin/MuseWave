@@ -9,6 +9,7 @@ import {
   Loader2, Play, Trash2, ArrowLeft, Music, Edit2,
   GripVertical, ListMusic, SkipForward, Share2, Globe, Lock,
 } from "lucide-react";
+import { TrackActionsMenu } from "@/components/playlists/TrackActionsMenu";
 import { useToast } from "@/hooks/use-toast";
 import { RenamePlaylistModal } from "@/components/playlists/RenamePlaylistModal";
 import { SharePlaylistModal } from "@/components/playlists/SharePlaylistModal";
@@ -355,8 +356,8 @@ export default function PlaylistDetailPage() {
                     "grid gap-3 items-center px-4 py-3 transition-colors group",
                     "border-b border-white/5 last:border-0",
                     canEdit
-                      ? "grid-cols-[auto_auto_1fr_auto_auto]"
-                      : "grid-cols-[auto_1fr_auto]",
+                      ? "grid-cols-[auto_auto_1fr_auto_auto_auto]"
+                      : "grid-cols-[auto_1fr_auto_auto]",
                     isActive ? "bg-primary/10" : "hover:bg-muted/40",
                     isTouchDragged && "opacity-50 scale-[0.98]",
                   )}
@@ -437,20 +438,21 @@ export default function PlaylistDetailPage() {
                     {secondsToTime(item.track.audioDuration)}
                   </div>
 
-                  {/* Remove (edit permission only) */}
-                  {canEdit ? (
+                  {/* Track actions menu — always visible, gives Play Next / Add to Queue etc. */}
+                  <TrackActionsMenu track={item.track} size="sm" variant="ghost" />
+
+                  {/* Remove (edit permission only) — always visible */}
+                  {canEdit && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setTrackToRemove(item.track.id)}
-                      className="sm:opacity-0 sm:group-hover:opacity-100 text-muted-foreground hover:text-destructive transition-opacity px-2"
+                      className="text-muted-foreground hover:text-destructive px-2"
                       data-testid={`button-remove-track-${item.track.id}`}
                       aria-label="Remove from playlist"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
-                  ) : (
-                    <div className="w-8" />
                   )}
                 </div>
               );

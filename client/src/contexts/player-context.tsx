@@ -38,7 +38,9 @@ type PlayerContextType = {
   queueIndex: number;
   setQueue: (tracks: Track[], startIndex?: number) => void;
   insertNext: (track: Track) => void;
+  insertAllNext: (tracks: Track[]) => void;
   addToQueue: (track: Track) => void;
+  addAllToQueue: (tracks: Track[]) => void;
   removeFromQueue: (index: number) => void;
   reorderQueue: (fromIndex: number, toIndex: number) => void;
   clearQueue: () => void;
@@ -127,6 +129,30 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const addToQueue = useCallback((track: Track) => {
     setQueueState((prev) => [...prev, track]);
+  }, []);
+
+  const insertAllNext = useCallback((tracks: Track[]) => {
+    if (tracks.length === 0) return;
+    if (queue.length === 0) {
+      if (active) {
+        setQueueState([active, ...tracks]);
+        setQueueIndex(0);
+      } else {
+        setQueueState(tracks);
+        setQueueIndex(0);
+        setActiveState(tracks[0]);
+        setAutoPlay(true);
+      }
+    } else {
+      const next = [...queue];
+      next.splice(queueIndex + 1, 0, ...tracks);
+      setQueueState(next);
+    }
+  }, [queue, queueIndex, active]);
+
+  const addAllToQueue = useCallback((tracks: Track[]) => {
+    if (tracks.length === 0) return;
+    setQueueState((prev) => [...prev, ...tracks]);
   }, []);
 
   const removeFromQueue = useCallback((index: number) => {
@@ -323,7 +349,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       queueIndex,
       setQueue,
       insertNext,
+      insertAllNext,
       addToQueue,
+      addAllToQueue,
       removeFromQueue,
       reorderQueue,
       clearQueue,
