@@ -4,6 +4,7 @@ import { usePlayer } from "@/contexts/player-context";
 import { usePlaylists } from "@/contexts/playlist-context";
 import { useGenres } from "@/hooks/use-genres";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,14 +29,17 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { CreatePlaylistModal } from "./CreatePlaylistModal";
 import { ShareTrackModal } from "@/components/tracks/ShareTrackModal";
-import { Plus, Music, MoreVertical, Pencil, Trash2, ListMusic, ListEnd, ListOrdered, Users, Globe, Lock, CloudDownload, Download, WifiOff } from "lucide-react";
+import {
+  Plus, Music, MoreVertical, Pencil, Trash2, ListMusic,
+  ListEnd, ListOrdered, Users, Globe, Lock, CloudDownload,
+  Download, WifiOff, Search, Check, Loader2,
+} from "lucide-react";
 import { API_ENDPOINTS, downloadTrack } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { useOffline } from "@/contexts/offline-context";
@@ -70,8 +74,12 @@ export function TrackActionsMenu({
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showAddToPlaylistDialog, setShowAddToPlaylistDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [playlistSearch, setPlaylistSearch] = useState("");
+  const [addingToId, setAddingToId] = useState<string | null>(null);
+  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
 
   // Edit form state
   const [editTitle, setEditTitle] = useState(track.title);
@@ -85,6 +93,11 @@ export function TrackActionsMenu({
   const editableShared = sharedWithMe.filter((p) => p.myPermission === "edit");
   const hasAnyPlaylist = playlists.length > 0 || editableShared.length > 0;
 
+  // Filtered playlists for the dialog search
+  const q = playlistSearch.toLowerCase();
+  const filteredOwned = playlists.filter((p) => p.name.toLowerCase().includes(q));
+  const filteredShared = editableShared.filter((p) => p.name.toLowerCase().includes(q));
+
   // Fetch shared playlists lazily when the menu first opens (if not yet loaded)
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
@@ -94,12 +107,16 @@ export function TrackActionsMenu({
   };
 
   const handleAddToPlaylist = async (playlistId: string, playlistName: string) => {
+    setAddingToId(playlistId);
     try {
       await addSongToPlaylist(playlistId, track.id);
+      setAddedIds((prev) => new Set(prev).add(playlistId));
       toast({ title: "Added to playlist", description: playlistName });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to add to playlist";
       toast({ variant: "destructive", title: "Error", description: msg });
+    } finally {
+      setAddingToId(null);
     }
   };
 
@@ -302,73 +319,176 @@ export function TrackActionsMenu({
           {/* ── Playlist actions (authenticated users) ── */}
           {isAuthenticated && (
             <>
-              {hasAnyPlaylist ? (
-                <>
-                  {/* Scrollable playlist list — capped so the dropdown never
-                      grows taller than the viewport regardless of playlist count */}
-                  <div className="max-h-48 overflow-y-auto [scrollbar-width:thin]">
-                    {/* My playlists */}
-                    {playlists.length > 0 && (
-                      <>
-                        <DropdownMenuLabel className="text-xs text-muted-foreground sticky top-0 bg-popover z-10">
-                          <span className="flex items-center gap-1.5">
-                            <ListMusic className="h-3 w-3" /> Add to my playlist
-                          </span>
-                        </DropdownMenuLabel>
-                        {playlists.map((playlist) => (
-                          <DropdownMenuItem
-                            key={playlist.id}
-                            onClick={() => handleAddToPlaylist(playlist.id, playlist.name)}
-                            disabled={loading}
-                            data-testid={`menu-add-to-playlist-${playlist.id}`}
-                          >
-                            <Music className="h-3 w-3 mr-2 text-muted-foreground shrink-0" />
-                            <span className="truncate">{playlist.name}</span>
-                          </DropdownMenuItem>
-                        ))}
-                      </>
-                    )}
-
-                    {/* Shared editable playlists */}
-                    {editableShared.length > 0 && (
-                      <>
-                        {playlists.length > 0 && <DropdownMenuSeparator />}
-                        <DropdownMenuLabel className="text-xs text-muted-foreground sticky top-0 bg-popover z-10">
-                          <span className="flex items-center gap-1.5">
-                            <Users className="h-3 w-3" /> Add to shared playlist
-                          </span>
-                        </DropdownMenuLabel>
-                        {editableShared.map((playlist) => (
-                          <DropdownMenuItem
-                            key={playlist.id}
-                            onClick={() => handleAddToPlaylist(playlist.id, playlist.name)}
-                            disabled={loading}
-                            data-testid={`menu-add-to-shared-playlist-${playlist.id}`}
-                          >
-                            <Users className="h-3 w-3 mr-2 text-muted-foreground shrink-0" />
-                            <span className="truncate">{playlist.name}</span>
-                          </DropdownMenuItem>
-                        ))}
-                      </>
-                    )}
-                  </div>
-
-                  <DropdownMenuSeparator />
-                </>
-              ) : (
-                <div className="px-2 py-1.5 text-xs text-muted-foreground">No playlists yet</div>
-              )}
               <DropdownMenuItem
-                onClick={() => setShowCreateModal(true)}
-                data-testid={`menu-new-playlist-${track.id}`}
+                onClick={() => {
+                  setPlaylistSearch("");
+                  setAddedIds(new Set());
+                  setShowAddToPlaylistDialog(true);
+                  if (sharedWithMe.length === 0) fetchSharedWithMe();
+                }}
+                data-testid={`menu-add-to-playlist-${track.id}`}
               >
-                <Plus className="h-3 w-3 mr-2" />
-                New playlist
+                <ListMusic className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                Add to playlist
               </DropdownMenuItem>
             </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* ── Add to Playlist Dialog ── */}
+      <Dialog
+        open={showAddToPlaylistDialog}
+        onOpenChange={(o) => {
+          setShowAddToPlaylistDialog(o);
+          if (!o) setPlaylistSearch("");
+        }}
+      >
+        <DialogContent className="max-w-sm p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b border-white/8">
+            <DialogTitle className="text-base">Add to playlist</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground truncate">
+              {track.title} — {track.artist}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Search */}
+          <div className="px-4 pt-3 pb-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search playlists…"
+                value={playlistSearch}
+                onChange={(e) => setPlaylistSearch(e.target.value)}
+                className="pl-8 h-8 text-sm"
+                data-testid="input-search-add-playlist"
+              />
+            </div>
+          </div>
+
+          {/* Scrollable list */}
+          <div className="overflow-y-auto max-h-72 px-2 pb-2 [scrollbar-width:thin]">
+            {!hasAnyPlaylist ? (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                No playlists yet — create one below.
+              </p>
+            ) : filteredOwned.length === 0 && filteredShared.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                No playlists match your search.
+              </p>
+            ) : (
+              <>
+                {/* My playlists */}
+                {filteredOwned.length > 0 && (
+                  <>
+                    <p className="px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                      <ListMusic className="h-3 w-3" /> My playlists
+                    </p>
+                    {filteredOwned.map((playlist) => {
+                      const isAdded = addedIds.has(playlist.id);
+                      const isAdding = addingToId === playlist.id;
+                      return (
+                        <button
+                          key={playlist.id}
+                          type="button"
+                          onClick={() => !isAdded && handleAddToPlaylist(playlist.id, playlist.name)}
+                          disabled={isAdding || loading}
+                          className={cn(
+                            "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                            isAdded
+                              ? "opacity-60 cursor-default"
+                              : "hover:bg-muted/50 active:bg-muted/70 cursor-pointer",
+                          )}
+                          data-testid={`dialog-add-to-playlist-${playlist.id}`}
+                        >
+                          <div className="h-9 w-9 rounded-md bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center shrink-0">
+                            <Music className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{playlist.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {playlist.trackIds?.length ?? 0} {(playlist.trackIds?.length ?? 0) === 1 ? "track" : "tracks"}
+                            </p>
+                          </div>
+                          <div className="shrink-0 w-5 flex items-center justify-center">
+                            {isAdding ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            ) : isAdded ? (
+                              <Check className="h-3.5 w-3.5 text-primary" />
+                            ) : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+
+                {/* Shared editable playlists */}
+                {filteredShared.length > 0 && (
+                  <>
+                    <p className="px-2 pt-3 pb-1 text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                      <Users className="h-3 w-3" /> Shared with me
+                    </p>
+                    {filteredShared.map((playlist) => {
+                      const isAdded = addedIds.has(playlist.id);
+                      const isAdding = addingToId === playlist.id;
+                      return (
+                        <button
+                          key={playlist.id}
+                          type="button"
+                          onClick={() => !isAdded && handleAddToPlaylist(playlist.id, playlist.name)}
+                          disabled={isAdding || loading}
+                          className={cn(
+                            "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                            isAdded
+                              ? "opacity-60 cursor-default"
+                              : "hover:bg-muted/50 active:bg-muted/70 cursor-pointer",
+                          )}
+                          data-testid={`dialog-add-to-shared-playlist-${playlist.id}`}
+                        >
+                          <div className="h-9 w-9 rounded-md bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center shrink-0">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate">{playlist.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {playlist.trackIds?.length ?? 0} {(playlist.trackIds?.length ?? 0) === 1 ? "track" : "tracks"}
+                            </p>
+                          </div>
+                          <div className="shrink-0 w-5 flex items-center justify-center">
+                            {isAdding ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                            ) : isAdded ? (
+                              <Check className="h-3.5 w-3.5 text-primary" />
+                            ) : null}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Footer — new playlist */}
+          <div className="border-t border-white/8 px-4 py-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full gap-2 text-xs"
+              onClick={() => {
+                setShowAddToPlaylistDialog(false);
+                setShowCreateModal(true);
+              }}
+              data-testid={`dialog-new-playlist-${track.id}`}
+            >
+              <Plus className="h-3.5 w-3.5" />
+              New playlist
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Edit Dialog ── */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
