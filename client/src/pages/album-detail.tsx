@@ -142,7 +142,10 @@ export default function AlbumDetailPage() {
         undefined,
         { album_id: albumId },
       );
-      setTracks(Array.isArray(data) ? data : []);
+      const all = Array.isArray(data) ? data : [];
+      // Filter client-side as a safety net in case the backend doesn't honour
+      // the album_id query param and returns all tracks.
+      setTracks(all.filter((t) => t.albumId === albumId));
     } catch {
       setTracks([]);
     } finally {
