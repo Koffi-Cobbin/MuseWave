@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePlayer } from "@/contexts/player-context";
 import { usePlaylists } from "@/contexts/playlist-context";
@@ -38,12 +38,12 @@ import { ShareTrackModal } from "@/components/tracks/ShareTrackModal";
 import {
   Plus, Music, MoreVertical, Pencil, Trash2, ListMusic,
   ListEnd, ListOrdered, Users, Globe, Lock, CloudDownload,
-  Download, WifiOff, Search, Check, Loader2,
+  Download, WifiOff, Search, Check, Loader2, Disc3,
 } from "lucide-react";
 import { API_ENDPOINTS, downloadTrack } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { useOffline } from "@/contexts/offline-context";
-import type { Track } from "../../../../shared/schema";
+import type { Track, Album } from "../../../../shared/schema";
 
 interface TrackActionsMenuProps {
   track: Track;
@@ -62,26 +62,22 @@ export function TrackActionsMenu({
   onTrackDeleted,
   onTrackUpdated,
 }: TrackActionsMenuProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { insertNext, addToQueue } = usePlayer();
   const { playlists, sharedWithMe, fetchSharedWithMe, addSongToPlaylist, loading } = usePlaylists();
   const { toast } = useToast();
   const { genres } = useGenres();
   const { isTrackDownloaded, downloadForOffline, downloadProgress, isOnline, removeDownload } = useOffline();
 
+  // ── Dropdown state ──────────────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+
+  // ── Edit track state ────────────────────────────────────────────────────────
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [showAddToPlaylistDialog, setShowAddToPlaylistDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [playlistSearch, setPlaylistSearch] = useState("");
-  const [addingToId, setAddingToId] = useState<string | null>(null);
-  const [addedIds, setAddedIds] = useState<Set<string>>(new Set());
-
-  // Edit form state
   const [editTitle, setEditTitle] = useState(track.title);
   const [editGenre, setEditGenre] = useState(track.genre ?? "");
   const [editDescription, setEditDescription] = useState(track.description ?? "");
@@ -89,34 +85,94 @@ export function TrackActionsMenu({
     (track as any).visibility ?? "public"
   );
 
-  // Playlists where the user can add tracks (owned + shared with edit permission)
+  // ── Add-to-playlist dialog ──────────────────────────────────────────────────
+  const [showAddToPlaylistDialog, setShowAddToPlaylistDialog] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [playlistSearch, setPlaylistSearch] = useState("");
+  const [addingToPlaylistId, setAddingToPlaylistId] = useState<string | null>(null);
+  const [addedPlaylistIds, setAddedPlaylistIds] = useState<Set<string>>(new Set());
+
+  // ── Add-to-album dialog ─────────────────────────────────────────────────────
+  const [showAddToAlbumDialog, setShowAddToAlbumDialog] = useState(false);
+  const [albumSearch, setAlbumSearch] = useState("");
+  const [userAlbums, setUserAlbums] = useState<Album[]>([]);
+  const [albumsLoading, setAlbumsLoading] = useState(false);
+  const [addingToAlbumId, setAddingToAlbumId] = useState<string | null>(null);
+  const [addedToAlbumId, setAddedToAlbumId] = useState<string | null>(track.albumId ?? null);
+
+  // ── Derived: playlists the user can add to ──────────────────────────────────
   const editableShared = sharedWithMe.filter((p) => p.myPermission === "edit");
   const hasAnyPlaylist = playlists.length > 0 || editableShared.length > 0;
 
-  // Filtered playlists for the dialog search
-  const q = playlistSearch.toLowerCase();
-  const filteredOwned = playlists.filter((p) => p.name.toLowerCase().includes(q));
-  const filteredShared = editableShared.filter((p) => p.name.toLowerCase().includes(q));
+  const pq = playlistSearch.toLowerCase();
+  const filteredOwnedPlaylists = playlists.filter((p) => p.name.toLowerCase().includes(pq));
+  const filteredSharedPlaylists = editableShared.filter((p) => p.name.toLowerCase().includes(pq));
 
-  // Fetch shared playlists lazily when the menu first opens (if not yet loaded)
+  const aq = albumSearch.toLowerCase();
+  const filteredAlbums = userAlbums.filter(
+    (a) => a.title.toLowerCase().includes(aq) || a.artist.toLowerCase().includes(aq)
+  );
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
-    if (isOpen && sharedWithMe.length === 0) {
-      fetchSharedWithMe();
+    if (isOpen && sharedWithMe.length === 0) fetchSharedWithMe();
+  };
+
+  const fetchUserAlbums = useCallback(async () => {
+    if (!user?.id) return;
+    setAlbumsLoading(true);
+    try {
+      const data = await apiRequestJson<Album[]>(
+        "GET",
+        API_ENDPOINTS.albums.byUser(user.id),
+      );
+      setUserAlbums(Array.isArray(data) ? data : []);
+    } catch {
+      setUserAlbums([]);
+    } finally {
+      setAlbumsLoading(false);
+    }
+  }, [user?.id]);
+
+  const handleAddToPlaylist = async (playlistId: string, playlistName: string) => {
+    setAddingToPlaylistId(playlistId);
+    try {
+      await addSongToPlaylist(playlistId, track.id);
+      setAddedPlaylistIds((prev) => new Set(prev).add(playlistId));
+      toast({ title: "Added to playlist", description: playlistName });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to add to playlist",
+      });
+    } finally {
+      setAddingToPlaylistId(null);
     }
   };
 
-  const handleAddToPlaylist = async (playlistId: string, playlistName: string) => {
-    setAddingToId(playlistId);
+  const handleAddToAlbum = async (album: Album) => {
+    if (addedToAlbumId === album.id) return;
+    setAddingToAlbumId(album.id);
     try {
-      await addSongToPlaylist(playlistId, track.id);
-      setAddedIds((prev) => new Set(prev).add(playlistId));
-      toast({ title: "Added to playlist", description: playlistName });
+      const updated = await apiRequestJson<Track>(
+        "PATCH",
+        API_ENDPOINTS.tracks.update(track.id),
+        { albumId: album.id },
+      );
+      setAddedToAlbumId(album.id);
+      toast({ title: "Added to album", description: album.title });
+      onTrackUpdated?.(updated);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Failed to add to playlist";
-      toast({ variant: "destructive", title: "Error", description: msg });
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to add to album",
+      });
     } finally {
-      setAddingToId(null);
+      setAddingToAlbumId(null);
     }
   };
 
@@ -166,6 +222,9 @@ export function TrackActionsMenu({
 
   return (
     <>
+      {/* ══════════════════════════════════════════════════════════════
+          DROPDOWN MENU
+      ══════════════════════════════════════════════════════════════ */}
       <DropdownMenu open={open} onOpenChange={handleOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
@@ -181,23 +240,16 @@ export function TrackActionsMenu({
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-56">
-          {/* ── Playback actions ── */}
+          {/* Playback */}
           <DropdownMenuItem
-            onClick={() => {
-              insertNext(track);
-              toast({ title: "Playing next", description: track.title });
-            }}
+            onClick={() => { insertNext(track); toast({ title: "Playing next", description: track.title }); }}
             data-testid={`menu-play-next-${track.id}`}
           >
             <ListEnd className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
             Play next
           </DropdownMenuItem>
-
           <DropdownMenuItem
-            onClick={() => {
-              addToQueue(track);
-              toast({ title: "Added to queue", description: track.title });
-            }}
+            onClick={() => { addToQueue(track); toast({ title: "Added to queue", description: track.title }); }}
             data-testid={`menu-add-to-queue-${track.id}`}
           >
             <ListOrdered className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
@@ -206,52 +258,36 @@ export function TrackActionsMenu({
 
           <DropdownMenuSeparator />
 
-          {/* ── Download actions ── */}
+          {/* Downloads */}
           <DropdownMenuLabel className="text-xs text-muted-foreground">Downloads</DropdownMenuLabel>
 
           {isTrackDownloaded(track.id) ? (
             <>
-            <DropdownMenuItem
-              className="text-muted-foreground/50 cursor-not-allowed"
-              disabled
-              data-testid={`menu-save-offline-${track.id}`}
-            >
-              <CloudDownload className="h-3.5 w-3.5 mr-2" />
-              Saved Offline
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={async () => {
-                try {
-                  await removeDownload(track.id);
-                  toast({ title: "Removed from offline", description: "\"" + track.title + "\" removed from offline storage." });
-                } catch {
-                  toast({ title: "Failed to remove", description: "Could not remove this track from offline storage.", variant: "destructive" });
-                }
-              }}
-              data-testid={`menu-remove-offline-${track.id}`}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
-              Remove from offline
-            </DropdownMenuItem>
+              <DropdownMenuItem className="text-muted-foreground/50 cursor-not-allowed" disabled data-testid={`menu-save-offline-${track.id}`}>
+                <CloudDownload className="h-3.5 w-3.5 mr-2" />
+                Saved Offline
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={async () => {
+                  try { await removeDownload(track.id); toast({ title: "Removed from offline", description: `"${track.title}" removed from offline storage.` }); }
+                  catch { toast({ title: "Failed to remove", description: "Could not remove this track from offline storage.", variant: "destructive" }); }
+                }}
+                data-testid={`menu-remove-offline-${track.id}`}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                Remove from offline
+              </DropdownMenuItem>
             </>
           ) : !isOnline ? (
-            <DropdownMenuItem
-              className="text-muted-foreground/50 cursor-not-allowed"
-              disabled
-              data-testid={`menu-save-offline-${track.id}`}
-            >
+            <DropdownMenuItem className="text-muted-foreground/50 cursor-not-allowed" disabled data-testid={`menu-save-offline-${track.id}`}>
               <WifiOff className="h-3.5 w-3.5 mr-2" />
               Offline — connect to save
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem
               onClick={async () => {
-                try {
-                  await downloadForOffline(track);
-                  toast({ title: "Saved offline", description: track.title });
-                } catch {
-                  toast({ title: "Download failed", description: "Could not save this track offline.", variant: "destructive" });
-                }
+                try { await downloadForOffline(track); toast({ title: "Saved offline", description: track.title }); }
+                catch { toast({ title: "Download failed", description: "Could not save this track offline.", variant: "destructive" }); }
               }}
               data-testid={`menu-save-offline-${track.id}`}
             >
@@ -265,12 +301,8 @@ export function TrackActionsMenu({
 
           <DropdownMenuItem
             onClick={async () => {
-              try {
-                await downloadTrack(track.id, `${track.artist} - ${track.title}.${track.audioFormat || "mp3"}`);
-                toast({ title: "Download started", description: track.title });
-              } catch {
-                toast({ title: "Download failed", variant: "destructive" });
-              }
+              try { await downloadTrack(track.id, `${track.artist} - ${track.title}.${track.audioFormat || "mp3"}`); toast({ title: "Download started", description: track.title }); }
+              catch { toast({ title: "Download failed", variant: "destructive" }); }
             }}
             data-testid={`menu-download-file-${track.id}`}
           >
@@ -280,7 +312,7 @@ export function TrackActionsMenu({
 
           <DropdownMenuSeparator />
 
-          {/* ── Owner actions ── */}
+          {/* Owner actions */}
           {isOwner && (
             <>
               <DropdownMenuLabel className="text-xs text-muted-foreground">Manage track</DropdownMenuLabel>
@@ -297,10 +329,7 @@ export function TrackActionsMenu({
                 <Pencil className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                 Edit details
               </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => setShowShareModal(true)}
-                data-testid={`menu-share-track-${track.id}`}
-              >
+              <DropdownMenuItem onClick={() => setShowShareModal(true)} data-testid={`menu-share-track-${track.id}`}>
                 <Users className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                 Manage sharing
               </DropdownMenuItem>
@@ -316,13 +345,13 @@ export function TrackActionsMenu({
             </>
           )}
 
-          {/* ── Playlist actions (authenticated users) ── */}
+          {/* Playlist + Album actions (authenticated) */}
           {isAuthenticated && (
             <>
               <DropdownMenuItem
                 onClick={() => {
                   setPlaylistSearch("");
-                  setAddedIds(new Set());
+                  setAddedPlaylistIds(new Set());
                   setShowAddToPlaylistDialog(true);
                   if (sharedWithMe.length === 0) fetchSharedWithMe();
                 }}
@@ -331,18 +360,28 @@ export function TrackActionsMenu({
                 <ListMusic className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
                 Add to playlist
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setAlbumSearch("");
+                  setShowAddToAlbumDialog(true);
+                  fetchUserAlbums();
+                }}
+                data-testid={`menu-add-to-album-${track.id}`}
+              >
+                <Disc3 className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                Add to album
+              </DropdownMenuItem>
             </>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* ── Add to Playlist Dialog ── */}
+      {/* ══════════════════════════════════════════════════════════════
+          ADD TO PLAYLIST DIALOG
+      ══════════════════════════════════════════════════════════════ */}
       <Dialog
         open={showAddToPlaylistDialog}
-        onOpenChange={(o) => {
-          setShowAddToPlaylistDialog(o);
-          if (!o) setPlaylistSearch("");
-        }}
+        onOpenChange={(o) => { setShowAddToPlaylistDialog(o); if (!o) setPlaylistSearch(""); }}
       >
         <DialogContent className="max-w-sm p-0 gap-0 overflow-hidden">
           <DialogHeader className="px-5 pt-5 pb-3 border-b border-white/8">
@@ -352,7 +391,6 @@ export function TrackActionsMenu({
             </DialogDescription>
           </DialogHeader>
 
-          {/* Search */}
           <div className="px-4 pt-3 pb-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
@@ -366,27 +404,21 @@ export function TrackActionsMenu({
             </div>
           </div>
 
-          {/* Scrollable list */}
           <div className="overflow-y-auto max-h-72 px-2 pb-2 [scrollbar-width:thin]">
             {!hasAnyPlaylist ? (
-              <p className="text-xs text-muted-foreground text-center py-8">
-                No playlists yet — create one below.
-              </p>
-            ) : filteredOwned.length === 0 && filteredShared.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-8">
-                No playlists match your search.
-              </p>
+              <p className="text-xs text-muted-foreground text-center py-8">No playlists yet — create one below.</p>
+            ) : filteredOwnedPlaylists.length === 0 && filteredSharedPlaylists.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-8">No playlists match your search.</p>
             ) : (
               <>
-                {/* My playlists */}
-                {filteredOwned.length > 0 && (
+                {filteredOwnedPlaylists.length > 0 && (
                   <>
                     <p className="px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
                       <ListMusic className="h-3 w-3" /> My playlists
                     </p>
-                    {filteredOwned.map((playlist) => {
-                      const isAdded = addedIds.has(playlist.id);
-                      const isAdding = addingToId === playlist.id;
+                    {filteredOwnedPlaylists.map((playlist) => {
+                      const isAdded = addedPlaylistIds.has(playlist.id);
+                      const isAdding = addingToPlaylistId === playlist.id;
                       return (
                         <button
                           key={playlist.id}
@@ -395,9 +427,7 @@ export function TrackActionsMenu({
                           disabled={isAdding || loading}
                           className={cn(
                             "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
-                            isAdded
-                              ? "opacity-60 cursor-default"
-                              : "hover:bg-muted/50 active:bg-muted/70 cursor-pointer",
+                            isAdded ? "opacity-60 cursor-default" : "hover:bg-muted/50 active:bg-muted/70 cursor-pointer",
                           )}
                           data-testid={`dialog-add-to-playlist-${playlist.id}`}
                         >
@@ -411,27 +441,22 @@ export function TrackActionsMenu({
                             </p>
                           </div>
                           <div className="shrink-0 w-5 flex items-center justify-center">
-                            {isAdding ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                            ) : isAdded ? (
-                              <Check className="h-3.5 w-3.5 text-primary" />
-                            ) : null}
+                            {isAdding ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                              : isAdded ? <Check className="h-3.5 w-3.5 text-primary" /> : null}
                           </div>
                         </button>
                       );
                     })}
                   </>
                 )}
-
-                {/* Shared editable playlists */}
-                {filteredShared.length > 0 && (
+                {filteredSharedPlaylists.length > 0 && (
                   <>
                     <p className="px-2 pt-3 pb-1 text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
                       <Users className="h-3 w-3" /> Shared with me
                     </p>
-                    {filteredShared.map((playlist) => {
-                      const isAdded = addedIds.has(playlist.id);
-                      const isAdding = addingToId === playlist.id;
+                    {filteredSharedPlaylists.map((playlist) => {
+                      const isAdded = addedPlaylistIds.has(playlist.id);
+                      const isAdding = addingToPlaylistId === playlist.id;
                       return (
                         <button
                           key={playlist.id}
@@ -440,9 +465,7 @@ export function TrackActionsMenu({
                           disabled={isAdding || loading}
                           className={cn(
                             "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
-                            isAdded
-                              ? "opacity-60 cursor-default"
-                              : "hover:bg-muted/50 active:bg-muted/70 cursor-pointer",
+                            isAdded ? "opacity-60 cursor-default" : "hover:bg-muted/50 active:bg-muted/70 cursor-pointer",
                           )}
                           data-testid={`dialog-add-to-shared-playlist-${playlist.id}`}
                         >
@@ -456,11 +479,8 @@ export function TrackActionsMenu({
                             </p>
                           </div>
                           <div className="shrink-0 w-5 flex items-center justify-center">
-                            {isAdding ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                            ) : isAdded ? (
-                              <Check className="h-3.5 w-3.5 text-primary" />
-                            ) : null}
+                            {isAdding ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                              : isAdded ? <Check className="h-3.5 w-3.5 text-primary" /> : null}
                           </div>
                         </button>
                       );
@@ -471,16 +491,12 @@ export function TrackActionsMenu({
             )}
           </div>
 
-          {/* Footer — new playlist */}
           <div className="border-t border-white/8 px-4 py-3">
             <Button
               variant="outline"
               size="sm"
               className="w-full gap-2 text-xs"
-              onClick={() => {
-                setShowAddToPlaylistDialog(false);
-                setShowCreateModal(true);
-              }}
+              onClick={() => { setShowAddToPlaylistDialog(false); setShowCreateModal(true); }}
               data-testid={`dialog-new-playlist-${track.id}`}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -490,7 +506,114 @@ export function TrackActionsMenu({
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Dialog ── */}
+      {/* ══════════════════════════════════════════════════════════════
+          ADD TO ALBUM DIALOG
+      ══════════════════════════════════════════════════════════════ */}
+      <Dialog
+        open={showAddToAlbumDialog}
+        onOpenChange={(o) => { setShowAddToAlbumDialog(o); if (!o) setAlbumSearch(""); }}
+      >
+        <DialogContent className="max-w-sm p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-5 pt-5 pb-3 border-b border-white/8">
+            <DialogTitle className="text-base">Add to album</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground truncate">
+              {track.title} — {track.artist}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="px-4 pt-3 pb-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Search albums…"
+                value={albumSearch}
+                onChange={(e) => setAlbumSearch(e.target.value)}
+                className="pl-8 h-8 text-sm"
+                data-testid="input-search-add-album"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-y-auto max-h-72 px-2 pb-2 [scrollbar-width:thin]">
+            {albumsLoading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : userAlbums.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                You don't have any albums yet.
+              </p>
+            ) : filteredAlbums.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-8">
+                No albums match your search.
+              </p>
+            ) : (
+              <>
+                <p className="px-2 pt-2 pb-1 text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                  <Disc3 className="h-3 w-3" /> My albums
+                </p>
+                {filteredAlbums.map((album) => {
+                  const isCurrent = addedToAlbumId === album.id;
+                  const isAdding = addingToAlbumId === album.id;
+                  return (
+                    <button
+                      key={album.id}
+                      type="button"
+                      onClick={() => handleAddToAlbum(album)}
+                      disabled={isAdding || isCurrent}
+                      className={cn(
+                        "w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                        isCurrent ? "opacity-60 cursor-default" : "hover:bg-muted/50 active:bg-muted/70 cursor-pointer",
+                      )}
+                      data-testid={`dialog-add-to-album-${album.id}`}
+                    >
+                      {/* Cover */}
+                      <div
+                        className={cn(
+                          "h-9 w-9 rounded-md overflow-hidden shrink-0 border border-white/10",
+                          !album.coverUrl && "bg-gradient-to-br",
+                          !album.coverUrl && (album.coverGradient ?? "from-emerald-500/20 to-fuchsia-500/20"),
+                        )}
+                      >
+                        {album.coverUrl ? (
+                          <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Disc3 className="h-4 w-4 text-white/30" />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{album.title}</p>
+                        <p className="text-xs text-muted-foreground truncate">{album.artist}</p>
+                      </div>
+
+                      <div className="shrink-0 w-5 flex items-center justify-center">
+                        {isAdding ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                        ) : isCurrent ? (
+                          <Check className="h-3.5 w-3.5 text-primary" />
+                        ) : null}
+                      </div>
+                    </button>
+                  );
+                })}
+              </>
+            )}
+          </div>
+
+          <div className="border-t border-white/8 px-4 py-3">
+            <p className="text-[11px] text-muted-foreground text-center">
+              Adding a track to an album links it to that album's page.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ══════════════════════════════════════════════════════════════
+          EDIT TRACK DIALOG
+      ══════════════════════════════════════════════════════════════ */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
         <DialogContent>
           <DialogHeader>
@@ -563,8 +686,6 @@ export function TrackActionsMenu({
                 data-testid="input-edit-track-description"
               />
             </div>
-
-            {/* ── Visibility toggle ── */}
             <div className="grid gap-1.5">
               <Label className="text-xs">Visibility</Label>
               <div className="flex gap-2">
@@ -600,9 +721,7 @@ export function TrackActionsMenu({
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={isSaving}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)} disabled={isSaving}>Cancel</Button>
             <Button onClick={handleSaveEdit} disabled={isSaving} data-testid="button-save-track-edit">
               {isSaving ? "Saving…" : "Save changes"}
             </Button>
@@ -610,7 +729,9 @@ export function TrackActionsMenu({
         </DialogContent>
       </Dialog>
 
-      {/* ── Delete Confirm ── */}
+      {/* ══════════════════════════════════════════════════════════════
+          DELETE CONFIRM
+      ══════════════════════════════════════════════════════════════ */}
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -630,15 +751,11 @@ export function TrackActionsMenu({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Create Playlist Modal ── */}
+      {/* ══════════════════════════════════════════════════════════════
+          MODALS
+      ══════════════════════════════════════════════════════════════ */}
       <CreatePlaylistModal open={showCreateModal} onOpenChange={setShowCreateModal} />
-
-      {/* ── Share Track Modal ── */}
-      <ShareTrackModal
-        trackId={track.id}
-        open={showShareModal}
-        onOpenChange={setShowShareModal}
-      />
+      <ShareTrackModal trackId={track.id} open={showShareModal} onOpenChange={setShowShareModal} />
     </>
   );
 }
