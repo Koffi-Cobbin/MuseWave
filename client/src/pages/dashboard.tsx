@@ -366,6 +366,8 @@ function AnalyticsPanel({
       </div>
 
       {/* Metric pills */}
+      {/* 3 metric pills — 2-col on small mobile so each pill has ≥120px;
+          the lone third pill on row 2 is centred with col-start-1 col-end-3 + mx-auto */}
       <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {[
           {
@@ -386,8 +388,15 @@ function AnalyticsPanel({
             icon: Zap,
             color: stats && stats.completionRate >= 70 ? "text-emerald-400" : "text-amber-400",
           },
-        ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="flex flex-col items-center gap-1 rounded-xl bg-white/[0.04] py-3">
+        ].map(({ label, value, icon: Icon, color }, idx) => (
+          <div
+            key={label}
+            className={cn(
+              "flex flex-col items-center gap-1 rounded-xl bg-white/[0.04] py-3",
+              /* centre the third pill when it wraps alone in the 2-col row */
+              idx === 2 && "col-span-2 sm:col-span-1",
+            )}
+          >
             <Icon className={cn("h-4 w-4", color)} />
             <div className="text-sm font-black tabular-nums">{value}</div>
             <div className="text-center text-[10px] leading-tight text-muted-foreground">{label}</div>
@@ -788,24 +797,24 @@ export default function Dashboard() {
 
           {/* Tracks list — appears second on mobile (order-2), first on lg+ */}
           <div className="order-2 lg:order-1 lg:col-span-3">
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
                 <Music2 className="h-5 w-5 shrink-0 text-primary" />
-                <h2 className="text-base font-semibold sm:text-lg">My Tracks</h2>
+                <h2 className="truncate text-base font-semibold sm:text-lg">My Tracks</h2>
                 {!loading && (
-                  <span className="rounded-full bg-white/8 px-2 py-0.5 text-xs text-muted-foreground">
+                  <span className="shrink-0 rounded-full bg-white/8 px-2 py-0.5 text-xs text-muted-foreground">
                     {tracks.length}
                   </span>
                 )}
               </div>
 
               {/* Sort */}
-              <div className="flex items-center gap-1">
+              <div className="flex shrink-0 items-center gap-1">
                 <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
                 <select
                   value={sortKey}
                   onChange={(e) => setSortKey(e.target.value as SortKey)}
-                  className="border-0 bg-transparent text-xs text-muted-foreground outline-none cursor-pointer hover:text-foreground"
+                  className="max-w-[96px] border-0 bg-transparent text-xs text-muted-foreground outline-none cursor-pointer hover:text-foreground"
                   data-testid="select-track-sort"
                 >
                   {SORT_OPTIONS.map((o) => (
