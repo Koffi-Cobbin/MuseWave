@@ -75,7 +75,7 @@ function App() {
               </aside>
 
               {/* Page content — offset for sidebar on desktop */}
-              <div className="min-h-screen lg:pl-64">
+              <div className="min-h-screen overflow-x-hidden lg:pl-64">
                 <Toaster />
                 <Router />
               </div>

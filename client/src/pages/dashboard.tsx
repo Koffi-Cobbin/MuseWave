@@ -366,7 +366,7 @@ function AnalyticsPanel({
       </div>
 
       {/* Metric pills */}
-      <div className="mb-4 grid grid-cols-3 gap-2">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {[
           {
             label: "Unique listeners",
@@ -749,7 +749,7 @@ export default function Dashboard() {
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3"
+            className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-white/8 bg-white/[0.02] px-4 py-3"
           >
             <div className="flex items-center gap-2">
               <Globe className="h-4 w-4 text-emerald-400" />
@@ -766,9 +766,11 @@ export default function Dashboard() {
                 <span className="text-muted-foreground">private</span>
               </span>
             </div>
-            <div className="h-4 w-px bg-white/10" />
-            <div className="flex flex-1 items-center gap-2">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/8">
+            {/* divider hidden on mobile — progress bar wraps to its own row */}
+            <div className="hidden h-4 w-px bg-white/10 sm:block" />
+            {/* progress row — full width on mobile, auto on sm+ */}
+            <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1">
+              <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/8">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
                   style={{ width: tracks.length > 0 ? `${(publicCount / tracks.length) * 100}%` : "0%" }}
