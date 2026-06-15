@@ -603,6 +603,19 @@ function PlayerBar() {
   }, [active?.id, user?.id]);
 
   // ── When the offline blob resolves for the CURRENT playing track ──────────
+  //
+  // Race condition fix: we use `isPlaying` (React intent) rather than
+  // `!audio.paused` (transient audio element state) to decide whether to call
+  // safePlay after swapping the src to the blob URL.
+  //
+  // The race: nonGesturePlay sets audio.src to the network URL and begins an
+  // async muted-play / canplay cycle.  If the IndexedDB blob resolves while
+  // that cycle is still pending, audio.paused is still `true` even though
+  // playback is intended — so the old `wasPlaying = !audio.paused` check
+  // silently skips safePlay and leaves the audio loaded but permanently paused.
+  // Using `isPlaying` avoids this: it is set to `true` by the context before
+  // nonGesturePlay is called, so it correctly reflects intent regardless of
+  // the audio element's transient state.
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -612,15 +625,14 @@ function PlayerBar() {
       !audio.src.startsWith("blob:") &&
       offlineAudioSrc.startsWith("blob:")
     ) {
-      const wasPlaying = !audio.paused;
       audio.src = offlineAudioSrc;
-      // Bug C fix: use safePlay (muted trick) — this fires from a React effect,
+      // Use safePlay (muted trick) — this fires from a React effect,
       // outside the gesture stack. Direct audio.play() would be blocked on iOS.
-      if (wasPlaying) {
+      if (isPlaying) {
         safePlay(audio);
       }
     }
-  }, [offlineAudioSrc, active?.id, safePlay]);
+  }, [offlineAudioSrc, active?.id, isPlaying, safePlay]);
 
   // ── Playback persistence effects ──────────────────────────────────────────
 
