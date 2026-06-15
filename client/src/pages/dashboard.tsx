@@ -404,46 +404,49 @@ function AnalyticsPanel({
         {loading ? (
           <div className="h-28 w-full animate-pulse rounded-xl bg-white/5" />
         ) : (
-          <ResponsiveContainer width="100%" height={112}>
-            <BarChart data={chartData} margin={{ top: 0, right: 0, left: -32, bottom: 0 }}>
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }}
-                tickLine={false}
-                axisLine={false}
-                interval="preserveStartEnd"
-              />
-              <YAxis
-                tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }}
-                tickLine={false}
-                axisLine={false}
-                allowDecimals={false}
-              />
-              <Tooltip
-                contentStyle={{
-                  background: "rgba(10,10,15,0.95)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 10,
-                  fontSize: 12,
-                  color: "#fff",
-                }}
-                labelStyle={{ color: "rgba(255,255,255,0.6)", marginBottom: 2 }}
-                cursor={{ fill: "rgba(255,255,255,0.04)" }}
-              />
-              <Bar dataKey="plays" radius={[3, 3, 0, 0]}>
-                {chartData.map((entry, i) => (
-                  <Cell
-                    key={i}
-                    fill={
-                      entry.plays === maxPlays && maxPlays > 0
-                        ? "rgb(16,185,129)"
-                        : "rgba(16,185,129,0.4)"
-                    }
-                  />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="overflow-hidden">
+            <ResponsiveContainer width="100%" height={112}>
+              <BarChart data={chartData} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={6}
+                />
+                <YAxis
+                  width={24}
+                  tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }}
+                  tickLine={false}
+                  axisLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: "rgba(10,10,15,0.95)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 10,
+                    fontSize: 12,
+                    color: "#fff",
+                  }}
+                  labelStyle={{ color: "rgba(255,255,255,0.6)", marginBottom: 2 }}
+                  cursor={{ fill: "rgba(255,255,255,0.04)" }}
+                />
+                <Bar dataKey="plays" radius={[3, 3, 0, 0]}>
+                  {chartData.map((entry, i) => (
+                    <Cell
+                      key={i}
+                      fill={
+                        entry.plays === maxPlays && maxPlays > 0
+                          ? "rgb(16,185,129)"
+                          : "rgba(16,185,129,0.4)"
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
     </div>
