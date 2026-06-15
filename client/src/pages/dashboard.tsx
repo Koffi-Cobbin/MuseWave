@@ -35,6 +35,7 @@ import {
   SlidersHorizontal,
   UserCheck,
   Zap,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -272,15 +273,19 @@ function TrackRow({
                 onClick={onConfirmDelete}
                 className="flex h-7 items-center gap-1 rounded-full bg-red-500/15 px-2 text-[11px] font-medium text-red-400 transition hover:bg-red-500/25"
                 data-testid={`button-confirm-delete-${track.id}`}
+                title="Confirm delete"
               >
-                <CheckCircle2 className="h-3 w-3" /> Confirm
+                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                <span className="hidden sm:inline">Confirm</span>
               </button>
               <button
                 type="button"
                 onClick={onCancelDelete}
-                className="h-7 rounded-full px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground/60 transition hover:bg-white/8 hover:text-foreground sm:h-7 sm:w-auto sm:rounded-full sm:px-2"
+                title="Cancel"
               >
-                Cancel
+                <X className="h-3 w-3 shrink-0 sm:hidden" />
+                <span className="hidden text-[11px] sm:inline">Cancel</span>
               </button>
             </div>
           ) : (
@@ -406,7 +411,7 @@ function AnalyticsPanel({
                 tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }}
                 tickLine={false}
                 axisLine={false}
-                interval={3}
+                interval="preserveStartEnd"
               />
               <YAxis
                 tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }}
@@ -776,8 +781,8 @@ export default function Dashboard() {
         {/* ── Main Grid: Track list + Analytics ── */}
         <div className="mb-6 grid gap-5 lg:grid-cols-5">
 
-          {/* Tracks list */}
-          <div className="lg:col-span-3">
+          {/* Tracks list — appears second on mobile (order-2), first on lg+ */}
+          <div className="order-2 lg:order-1 lg:col-span-3">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Music2 className="h-5 w-5 shrink-0 text-primary" />
@@ -849,8 +854,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Analytics panel */}
-          <div className="lg:col-span-2">
+          {/* Analytics panel — appears first on mobile (order-1), second on lg+ */}
+          <div className="order-1 lg:order-2 lg:col-span-2">
             <div className="mb-3 flex items-center gap-2">
               <BarChart3 className="h-5 w-5 shrink-0 text-fuchsia-400" />
               <h2 className="text-base font-semibold sm:text-lg">Track Analytics</h2>
