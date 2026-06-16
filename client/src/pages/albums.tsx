@@ -159,38 +159,34 @@ export default function MyAlbums() {
 
         {/* ── Header ── */}
         <header className="mb-6 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Link href="/">
               <Button
                 variant="secondary"
-                size="sm"
-                className="border-white/10 bg-white/5"
+                size="icon"
+                className="shrink-0 border-white/10 bg-white/5 sm:w-auto sm:px-3"
                 data-testid="button-back-home"
               >
-                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                Home
+                <ArrowLeft className="h-4 w-4 sm:mr-1.5 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden sm:inline text-sm">Home</span>
               </Button>
             </Link>
-            <Separator orientation="vertical" className="h-5 opacity-40" />
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400/30 to-fuchsia-500/20 border border-white/10">
-                <Disc3 className="h-4 w-4 text-sky-400" />
+            <Separator orientation="vertical" className="hidden h-5 opacity-40 sm:block" />
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-amber-400/30 to-fuchsia-500/20">
+                <Disc3 className="h-4 w-4 text-amber-400" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <h1
-                  className="text-base font-semibold tracking-tight sm:text-lg"
+                  className="text-lg font-black tracking-tight sm:text-xl"
                   data-testid="text-my-albums-heading"
                 >
                   My Albums
                 </h1>
-                <p className="hidden text-xs text-muted-foreground sm:block">
+                <p className="hidden truncate text-[10px] text-muted-foreground sm:block sm:text-xs">
                   {albums.length} album{albums.length !== 1 ? "s" : ""}
-                  {sharedWithMeAlbums.length > 0
-                    ? ` · ${sharedWithMeAlbums.length} shared with me`
-                    : ""}
-                  {sharedByMeAlbums.length > 0
-                    ? ` · ${sharedByMeAlbums.length} shared by me`
-                    : ""}
+                  {sharedWithMeAlbums.length > 0 ? ` · ${sharedWithMeAlbums.length} shared with me` : ""}
+                  {sharedByMeAlbums.length > 0 ? ` · ${sharedByMeAlbums.length} shared by me` : ""}
                 </p>
               </div>
             </div>
