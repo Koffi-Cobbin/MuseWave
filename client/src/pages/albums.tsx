@@ -9,17 +9,40 @@ import {
   RefreshCw,
   ArrowUpFromLine,
   X,
+  MoreHorizontal,
+  Play,
+  Globe,
+  Lock,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { useSharedByMe } from "@/hooks/use-shared-by-me";
+import { usePlayer } from "@/contexts/player-context";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import { ShareAlbumModal } from "@/components/albums/ShareAlbumModal";
-import type { Album, MySharedAlbum, SharedAlbum } from "../../../shared/schema";
+import type { Album, MySharedAlbum, SharedAlbum, Track } from "../../../shared/schema";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -59,6 +82,7 @@ export default function MyAlbums() {
   const [, navigate] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
+  const { playQueue } = usePlayer();
 
   const {
     sharedByMeAlbums,
@@ -78,6 +102,10 @@ export default function MyAlbums() {
 
   const [shareOpen, setShareOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<Album | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<Album | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
 
   // ── Auth guard ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -143,6 +171,56 @@ export default function MyAlbums() {
         (a.genre ?? "").toLowerCase().includes(q),
     );
   }, [albums, albumSearch]);
+
+  // ── Play all tracks in an album ────────────────────────────────────────
+  const handlePlayAlbum = useCallback(async (album: Album) => {
+    try {
+      const data = await apiRequestJson<Album & { tracks?: Track[] }>(
+        "GET",
+        API_ENDPOINTS.albums.byId(album.id),
+      );
+      const tracks = data.tracks ?? [];
+      if (!tracks.length) {
+        toast({ title: "No tracks in this album" });
+        return;
+      }
+      playQueue(tracks, 0);
+      toast({ title: `Playing ${album.title}`, description: `${tracks.length} track${tracks.length !== 1 ? "s" : ""}` });
+    } catch {
+      toast({ variant: "destructive", title: "Couldn't load album tracks" });
+    }
+  }, [playQueue, toast]);
+
+  // ── Toggle publish state ────────────────────────────────────────────────
+  const handleTogglePublish = useCallback(async (album: Album) => {
+    setPublishingId(album.id);
+    const next = !album.published;
+    try {
+      await apiRequestJson("PATCH", API_ENDPOINTS.albums.update(album.id), { published: next });
+      setAlbums((prev) => prev.map((a) => a.id === album.id ? { ...a, published: next } : a));
+      toast({ title: next ? "Album published" : "Album set to draft" });
+    } catch {
+      toast({ variant: "destructive", title: "Couldn't update album" });
+    } finally {
+      setPublishingId(null);
+    }
+  }, [toast]);
+
+  // ── Delete album ────────────────────────────────────────────────────────
+  const handleDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await apiRequestJson("DELETE", API_ENDPOINTS.albums.delete(deleteTarget.id));
+      setAlbums((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+      toast({ title: "Album deleted" });
+      setDeleteTarget(null);
+    } catch (err) {
+      toast({ variant: "destructive", title: "Couldn't delete album", description: err instanceof Error ? err.message : "Please try again." });
+    } finally {
+      setDeleting(false);
+    }
+  }, [deleteTarget, toast]);
 
   // ── Sub-tab config ─────────────────────────────────────────────────────
   const subTabs: { key: AlbumSubTab; label: string; icon: React.ElementType; count: number }[] = [
@@ -348,20 +426,56 @@ export default function MyAlbums() {
                             </span>
                           )}
                         </Link>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShareTarget(album);
-                            setShareOpen(true);
-                          }}
-                          data-testid={`button-share-album-${album.id}`}
-                          title="Share album"
-                        >
-                          <Share2 className="h-3.5 w-3.5" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                              data-testid={`button-album-menu-${album.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-44">
+                            <DropdownMenuItem
+                              onSelect={() => handlePlayAlbum(album)}
+                              data-testid={`menu-play-album-${album.id}`}
+                            >
+                              <Play className="mr-2 h-3.5 w-3.5" />
+                              Play All
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onSelect={() => { setShareTarget(album); setShareOpen(true); }}
+                              data-testid={`menu-share-album-${album.id}`}
+                            >
+                              <Share2 className="mr-2 h-3.5 w-3.5" />
+                              Share
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={publishingId === album.id}
+                              onSelect={() => handleTogglePublish(album)}
+                              data-testid={`menu-publish-album-${album.id}`}
+                            >
+                              {album.published ? (
+                                <><Lock className="mr-2 h-3.5 w-3.5" />Set to Draft</>
+                              ) : (
+                                <><Globe className="mr-2 h-3.5 w-3.5" />Publish</>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onSelect={() => setDeleteTarget(album)}
+                              className="text-destructive focus:text-destructive"
+                              data-testid={`menu-delete-album-${album.id}`}
+                            >
+                              <Trash2 className="mr-2 h-3.5 w-3.5" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </motion.div>
                   ))}
@@ -527,6 +641,29 @@ export default function MyAlbums() {
           }}
         />
       )}
+
+      {/* ── Delete Confirm Dialog ──────────────────────────────────────────── */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete album?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{deleteTarget?.title}</strong> will be permanently deleted. Tracks inside will not be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-album"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
