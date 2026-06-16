@@ -605,31 +605,31 @@ export default function MyTracks() {
 
         {/* ── Header ── */}
         <header className="mb-6 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Link href="/">
               <Button
                 variant="secondary"
-                size="sm"
-                className="border-white/10 bg-white/5"
+                size="icon"
+                className="shrink-0 border-white/10 bg-white/5 sm:w-auto sm:px-3"
                 data-testid="button-back-home"
               >
-                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                Home
+                <ArrowLeft className="h-4 w-4 sm:mr-1.5 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden sm:inline text-sm">Home</span>
               </Button>
             </Link>
-            <Separator orientation="vertical" className="h-5 opacity-40" />
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400/30 to-fuchsia-500/20 border border-white/10">
-                <Headphones className="h-4 w-4 text-primary" />
+            <Separator orientation="vertical" className="hidden h-5 opacity-40 sm:block" />
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-sky-400/30 to-fuchsia-500/20">
+                <Headphones className="h-4 w-4 text-sky-400" />
               </div>
-              <div>
-                <h1 className="text-base font-semibold tracking-tight sm:text-lg" data-testid="text-my-tracks-heading">
-                  {isArtistView ? `Music by ${viewingArtist?.displayName || viewingArtist?.username || artistSlug}` : "My Tracks"}
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-black tracking-tight sm:text-xl" data-testid="text-my-tracks-heading">
+                  {isArtistView ? `${viewingArtist?.displayName || viewingArtist?.username || artistSlug}` : "My Tracks"}
                 </h1>
-                <p className="hidden text-xs text-muted-foreground sm:block">
+                <p className="truncate text-[10px] text-muted-foreground sm:text-xs">
                   {isArtistView
                     ? `${artistTracks.length} track${artistTracks.length !== 1 ? "s" : ""}`
-                    : `${myTracks.length} track${myTracks.length !== 1 ? "s" : ""}${sharedTracks.length > 0 ? ` \u00b7 ${sharedTracks.length} shared with me` : ""}${sharedByMeTracks.length > 0 ? ` \u00b7 ${sharedByMeTracks.length} shared by me` : ""}`
+                    : `${myTracks.length} track${myTracks.length !== 1 ? "s" : ""}${sharedTracks.length > 0 ? ` · ${sharedTracks.length} shared with me` : ""}${sharedByMeTracks.length > 0 ? ` · ${sharedByMeTracks.length} shared by me` : ""}`
                   }
                 </p>
               </div>
