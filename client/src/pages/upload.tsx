@@ -655,20 +655,25 @@ export default function Upload() {
 
         {/* ── Header ── */}
         <header className="mb-5 flex items-center justify-between gap-3 sm:mb-6">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Link href="/">
-              <Button variant="secondary" size="sm" className="border-white/10 bg-white/5 shrink-0" data-testid="button-back-home">
-                <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
-                Home
+              <Button variant="secondary" size="icon" className="shrink-0 border-white/10 bg-white/5 sm:w-auto sm:px-3" data-testid="button-back-home">
+                <ArrowLeft className="h-4 w-4 sm:mr-1.5 sm:h-3.5 sm:w-3.5" />
+                <span className="hidden sm:inline text-sm">Home</span>
               </Button>
             </Link>
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold sm:text-lg" data-testid="text-upload-title">
-                Share your release
-              </h1>
-              <p className="hidden text-xs text-muted-foreground sm:block" data-testid="text-upload-subtitle">
-                Upload a track and get a live artist page
-              </p>
+            <div className="flex min-w-0 items-center gap-2">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-primary/30 to-fuchsia-500/20">
+                <CloudUpload className="h-4 w-4 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg font-black tracking-tight sm:text-xl" data-testid="text-upload-title">
+                  Share your release
+                </h1>
+                <p className="text-[10px] text-muted-foreground sm:text-xs" data-testid="text-upload-subtitle">
+                  Upload a track and get a live artist page
+                </p>
+              </div>
             </div>
           </div>
           <StepDots step={step} total={2} />
