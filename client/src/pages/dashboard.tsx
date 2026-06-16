@@ -110,19 +110,19 @@ function StatCard({
   loading?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/[0.03] p-4">
-      <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", accent)}>
-        <Icon className="h-5 w-5" />
+    <div className="flex flex-col items-center gap-2 rounded-2xl border border-white/8 bg-white/[0.03] p-3 sm:flex-row sm:gap-3 sm:p-4">
+      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl sm:h-10 sm:w-10", accent)}>
+        <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 text-center sm:text-left">
         {loading ? (
-          <div className="mb-1 h-6 w-14 animate-pulse rounded bg-white/10" />
+          <div className="mb-1 h-6 w-10 animate-pulse rounded bg-white/10" />
         ) : (
-          <div className="text-xl font-black tabular-nums" data-testid={`stat-${label.toLowerCase().replace(/\s/g, "-")}`}>
+          <div className="text-lg font-black tabular-nums sm:text-xl" data-testid={`stat-${label.toLowerCase().replace(/\s/g, "-")}`}>
             {value}
           </div>
         )}
-        <div className="truncate text-xs text-muted-foreground">{label}</div>
+        <div className="text-[10px] leading-tight text-muted-foreground sm:text-xs">{label}</div>
       </div>
     </div>
   );
@@ -672,13 +672,15 @@ export default function Dashboard() {
       <div className="mx-auto max-w-6xl px-4 py-6 pb-44 sm:pb-36 lg:py-8 lg:pb-10">
 
         {/* ── Header ── */}
-        <header className="mb-6 flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <h1 className="text-2xl font-black tracking-tight sm:text-3xl" data-testid="heading-dashboard">
-              Artist Dashboard
+        <header className="mb-6 flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl font-black tracking-tight sm:text-2xl lg:text-3xl" data-testid="heading-dashboard">
+              <span className="sm:hidden">Dashboard</span>
+              <span className="hidden sm:inline">Artist Dashboard</span>
             </h1>
-            <p className="mt-0.5 truncate text-sm text-muted-foreground">
-              {user?.displayName ?? user?.username} · manage your music &amp; insights
+            <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+              <span className="font-medium text-foreground/70">{user?.displayName ?? user?.username}</span>
+              <span className="hidden sm:inline"> · manage your music &amp; insights</span>
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -708,10 +710,9 @@ export default function Dashboard() {
               </Link>
             )}
             <Link href="/upload">
-              <Button type="button" className="glow" data-testid="button-upload-new">
-                <UploadCloud className="mr-2 h-4 w-4" />
+              <Button type="button" size="icon" className="glow sm:w-auto sm:px-4" data-testid="button-upload-new">
+                <UploadCloud className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Upload Track</span>
-                <span className="sm:hidden">Upload</span>
               </Button>
             </Link>
           </div>
