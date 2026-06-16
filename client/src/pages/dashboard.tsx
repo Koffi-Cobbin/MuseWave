@@ -168,7 +168,7 @@ function TrackRow({
     >
       <div
         className={cn(
-          "group relative flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-all cursor-pointer",
+          "group relative flex items-start gap-3 rounded-xl border px-3 py-2.5 transition-all cursor-pointer sm:items-center",
           isSelected
             ? "border-primary/30 bg-primary/[0.06]"
             : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.1] hover:bg-white/[0.04]",
@@ -182,7 +182,7 @@ function TrackRow({
         )}
 
         {/* Cover / index */}
-        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-lg">
+        <div className="relative min-h-10 w-10 shrink-0 self-stretch overflow-hidden rounded-lg sm:h-10 sm:self-auto">
           {track.coverUrl ? (
             <img
               src={track.coverUrl}
@@ -230,9 +230,24 @@ function TrackRow({
               <span className="shrink-0 tabular-nums">{fmtDuration(track.audioDuration)}</span>
             )}
           </div>
+          {/* Mobile-only stats row */}
+          <div className="mt-1 flex items-center gap-3 sm:hidden">
+            <span className="flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground/70" title="Plays">
+              <Play className="h-3 w-3 fill-current opacity-60" />
+              {fmt(track.plays ?? 0)}
+            </span>
+            <span className="flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground/70" title="Likes">
+              <Heart className="h-3 w-3 fill-current opacity-60" />
+              {fmt(track.likes ?? 0)}
+            </span>
+            <span className="flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground/70" title="Downloads">
+              <Download className="h-3 w-3 opacity-60" />
+              {fmt(track.downloads ?? 0)}
+            </span>
+          </div>
         </div>
 
-        {/* Stats */}
+        {/* Stats — desktop only */}
         <div className="hidden shrink-0 items-center gap-4 sm:flex">
           <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground" title="Plays">
             <Play className="h-3 w-3 fill-current opacity-60" />
