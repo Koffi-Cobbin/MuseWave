@@ -338,7 +338,7 @@ function AnalyticsPanel({
   }
 
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/[0.02] p-4">
+    <div className="overflow-hidden rounded-2xl border border-white/8 bg-white/[0.02] p-4">
       {/* Track header */}
       <div className="mb-4 flex items-start gap-3">
         <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-white/8">
@@ -413,9 +413,9 @@ function AnalyticsPanel({
         {loading ? (
           <div className="h-28 w-full animate-pulse rounded-xl bg-white/5" />
         ) : (
-          <div className="overflow-hidden">
-            <ResponsiveContainer width="100%" height={112}>
-              <BarChart data={chartData} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
+          <div className="w-full overflow-hidden">
+            <ResponsiveContainer width="99%" height={112}>
+              <BarChart data={chartData} margin={{ top: 4, right: 16, left: 4, bottom: 0 }}>
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 9, fill: "rgba(255,255,255,0.3)" }}
@@ -796,7 +796,7 @@ export default function Dashboard() {
         <div className="mb-6 grid gap-5 lg:grid-cols-5">
 
           {/* Tracks list — appears second on mobile (order-2), first on lg+ */}
-          <div className="order-2 lg:order-1 lg:col-span-3">
+          <div className="order-2 min-w-0 lg:order-1 lg:col-span-3">
             <div className="mb-3 flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2">
                 <Music2 className="h-5 w-5 shrink-0 text-primary" />
@@ -869,7 +869,7 @@ export default function Dashboard() {
           </div>
 
           {/* Analytics panel — appears first on mobile (order-1), second on lg+ */}
-          <div className="order-1 lg:order-2 lg:col-span-2">
+          <div className="order-1 min-w-0 overflow-hidden lg:order-2 lg:col-span-2">
             <div className="mb-3 flex items-center gap-2">
               <BarChart3 className="h-5 w-5 shrink-0 text-fuchsia-400" />
               <h2 className="text-base font-semibold sm:text-lg">Track Analytics</h2>
