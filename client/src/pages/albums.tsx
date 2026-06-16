@@ -9,7 +9,7 @@ import {
   RefreshCw,
   ArrowUpFromLine,
   X,
-  MoreHorizontal,
+  MoreVertical,
   Play,
   Globe,
   Lock,
@@ -431,11 +431,11 @@ export default function MyAlbums() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
                               data-testid={`button-album-menu-${album.id}`}
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <MoreHorizontal className="h-4 w-4" />
+                              <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-44">
