@@ -626,7 +626,7 @@ export default function MyTracks() {
                 <h1 className="truncate text-lg font-black tracking-tight sm:text-xl" data-testid="text-my-tracks-heading">
                   {isArtistView ? `${viewingArtist?.displayName || viewingArtist?.username || artistSlug}` : "My Tracks"}
                 </h1>
-                <p className="truncate text-[10px] text-muted-foreground sm:text-xs">
+                <p className="hidden truncate text-[10px] text-muted-foreground sm:block sm:text-xs">
                   {isArtistView
                     ? `${artistTracks.length} track${artistTracks.length !== 1 ? "s" : ""}`
                     : `${myTracks.length} track${myTracks.length !== 1 ? "s" : ""}${sharedTracks.length > 0 ? ` · ${sharedTracks.length} shared with me` : ""}${sharedByMeTracks.length > 0 ? ` · ${sharedByMeTracks.length} shared by me` : ""}`
