@@ -4,7 +4,7 @@ import { usePlaylists } from "@/contexts/playlist-context";
 import { useSharedByMe } from "@/hooks/use-shared-by-me";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Plus, Home, Users, ListMusic, ArrowUpFromLine } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Users, ListMusic, ArrowUpFromLine } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { PlaylistCard } from "@/components/playlists/PlaylistCard";
 import { CreatePlaylistModal } from "@/components/playlists/CreatePlaylistModal";
@@ -84,33 +84,39 @@ export default function PlaylistPage() {
     <div className="min-h-screen bg-background px-4 pt-8 pb-36 lg:pb-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Link href="/">
-              <Button variant="ghost" size="sm">
-                <Home className="h-4 w-4 mr-2" />
-                Home
-              </Button>
-            </Link>
-          </div>
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-4xl font-bold">Playlists</h1>
-              <p className="text-muted-foreground mt-2">
-                {user?.displayName || user?.username}
-              </p>
+        <div className="mb-6">
+          <header className="mb-5 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <Link href="/">
+                <Button variant="secondary" size="icon" className="shrink-0 border-white/10 bg-white/5 sm:w-auto sm:px-3" data-testid="button-back-home">
+                  <ArrowLeft className="h-4 w-4 sm:mr-1.5 sm:h-3.5 sm:w-3.5" />
+                  <span className="hidden sm:inline text-sm">Home</span>
+                </Button>
+              </Link>
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-gradient-to-br from-violet-400/30 to-fuchsia-500/20">
+                  <ListMusic className="h-4 w-4 text-violet-400" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-lg font-black tracking-tight sm:text-xl">Playlists</h1>
+                  <p className="text-[10px] text-muted-foreground sm:text-xs">
+                    {user?.displayName || user?.username} · {playlists.length} playlist{playlists.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+              </div>
             </div>
             {activeTab === "my" && (
               <Button
                 onClick={() => setShowCreateModal(true)}
-                className="glow"
+                size="icon"
+                className="glow shrink-0 sm:w-auto sm:px-4"
                 data-testid="button-create-playlist"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Playlist
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Create Playlist</span>
               </Button>
             )}
-          </div>
+          </header>
 
           {/* ── Tabs ── */}
           <div className="flex gap-1 mb-5 bg-muted/30 rounded-lg p-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
