@@ -1205,7 +1205,7 @@ export default function ArtistPage() {
                 {albums.map((album) => {
                   const isShared = sharedAlbumIds.has(album.id);
                   return (
-                    <Link key={album.id} href={`/albums/${album.id}`}>
+                    <Link key={album.id} href={`/albums/${album.id}`} className="block">
                       <div
                         className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.10] hover:bg-white/[0.04] cursor-pointer"
                         data-testid={`card-artist-album-${album.id}`}
@@ -1262,7 +1262,7 @@ export default function ArtistPage() {
                 {playlists.map((playlist) => {
                   const trackCount = playlist.trackIds?.length ?? 0;
                   return (
-                    <Link key={playlist.id} href={`/playlists/${playlist.id}`}>
+                    <Link key={playlist.id} href={`/playlists/${playlist.id}`} className="block">
                       <div
                         className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.10] hover:bg-white/[0.04] cursor-pointer"
                         data-testid={`card-artist-playlist-${playlist.id}`}
