@@ -31,6 +31,7 @@ import {
   Link2,
   RefreshCw,
   ChevronRight,
+  ListMusic,
 } from "lucide-react";
 import { SiSpotify, SiSoundcloud, SiX, SiInstagram } from "react-icons/si";
 import { Button } from "@/components/ui/button";
@@ -52,7 +53,7 @@ import { usePlayer } from "@/contexts/player-context";
 import { useToast } from "@/hooks/use-toast";
 import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
-import type { Track, User, SharedAlbum } from "../../../shared/schema";
+import type { Track, User, SharedAlbum, Playlist } from "../../../shared/schema";
 import { Label } from "@/components/ui/label";
 
 
@@ -482,6 +483,7 @@ export default function ArtistPage() {
   const [artist, setArtist] = useState<Artist | null>(null);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
@@ -637,12 +639,13 @@ export default function ArtistPage() {
         setArtistUserId(userData.id);
 
         const isViewerOwner = authUser?.id === userData.id;
-        const [tracksData, albumsData] = await Promise.all([
+        const [tracksData, albumsData, playlistsData] = await Promise.all([
           apiRequestJson<Track[]>("GET", API_ENDPOINTS.tracks.list, undefined, {
             userId: userData.id,
             ...(isViewerOwner ? {} : { published: true }),
           }),
           apiRequestJson<Album[]>("GET", API_ENDPOINTS.albums.byUser(userData.id)).catch(() => []),
+          apiRequestJson<Playlist[]>("GET", API_ENDPOINTS.playlists.byUser(userData.id)).catch(() => []),
         ]);
 
         setTracks(
@@ -667,6 +670,11 @@ export default function ArtistPage() {
           }),
         );
         setAlbums(enriched);
+
+        const publicPlaylists = (Array.isArray(playlistsData) ? playlistsData : []).filter(
+          (p) => isViewerOwner || p.public,
+        );
+        setPlaylists(publicPlaylists);
       } catch (error) {
         console.error("Failed to fetch artist data:", error);
       } finally {
@@ -1197,40 +1205,84 @@ export default function ArtistPage() {
                 {albums.map((album) => {
                   const isShared = sharedAlbumIds.has(album.id);
                   return (
-                    <div
-                      key={album.id}
-                      className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.10] hover:bg-white/[0.04]"
-                      data-testid={`card-artist-album-${album.id}`}
-                    >
-                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-white/8">
-                        {album.coverUrl ? (
-                          <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center">
-                            <Disc3 className="h-5 w-5 text-muted-foreground/40" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold">{album.title}</div>
-                        <div className="text-xs text-muted-foreground/70">
-                          {album.genre ?? ""}
-                          {album.releaseDate && (
-                            <span> · {new Date(album.releaseDate).getFullYear()}</span>
+                    <Link key={album.id} href={`/albums/${album.id}`}>
+                      <div
+                        className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.10] hover:bg-white/[0.04] cursor-pointer"
+                        data-testid={`card-artist-album-${album.id}`}
+                      >
+                        <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-white/8">
+                          {album.coverUrl ? (
+                            <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center">
+                              <Disc3 className="h-5 w-5 text-muted-foreground/40" />
+                            </div>
                           )}
                         </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold">{album.title}</div>
+                          <div className="text-xs text-muted-foreground/70">
+                            {album.genre ?? ""}
+                            {album.releaseDate && (
+                              <span> · {new Date(album.releaseDate).getFullYear()}</span>
+                            )}
+                          </div>
+                        </div>
+                        {isShared ? (
+                          <span
+                            className="flex shrink-0 items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-400"
+                            title="This album was shared with you"
+                            data-testid={`badge-album-shared-with-me-${album.id}`}
+                          >
+                            <Share2 className="h-2.5 w-2.5" />
+                            Shared with you
+                          </span>
+                        ) : (
+                          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+                        )}
                       </div>
-                      {isShared && (
-                        <span
-                          className="flex shrink-0 items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-400"
-                          title="This album was shared with you"
-                          data-testid={`badge-album-shared-with-me-${album.id}`}
-                        >
-                          <Share2 className="h-2.5 w-2.5" />
-                          Shared with you
-                        </span>
-                      )}
-                    </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Public Playlists */}
+          {playlists.length > 0 && (
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <ListMusic className="h-4 w-4 text-violet-400" />
+                <h2 className="text-sm font-semibold">Playlists</h2>
+                <span className="rounded-full bg-white/8 px-2 py-0.5 text-xs text-muted-foreground">
+                  {playlists.length}
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {playlists.map((playlist) => {
+                  const trackCount = playlist.trackIds?.length ?? 0;
+                  return (
+                    <Link key={playlist.id} href={`/playlists/${playlist.id}`}>
+                      <div
+                        className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.10] hover:bg-white/[0.04] cursor-pointer"
+                        data-testid={`card-artist-playlist-${playlist.id}`}
+                      >
+                        <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gradient-to-br from-violet-500/20 to-pink-500/20">
+                          {playlist.coverUrl ? (
+                            <img src={playlist.coverUrl} alt={playlist.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <ListMusic className="h-5 w-5 text-violet-400/60" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold">{playlist.name}</div>
+                          <div className="text-xs text-muted-foreground/70">
+                            {trackCount === 0 ? "No songs" : `${trackCount} ${trackCount === 1 ? "song" : "songs"}`}
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+                      </div>
+                    </Link>
                   );
                 })}
               </div>
