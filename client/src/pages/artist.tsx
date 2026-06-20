@@ -1128,62 +1128,6 @@ export default function ArtistPage() {
         )}
 
         {/* ════════════════════════════════════════════════════════════════ */}
-        {/* ALBUMS SECTION */}
-        {/* ════════════════════════════════════════════════════════════════ */}
-        {albums.length > 0 && (
-          <div className="mb-6">
-            <div className="mb-3 flex items-center gap-2">
-              <Disc3 className="h-4 w-4 text-sky-400" />
-              <h2 className="text-sm font-semibold">Albums</h2>
-              <span className="rounded-full bg-white/8 px-2 py-0.5 text-xs text-muted-foreground">
-                {albums.length}
-              </span>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {albums.map((album) => {
-                const isShared = sharedAlbumIds.has(album.id);
-                return (
-                  <div
-                    key={album.id}
-                    className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.10] hover:bg-white/[0.04]"
-                    data-testid={`card-artist-album-${album.id}`}
-                  >
-                    <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-white/8">
-                      {album.coverUrl ? (
-                        <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <Disc3 className="h-5 w-5 text-muted-foreground/40" />
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold">{album.title}</div>
-                      <div className="text-xs text-muted-foreground/70">
-                        {album.genre ?? ""}
-                        {album.releaseDate && (
-                          <span> · {new Date(album.releaseDate).getFullYear()}</span>
-                        )}
-                      </div>
-                    </div>
-                    {isShared && (
-                      <span
-                        className="flex shrink-0 items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-400"
-                        title="This album was shared with you"
-                        data-testid={`badge-album-shared-with-me-${album.id}`}
-                      >
-                        <Share2 className="h-2.5 w-2.5" />
-                        Shared with you
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ════════════════════════════════════════════════════════════════ */}
         {/* ABOUT SECTION */}
         {/* ════════════════════════════════════════════════════════════════ */}
         <section className="space-y-4">
@@ -1238,6 +1182,60 @@ export default function ArtistPage() {
               </div>
             );
           })()}
+
+          {/* Albums */}
+          {albums.length > 0 && (
+            <div>
+              <div className="mb-3 flex items-center gap-2">
+                <Disc3 className="h-4 w-4 text-sky-400" />
+                <h2 className="text-sm font-semibold">Albums</h2>
+                <span className="rounded-full bg-white/8 px-2 py-0.5 text-xs text-muted-foreground">
+                  {albums.length}
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {albums.map((album) => {
+                  const isShared = sharedAlbumIds.has(album.id);
+                  return (
+                    <div
+                      key={album.id}
+                      className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 transition hover:border-white/[0.10] hover:bg-white/[0.04]"
+                      data-testid={`card-artist-album-${album.id}`}
+                    >
+                      <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-white/8">
+                        {album.coverUrl ? (
+                          <img src={album.coverUrl} alt={album.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <Disc3 className="h-5 w-5 text-muted-foreground/40" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-semibold">{album.title}</div>
+                        <div className="text-xs text-muted-foreground/70">
+                          {album.genre ?? ""}
+                          {album.releaseDate && (
+                            <span> · {new Date(album.releaseDate).getFullYear()}</span>
+                          )}
+                        </div>
+                      </div>
+                      {isShared && (
+                        <span
+                          className="flex shrink-0 items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-400"
+                          title="This album was shared with you"
+                          data-testid={`badge-album-shared-with-me-${album.id}`}
+                        >
+                          <Share2 className="h-2.5 w-2.5" />
+                          Shared with you
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Bio */}
           {artist.bio ? (
