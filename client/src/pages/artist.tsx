@@ -55,6 +55,7 @@ import { API_ENDPOINTS, API_BASE_URL } from "@/lib/apiConfig";
 import { apiRequestJson } from "@/lib/queryClient";
 import type { Track, User, SharedAlbum, Playlist } from "../../../shared/schema";
 import { Label } from "@/components/ui/label";
+import { NotificationBell } from "@/components/NotificationBell";
 
 
 
@@ -430,6 +431,8 @@ function ArtistHero({
             >
               <Share2 className="h-4 w-4" />
             </Button>
+
+            <NotificationBell />
           </motion.div>
         </div>
 

@@ -145,6 +145,14 @@ export const API_ENDPOINTS = {
   featured: {
     list: '/api/featured-tracks',
   },
+
+  // Notifications
+  notifications: {
+    list: '/api/notifications',
+    unreadCount: '/api/notifications/unread-count',
+    markRead: (id: string) => `/api/notifications/${id}/read`,
+    markAllRead: '/api/notifications/mark-all-read',
+  },
 } as const;
 
 // Helper function to get the full streaming URL for a track
