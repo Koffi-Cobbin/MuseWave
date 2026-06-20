@@ -15,6 +15,7 @@ import {
   Lock,
   CalendarDays,
   Tag,
+  GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -99,6 +100,10 @@ export default function AlbumDetailPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
+
   // ── Fetch album (tracks are embedded in the response per the API docs) ───────
   const fetchAlbum = useCallback(
     async (silent = false) => {
@@ -173,6 +178,28 @@ export default function AlbumDetailPage() {
       setDeleteConfirmOpen(false);
     }
   };
+
+  // ── Drag-to-reorder ─────────────────────────────────────────────────────────
+  const handleDrop = useCallback(async (fromIndex: number, toIndex: number) => {
+    if (fromIndex === toIndex || !albumId) return;
+    const reordered = [...tracks];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    setTracks(reordered); // optimistic
+    setReordering(true);
+    try {
+      await apiRequestJson(
+        "PATCH",
+        API_ENDPOINTS.albums.reorder(albumId),
+        reordered.map((t, i) => ({ id: t.id, order: i })),
+      );
+    } catch {
+      toast({ variant: "destructive", title: "Couldn't save order", description: "Please try again." });
+      fetchAlbum(true); // rollback
+    } finally {
+      setReordering(false);
+    }
+  }, [albumId, tracks, toast, fetchAlbum]);
 
   // ── Early states ────────────────────────────────────────────────────────────
   if (!albumId) {
@@ -410,18 +437,38 @@ export default function AlbumDetailPage() {
             <AnimatePresence initial={false}>
               {tracks.map((track, index) => {
                 const isActive = active?.id === track.id;
+                const isDragOver = dragOverIndex === index;
                 return (
                   <motion.div
                     key={track.id}
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
+                    animate={{ opacity: dragIndex === index ? 0.4 : 1 }}
                     transition={{ delay: index * 0.03 }}
+                    draggable={isOwner}
+                    onDragStart={() => setDragIndex(index)}
+                    onDragOver={(e) => { e.preventDefault(); setDragOverIndex(index); }}
+                    onDrop={() => {
+                      if (dragIndex !== null) handleDrop(dragIndex, index);
+                      setDragIndex(null);
+                      setDragOverIndex(null);
+                    }}
+                    onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
                     className={cn(
-                      "group grid grid-cols-[2rem_1fr_auto] items-center gap-3 border-b border-white/5 px-4 py-3 transition-colors last:border-0",
+                      "group grid items-center gap-3 border-b border-white/5 px-4 py-3 transition-colors last:border-0",
+                      isOwner ? "grid-cols-[1.25rem_2rem_1fr_auto]" : "grid-cols-[2rem_1fr_auto]",
                       isActive ? "bg-primary/10" : "hover:bg-white/5",
+                      isDragOver && "border-t-2 border-t-primary/60",
+                      isOwner && "cursor-default",
                     )}
                     data-testid={`row-album-track-${track.id}`}
                   >
+                    {/* Drag handle (owner only) */}
+                    {isOwner && (
+                      <div className="flex items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground/30 hover:text-muted-foreground/60 transition-colors">
+                        <GripVertical className="h-4 w-4" />
+                      </div>
+                    )}
+
                     {/* Index / play button */}
                     <div className="flex items-center justify-center w-7 shrink-0">
                       {isActive ? (
@@ -497,10 +544,15 @@ export default function AlbumDetailPage() {
                       </div>
                     </div>
 
-                    {/* Duration */}
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                      {formatDuration(track.audioDuration)}
-                    </span>
+                    {/* Duration + saving indicator */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {reordering && dragIndex === null && (
+                        <Loader2 className="h-3 w-3 animate-spin text-muted-foreground/50" />
+                      )}
+                      <span className="text-xs tabular-nums text-muted-foreground">
+                        {formatDuration(track.audioDuration)}
+                      </span>
+                    </div>
                   </motion.div>
                 );
               })}

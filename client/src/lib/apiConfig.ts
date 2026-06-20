@@ -63,6 +63,7 @@ export const API_ENDPOINTS = {
     // Sharing — direct user grants
     shares: (id: string) => `/api/albums/${id}/shares`,
     shareById: (id: string, shareId: string) => `/api/albums/${id}/shares/${shareId}`,
+    reorder: (id: string) => `/api/albums/${id}/reorder`,
     // Sharing — discovery
     sharedWithMe: '/api/albums/shared-with-me',
     sharedByMe: '/api/albums/shared-by-me',

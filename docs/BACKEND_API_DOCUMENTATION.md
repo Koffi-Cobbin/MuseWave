@@ -13,8 +13,10 @@ Database is SQLite.
 - **Track Visibility**: Every track has a `visibility` field (`public` / `private`) controlling who can view, stream, and discover it
 - **Track Sharing**: Share individual private tracks with specific users by username or email
 - **Album Sharing**: Share albums with specific users (`view` or `edit` permission), with full shared-by-me / shared-with-me discovery endpoints
+- **Album Track Ordering**: Tracks within an album have an explicit `album_order` position. A dedicated reorder endpoint lets the owner rearrange them without reassigning the album
 - **Playlist Sharing**: Share playlists with specific users (`view` or `edit` permission) or via a public link token, with shared-by-me / shared-with-me discovery endpoints
 - **Playlist Privacy**: Private tracks in playlists respect access control — only visible to users who received a direct share from the track owner
+- **Notifications**: Signal-driven notification system — followers are alerted when an artist publishes new public content; share recipients are notified when content is shared directly with them
 - **RESTful API**: Clean, well-documented REST endpoints
 
 ## API Endpoints
@@ -73,9 +75,12 @@ Database is SQLite.
 ### Albums
 
 - `POST /api/albums` - Create a new album
-- `GET /api/albums/<album_id>` - Get album by ID (includes tracks)
+- `GET /api/albums/<album_id>` - Get album by ID (includes tracks ordered by `album_order`)
 - `PATCH /api/albums/<album_id>/update` - Update album details
 - `DELETE /api/albums/<album_id>/delete` - Delete album (tracks remain, album association removed)
+- `PATCH /api/albums/<album_id>/reorder` - Reorder the tracks within an album (owner only). Body: `[{"id": "<track_uuid>", "order": 0}, ...]`. Returns the full ordered track list
+
+> **Album track ordering:** Each track has an `album_order` integer field representing its position within the album. When creating or updating an album with a `track_ids` list the order of that list is automatically used as the initial ordering. Use the reorder endpoint to change it later. Tracks without an explicit order appear after ordered ones, sorted by creation date.
 
 #### Album Sharing
 
@@ -182,6 +187,55 @@ Staff-curated promotion of selected tracks. All management endpoints are staff-o
 
 - `GET /api/search?q=<query>&type=<tracks|users|all>&limit=<number>` - Search tracks and/or users
 - `POST /api/search/rebuild` - Rebuild search index (no-op in Django, returns success)
+
+### Notifications
+
+Notifications are created automatically by Django signals. All endpoints require authentication.
+
+- `GET /api/notifications` - List all notifications for the authenticated user, newest first. Query params: `?unread=true` (unread only), `?limit=N` (default 50, max 200)
+- `GET /api/notifications/unread-count` - Returns `{"unread_count": N}`. Suitable for polling to drive notification badge counts
+- `POST /api/notifications/<notif_id>/read` - Mark a single notification as read and **delete** it
+- `POST /api/notifications/mark-all-read` - Delete all notifications for the user. Returns `{"success": true, "deleted": N}`
+
+#### What triggers a notification
+
+| Trigger | Recipients | `notification_type` |
+|---------|-----------|---------------------|
+| New public track published (on creation or draft → published) | All followers of the artist | `new_track` |
+| New published album | All followers of the artist | `new_album` |
+| New public playlist | All followers of the user | `new_playlist` |
+| Track shared with a user | The recipient | `track_shared` |
+| Album shared with a user | The recipient | `album_shared` |
+| Playlist shared with a user | The recipient | `playlist_shared` |
+
+#### Notification object shape
+
+```json
+{
+  "id": "uuid",
+  "notification_type": "new_track",
+  "target_type": "track",
+  "target_id": "track-uuid",
+  "target_title": "Summer Vibes",
+  "actor_username": "john_doe",
+  "actor_display_name": "John Doe",
+  "actor_avatar_url": "https://cdn.example.com/avatars/john.jpg",
+  "extra": {},
+  "is_read": false,
+  "created_at": "2026-06-20T18:00:00Z"
+}
+```
+
+> `target_title`, `actor_username`, and `actor_display_name` are denormalised at the time the notification is created, so the notification remains readable even if the original content or user is later deleted.  
+> For share notifications, `extra` contains `{"permission": "view"}` or `{"permission": "edit"}`.  
+> When a notification is marked as read (individually or via mark-all-read) it is **deleted** from the database — there are no lingering read records.
+
+#### Extending notifications
+
+Adding a new notification type requires only three steps:
+1. Add a `TYPE_*` constant and a row in `TYPE_CHOICES` on the `Notification` model (`musewave/models.py`).
+2. Call `Notification.objects.create(...)` or use the `_notify_followers` / `_notify_user` helpers in `musewave/signals.py`.
+3. No migration is needed — `notification_type` is a plain `CharField`.
 
 ---
 
@@ -1055,6 +1109,16 @@ Response fields vary by caller permission:
 - Timestamps: `created_at`, `updated_at`
 - Enables track owners to share individual private tracks with specific users outside of playlists
 
+### Notification
+- **Table:** `notifications`
+- **Purpose:** Stores in-app notification records for each user. Created automatically by Django signals — never by the API consumer directly
+- **Core fields:** `recipient` (FK User), `actor` (FK User, nullable), `notification_type` (string), `is_read` (bool, default false)
+- **Target info (denormalised):** `target_type` (`"track"` | `"album"` | `"playlist"`), `target_id` (UUID), `target_title` (string) — survives deletion of the original content
+- **Actor info (denormalised):** `actor_username`, `actor_display_name`, `actor_avatar_url` — survives user deletion
+- **Extensible payload:** `extra` (JSON) — e.g. `{"permission": "view"}` for share notifications
+- **Indexes:** `(recipient, -created_at)`, `(recipient, is_read)` — fast unread queries
+- **Lifecycle:** Read notifications are deleted immediately (mark-one-read or mark-all-read). There are no persistent "read" records
+
 ---
 
 ## Statistics & Analytics
@@ -1263,4 +1327,32 @@ curl http://localhost:5000/api/tracks/shared-with-me \
 # 26. See all playlists I've shared (one entry per recipient)
 curl http://localhost:5000/api/playlists/shared-by-me \
   -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# 27. Reorder tracks within an album (owner only)
+curl -X PATCH http://localhost:5000/api/albums/ALBUM_UUID/reorder \
+  -H "Authorization: Bearer OWNER_JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '[{"id": "track-uuid-1", "order": 0}, {"id": "track-uuid-2", "order": 1}, {"id": "track-uuid-3", "order": 2}]'
+
+# 28. Check unread notification count (good for polling / badge updates)
+curl http://localhost:5000/api/notifications/unread-count \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+# Returns: {"unread_count": 5}
+
+# 29. List all notifications (latest first)
+curl http://localhost:5000/api/notifications \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# 29b. List only unread notifications, capped at 10
+curl "http://localhost:5000/api/notifications?unread=true&limit=10" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# 30. Mark a single notification as read (deletes it)
+curl -X POST http://localhost:5000/api/notifications/NOTIF_UUID/read \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+
+# 31. Mark all notifications as read (bulk delete)
+curl -X POST http://localhost:5000/api/notifications/mark-all-read \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN"
+# Returns: {"success": true, "deleted": 5}
 ```
