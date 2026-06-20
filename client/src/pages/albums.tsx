@@ -460,9 +460,9 @@ export default function MyAlbums() {
                               data-testid={`menu-publish-album-${album.id}`}
                             >
                               {album.published ? (
-                                <><Lock className="mr-2 h-3.5 w-3.5" />Set to Draft</>
+                                <><Lock className="mr-2 h-3.5 w-3.5" />Make Private</>
                               ) : (
-                                <><Globe className="mr-2 h-3.5 w-3.5" />Publish</>
+                                <><Globe className="mr-2 h-3.5 w-3.5" />Make Public</>
                               )}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
