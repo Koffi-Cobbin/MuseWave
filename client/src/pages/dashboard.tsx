@@ -36,6 +36,8 @@ import {
   UserCheck,
   Zap,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -581,7 +583,11 @@ export default function Dashboard() {
 
   // ── Sorted tracks ──────────────────────────────────────────────────────────
 
+  const TRACKS_PER_PAGE = 10;
+  const [trackPage, setTrackPage] = useState(0);
+
   const sortedTracks = useMemo(() => {
+    setTrackPage(0);
     const arr = [...tracks];
     switch (sortKey) {
       case "plays": return arr.sort((a, b) => (b.plays ?? 0) - (a.plays ?? 0));
@@ -597,6 +603,9 @@ export default function Dashboard() {
       default: return arr;
     }
   }, [tracks, sortKey]);
+
+  const totalTrackPages = Math.ceil(sortedTracks.length / TRACKS_PER_PAGE);
+  const pagedTracks = sortedTracks.slice(trackPage * TRACKS_PER_PAGE, (trackPage + 1) * TRACKS_PER_PAGE);
 
   const selectedTrack = useMemo(
     () => tracks.find((t) => t.id === selectedTrackId) ?? null,
@@ -863,11 +872,11 @@ export default function Dashboard() {
                   </Link>
                 </div>
               ) : (
-                sortedTracks.map((track, i) => (
+                pagedTracks.map((track, i) => (
                   <TrackRow
                     key={track.id}
                     track={track}
-                    index={i}
+                    index={trackPage * TRACKS_PER_PAGE + i}
                     isSelected={selectedTrackId === track.id}
                     onSelect={() => setSelectedTrackId(track.id)}
                     onPlay={() => handlePlay(track)}
@@ -882,6 +891,49 @@ export default function Dashboard() {
                 ))
               )}
             </div>
+
+            {/* Pagination */}
+            {totalTrackPages > 1 && (
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">
+                  Page {trackPage + 1} of {totalTrackPages} · {sortedTracks.length} tracks
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-7 w-7 border-white/10 bg-white/5"
+                    disabled={trackPage === 0}
+                    onClick={() => setTrackPage((p) => p - 1)}
+                    data-testid="button-tracks-prev-page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  {Array.from({ length: totalTrackPages }).map((_, p) => (
+                    <Button
+                      key={p}
+                      variant={p === trackPage ? "default" : "secondary"}
+                      size="icon"
+                      className={cn("h-7 w-7", p !== trackPage && "border-white/10 bg-white/5")}
+                      onClick={() => setTrackPage(p)}
+                      data-testid={`button-tracks-page-${p + 1}`}
+                    >
+                      <span className="text-xs">{p + 1}</span>
+                    </Button>
+                  ))}
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="h-7 w-7 border-white/10 bg-white/5"
+                    disabled={trackPage === totalTrackPages - 1}
+                    onClick={() => setTrackPage((p) => p + 1)}
+                    data-testid="button-tracks-next-page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Analytics panel — appears first on mobile (order-1), second on lg+ */}
