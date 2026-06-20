@@ -99,11 +99,6 @@ export default function AlbumDetailPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  // ── Auth guard ──────────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (!isAuthenticated) navigate("/");
-  }, [isAuthenticated, navigate]);
-
   // ── Fetch album (tracks are embedded in the response per the API docs) ───────
   const fetchAlbum = useCallback(
     async (silent = false) => {
@@ -186,19 +181,6 @@ export default function AlbumDetailPage() {
         <p className="text-muted-foreground">Album not found.</p>
       </div>
     );
-  }
-
-  let hasTokens = false;
-  try { hasTokens = !!localStorage.getItem("accessToken"); } catch {}
-  if (!isAuthenticated) {
-    if (hasTokens) {
-      return (
-        <div className="flex min-h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      );
-    }
-    return null;
   }
 
   if (loading) {
