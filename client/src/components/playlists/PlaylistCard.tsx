@@ -23,7 +23,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { usePlaylists } from "@/contexts/playlist-context";
 import { usePlayer } from "@/contexts/player-context";
-import { MoreVertical, Music, Trash2, Edit2, Share2, Globe, Users, ListEnd, ListOrdered, Loader2 } from "lucide-react";
+import { MoreVertical, Music, Trash2, Edit2, Share2, Globe, Users, ListEnd, ListOrdered, Loader2, Play } from "lucide-react";
 import { RenamePlaylistModal } from "./RenamePlaylistModal";
 import { SharePlaylistModal } from "./SharePlaylistModal";
 import { API_ENDPOINTS } from "@/lib/apiConfig";
@@ -41,11 +41,11 @@ export function PlaylistCard({ playlist, onPlaylistDeleted }: PlaylistCardProps)
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { deletePlaylist } = usePlaylists();
-  const { insertAllNext, addAllToQueue } = usePlayer();
+  const { insertAllNext, addAllToQueue, playQueue } = usePlayer();
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [isQueueing, setIsQueueing] = useState<"next" | "queue" | null>(null);
+  const [isQueueing, setIsQueueing] = useState<"play" | "next" | "queue" | null>(null);
 
   const isOwner = !playlist.myPermission || playlist.myPermission === "owner";
   const isSharedWithMe = playlist.myPermission === "view" || playlist.myPermission === "edit";
@@ -61,7 +61,7 @@ export function PlaylistCard({ playlist, onPlaylistDeleted }: PlaylistCardProps)
     }
   };
 
-  const handleQueuePlaylist = async (mode: "next" | "queue") => {
+  const handleQueuePlaylist = async (mode: "play" | "next" | "queue") => {
     setIsQueueing(mode);
     try {
       const data = await apiRequestJson<PlaylistWithTracks>(
@@ -73,7 +73,10 @@ export function PlaylistCard({ playlist, onPlaylistDeleted }: PlaylistCardProps)
         toast({ title: "No tracks", description: "This playlist has no tracks yet." });
         return;
       }
-      if (mode === "next") {
+      if (mode === "play") {
+        playQueue(tracks, 0);
+        toast({ title: `Playing ${playlist.name}`, description: `${tracks.length} track${tracks.length === 1 ? "" : "s"}` });
+      } else if (mode === "next") {
         insertAllNext(tracks);
         toast({ title: "Playing next", description: `${tracks.length} track${tracks.length === 1 ? "" : "s"} queued next` });
       } else {
@@ -144,6 +147,15 @@ export function PlaylistCard({ playlist, onPlaylistDeleted }: PlaylistCardProps)
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 {/* Queue actions — available to everyone */}
+                <DropdownMenuItem
+                  onClick={(e) => { e.stopPropagation(); handleQueuePlaylist("play"); }}
+                  disabled={isQueueing !== null}
+                  data-testid={`menu-play-all-playlist-${playlist.id}`}
+                >
+                  <Play className="h-4 w-4 mr-2 text-muted-foreground" />
+                  Play all
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={(e) => { e.stopPropagation(); handleQueuePlaylist("next"); }}
                   disabled={isQueueing !== null}
