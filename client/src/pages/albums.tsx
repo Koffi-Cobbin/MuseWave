@@ -14,6 +14,8 @@ import {
   Globe,
   Lock,
   Trash2,
+  ListEnd,
+  ListOrdered,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -82,7 +84,7 @@ export default function MyAlbums() {
   const [, navigate] = useLocation();
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const { playQueue } = usePlayer();
+  const { playQueue, insertAllNext, addAllToQueue } = usePlayer();
 
   const {
     sharedByMeAlbums,
@@ -172,24 +174,50 @@ export default function MyAlbums() {
     );
   }, [albums, albumSearch]);
 
+  // ── Fetch album tracks (shared by play/next/queue handlers) ───────────
+  const fetchAlbumTracks = useCallback(async (album: Album): Promise<Track[]> => {
+    const data = await apiRequestJson<Album & { tracks?: Track[] }>(
+      "GET",
+      API_ENDPOINTS.albums.byId(album.id),
+    );
+    return data.tracks ?? [];
+  }, []);
+
   // ── Play all tracks in an album ────────────────────────────────────────
   const handlePlayAlbum = useCallback(async (album: Album) => {
     try {
-      const data = await apiRequestJson<Album & { tracks?: Track[] }>(
-        "GET",
-        API_ENDPOINTS.albums.byId(album.id),
-      );
-      const tracks = data.tracks ?? [];
-      if (!tracks.length) {
-        toast({ title: "No tracks in this album" });
-        return;
-      }
+      const tracks = await fetchAlbumTracks(album);
+      if (!tracks.length) { toast({ title: "No tracks in this album" }); return; }
       playQueue(tracks, 0);
       toast({ title: `Playing ${album.title}`, description: `${tracks.length} track${tracks.length !== 1 ? "s" : ""}` });
     } catch {
       toast({ variant: "destructive", title: "Couldn't load album tracks" });
     }
-  }, [playQueue, toast]);
+  }, [fetchAlbumTracks, playQueue, toast]);
+
+  // ── Play next ──────────────────────────────────────────────────────────
+  const handlePlayAlbumNext = useCallback(async (album: Album) => {
+    try {
+      const tracks = await fetchAlbumTracks(album);
+      if (!tracks.length) { toast({ title: "No tracks in this album" }); return; }
+      insertAllNext(tracks);
+      toast({ title: "Playing next", description: `${tracks.length} track${tracks.length !== 1 ? "s" : ""} queued next` });
+    } catch {
+      toast({ variant: "destructive", title: "Couldn't load album tracks" });
+    }
+  }, [fetchAlbumTracks, insertAllNext, toast]);
+
+  // ── Add to queue ───────────────────────────────────────────────────────
+  const handleAddAlbumToQueue = useCallback(async (album: Album) => {
+    try {
+      const tracks = await fetchAlbumTracks(album);
+      if (!tracks.length) { toast({ title: "No tracks in this album" }); return; }
+      addAllToQueue(tracks);
+      toast({ title: "Added to queue", description: `${tracks.length} track${tracks.length !== 1 ? "s" : ""} added to queue` });
+    } catch {
+      toast({ variant: "destructive", title: "Couldn't load album tracks" });
+    }
+  }, [fetchAlbumTracks, addAllToQueue, toast]);
 
   // ── Toggle publish state ────────────────────────────────────────────────
   const handleTogglePublish = useCallback(async (album: Album) => {
@@ -445,6 +473,20 @@ export default function MyAlbums() {
                             >
                               <Play className="mr-2 h-3.5 w-3.5" />
                               Play All
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => handlePlayAlbumNext(album)}
+                              data-testid={`menu-play-next-album-${album.id}`}
+                            >
+                              <ListEnd className="mr-2 h-3.5 w-3.5" />
+                              Play Next
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => handleAddAlbumToQueue(album)}
+                              data-testid={`menu-add-to-queue-album-${album.id}`}
+                            >
+                              <ListOrdered className="mr-2 h-3.5 w-3.5" />
+                              Add to Queue
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
