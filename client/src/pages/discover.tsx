@@ -222,7 +222,10 @@ export default function Discover() {
   const genreCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     for (const t of allTracks) {
-      counts[t.genre] = (counts[t.genre] ?? 0) + 1;
+      const gs = Array.isArray(t.genre) ? t.genre : [t.genre];
+      for (const g of gs) {
+        if (g) counts[g] = (counts[g] ?? 0) + 1;
+      }
     }
     return counts;
   }, [allTracks]);

@@ -7,6 +7,7 @@ Database is SQLite.
 
 - **User Management**: Create, read, update users with profiles and social links
 - **Track Management**: Upload, manage, and publish music tracks
+- **Multi-Genre Tracks**: The `genre` field is a JSON array — each track can belong to multiple genres (e.g. `["Pop", "Electronic"]`). Genres are auto-created in the Genre catalogue on first use
 - **Social Features**: Like tracks, follow artists, comment on tracks
 - **Analytics**: Track plays, downloads, user statistics, and engagement metrics
 - **Search**: Full-text search for tracks and users
@@ -110,7 +111,7 @@ The `published` Boolean works independently — it controls "released" vs. "draf
 - Detail / stream / download / play endpoints — private tracks return `404` for non-owners and users without a share
 - Artist listing (`GET /api/artists`) — only public tracks count toward artist eligibility
 
-- `GET /api/tracks` - List all tracks (filters: userId, genre, mood, tags, published, visibility; sorting: sortBy, sortOrder; pagination: limit, offset)
+- `GET /api/tracks` - List all tracks (filters: userId, genre, mood, tags, published, visibility; sorting: sortBy, sortOrder; pagination: limit, offset). The `genre` filter matches tracks whose genre array contains the supplied value (case-insensitive)
 - `POST /api/tracks/create` - Create a new track (optional `visibility` field, defaults to `"public"`)
 - `GET /api/tracks/<track_id>` - Get track by ID (returns 404 for private tracks if not authorized)
 - `PATCH /api/tracks/<track_id>` - Update track metadata (owner only — returns 403 otherwise)
@@ -182,6 +183,59 @@ Staff-curated promotion of selected tracks. All management endpoints are staff-o
 - `PATCH /api/featured-tracks/<id>` - Update a featured entry (order, label, is_active, end_date). Staff only
 - `DELETE /api/featured-tracks/<id>` - Remove a track from featured list. Staff only
 - `POST /api/featured-tracks/reorder` - Batch reorder. Body: `[{"id": "uuid", "order": 0}, ...]`. Staff only
+
+### Music Recognition (Shazam)
+
+Audio fingerprinting via the Shazam API. All endpoints are under `/api/shazam/`.
+
+- `POST /api/shazam/recognize` — Submit an audio file for recognition. Returns a `job_id`. The recognition runs as a background task (Django-Q2)
+- `GET /api/shazam/recognize/<job_id>` — Poll for the result of a recognition job. Returns `status: "pending" | "done" | "failed"`, the matched `track` object, and `rights` data from MusicBrainz
+- `GET /api/shazam/search?q=<query>` — Search Shazam's catalogue by text query
+- `GET /api/shazam/charts` — Top world tracks from Shazam
+- `GET /api/shazam/charts/<country_code>` — Top tracks for a specific country (ISO 3166-1 alpha-2)
+- `GET /api/shazam/charts/genre/<genre_id>` — Top tracks for a Shazam genre ID
+- `GET /api/shazam/artists/<artist_id>` — Shazam artist detail
+- `GET /api/shazam/tracks/<track_id>` — Shazam track detail
+
+#### Recognition pipeline — genre backfill
+
+When a recognition job completes and finds a match (title + artist) in the MuseWave Track database, the pipeline:
+
+1. Backfills `isrc`, `shazam_cover_url`, `musicbrainz_id`, `label`, and `licensing_status` on the matched Track record(s)
+2. **Merges genres** into the matched Track's `genre` array:
+   - Shazam returns a primary genre for the recognised recording (e.g. `"Pop"`)
+   - MusicBrainz returns folksonomy tags (e.g. `["Pop", "Synth-pop"]`) when a recording is found via ISRC or title+artist search
+   - New genres are appended to the existing `genre` array (case-insensitive deduplication; existing genres are never removed)
+   - Any new genre string is automatically created in the Genre catalogue
+
+#### Recognition job response
+
+```json
+{
+  "job_id": "abc-123",
+  "status": "done",
+  "matched": true,
+  "track": {
+    "title": "Summer Vibes",
+    "artist": "John Doe",
+    "genres": ["Pop"],
+    "isrc": "USRC12345678",
+    "shazam_cover_url": "https://cdn.shazam.com/...",
+    "label": "Indie Label",
+    "musicbrainz_id": "mb-recording-uuid",
+    "licensing_status": "unknown",
+    "shazam_url": "https://www.shazam.com/track/..."
+  },
+  "rights": {
+    "isrc": "USRC12345678",
+    "label": "Indie Label",
+    "licensing_status": "unknown",
+    "can_use": false,
+    "genres": ["Pop", "Indie Pop"],
+    "source": "musicbrainz"
+  }
+}
+```
 
 ### Search
 
@@ -405,7 +459,7 @@ Content-Type: application/json
   "title": "Summer Vibes",
   "artist": "John Doe",
   "artist_slug": "john-doe",
-  "genre": "Electronic",
+  "genre": ["Electronic"],
   "audio_duration": 240.5,
   "audio_format": "mp3",
   "published": true,
@@ -416,7 +470,8 @@ Content-Type: application/json
 
 > `video_url`, `lyrics`, and `visibility` are optional. Omit `visibility` or pass `"public"` for a publicly visible track. Pass `"private"` for owner-only access.
 > The owner's `is_artist` flag is automatically set to `true` on the first track creation.
-> **Genre auto-creation:** If the `genre` value does not match any existing `Genre` catalogue entry (case-insensitive lookup), a new `Genre` record is automatically created with the supplied name and an auto-generated slug. This keeps the genre dropdown in sync without manual staff intervention.
+> **Multi-genre support:** `genre` is a JSON array — pass one or more genre strings: `["Pop"]`, `["Pop", "Electronic"]`, or even a bare string `"Pop"` (normalised to `["Pop"]`). All formats are accepted on both create and update.
+> **Genre auto-creation:** Any genre name that does not match an existing `Genre` catalogue entry (case-insensitive) is automatically created with an auto-generated slug. This keeps the genre dropdown in sync without manual staff intervention.
 
 **Response:**
 ```json
@@ -426,7 +481,7 @@ Content-Type: application/json
   "album_id": null,
   "title": "Summer Vibes",
   "artist": "John Doe",
-  "genre": "Electronic",
+  "genre": ["Electronic"],
   "audio_duration": 240.5,
   "audio_format": "mp3",
   "video_url": "https://youtube.com/watch?v=abc123",
@@ -458,7 +513,7 @@ GET /api/tracks/track-uuid-1
   "artist": "John Doe",
   "artist_slug": "john-doe",
   "description": null,
-  "genre": "Electronic",
+  "genre": ["Electronic"],
   "mood": "Happy",
   "tags": ["summer", "dance"],
   "audio_url": "https://cdn.example.com/tracks/summer-vibes.mp3",
@@ -959,7 +1014,7 @@ GET /api/search?q=summer&type=all&limit=20
       "id": "track-uuid-1",
       "title": "Summer Vibes",
       "artist": "John Doe",
-      "genre": "Electronic",
+      "genre": ["Electronic"],
       "video_url": "https://youtube.com/watch?v=abc123",
       "lyrics": "Verse 1\n...",
       "plays": 150,
@@ -1040,7 +1095,7 @@ Content-Type: application/json
 - Relationships: `user` (owner), `tracks` (one-to-many)
 
 ### Track
-- Info: `title`, `artist`, `description`, `genre`, `mood`, `tags`
+- Info: `title`, `artist`, `description`, `genre` *(JSON array of strings — supports multiple genres)*, `mood`, `tags`
 - Audio: `audio_url`, `file_size`, `duration`, `format`
 - Video: `video_url` *(optional — externally hosted URL)*
 - Lyrics: `lyrics` *(optional — plain text, newlines preserved)*
@@ -1050,6 +1105,7 @@ Content-Type: application/json
 - Stats: `plays`, `likes`, `downloads`, `shares`
 - Status: `published`, `published_at`
 - **Visibility:** `visibility` — `"public"` (default) or `"private"`; controls who can view/stream/discover the track
+- **Shazam/MusicBrainz enrichment:** `isrc`, `musicbrainz_id`, `label`, `licensing_status`, `shazam_cover_url` — backfilled automatically by the recognition pipeline when a matching track is found. The `genre` list is also expanded with genres returned by Shazam and MusicBrainz tags
 - **Indexes:** `(user, published)`, `genre`, `-plays`, `-created_at`, `visibility`
 
 ### Like
@@ -1174,7 +1230,7 @@ curl -X POST http://localhost:5000/api/tracks/create \
     "title": "Awesome Song",
     "artist": "Music Fan",
     "artist_slug": "music-fan",
-    "genre": "Pop",
+    "genre": ["Pop"],
     "audio_duration": 180,
     "published": true,
     "video_url": "https://youtube.com/watch?v=xyz",
@@ -1189,7 +1245,7 @@ curl -X POST http://localhost:5000/api/tracks/create \
     "title": "Secret Demo",
     "artist": "Music Fan",
     "artist_slug": "music-fan",
-    "genre": "Pop",
+    "genre": ["Pop"],
     "audio_duration": 180,
     "published": true,
     "visibility": "private"

@@ -153,6 +153,13 @@ export const API_ENDPOINTS = {
     markRead: (id: string) => `/api/notifications/${id}/read`,
     markAllRead: '/api/notifications/mark-all-read',
   },
+
+  // Shazam / Music Recognition
+  shazam: {
+    recognize: '/api/shazam/recognize',
+    recognizeResult: (jobId: string) => `/api/shazam/recognize/${jobId}`,
+    search: '/api/shazam/search',
+  },
 } as const;
 
 // Helper function to get the full streaming URL for a track

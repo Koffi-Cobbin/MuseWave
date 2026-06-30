@@ -79,7 +79,9 @@ export function TrackActionsMenu({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [editTitle, setEditTitle] = useState(track.title);
-  const [editGenre, setEditGenre] = useState(track.genre ?? "");
+  const [editGenre, setEditGenre] = useState(
+    Array.isArray(track.genre) ? (track.genre[0] ?? "") : (track.genre ?? "")
+  );
   const [editDescription, setEditDescription] = useState(track.description ?? "");
   const [editVisibility, setEditVisibility] = useState<"public" | "private">(
     (track as any).visibility ?? "public"
@@ -319,7 +321,7 @@ export function TrackActionsMenu({
               <DropdownMenuItem
                 onClick={() => {
                   setEditTitle(track.title);
-                  setEditGenre(track.genre ?? "");
+                  setEditGenre(Array.isArray(track.genre) ? (track.genre[0] ?? "") : (track.genre ?? ""));
                   setEditDescription(track.description ?? "");
                   setEditVisibility((track as any).visibility ?? "public");
                   setShowEditDialog(true);

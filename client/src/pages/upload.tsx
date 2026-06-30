@@ -14,9 +14,11 @@ import {
   Loader2,
   Lock,
   Music2,
+  Search,
   Sparkles,
   User as UserIcon,
   X,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,9 +38,10 @@ import { apiRequestJson, apiRequestFormData } from "@/lib/queryClient";
 interface UploadDraft {
   title: string;
   artist: string;
+  originalArtist: string;
   email: string;
-  genre: string;
-  mood: string;
+  genres: string[];
+  moods: string[];
   description: string;
   lyrics: string;
   videoUrl: string;
@@ -47,12 +50,13 @@ interface UploadDraft {
   visibility: "public" | "private";
 }
 
+type RecognitionStatus = "idle" | "processing" | "matched" | "no_match" | "error";
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
 
 const MOODS = [
   "Chill", "Energetic", "Melancholic", "Uplifting", "Dark", "Romantic",
@@ -81,6 +85,68 @@ function getAudioDuration(file: File): Promise<number> {
     };
     audio.onerror = () => { URL.revokeObjectURL(url); resolve(0); };
   });
+}
+
+// Write a 4-char ASCII string into a DataView
+function writeStr(view: DataView, offset: number, str: string) {
+  for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+}
+
+// Encode an AudioBuffer as a 16-bit PCM WAV ArrayBuffer
+function audioBufferToWav(buffer: AudioBuffer): ArrayBuffer {
+  const numCh = buffer.numberOfChannels;
+  const sr = buffer.sampleRate;
+  const len = buffer.length;
+  const byteLen = 44 + len * numCh * 2;
+  const ab = new ArrayBuffer(byteLen);
+  const view = new DataView(ab);
+
+  writeStr(view, 0, "RIFF");
+  view.setUint32(4, byteLen - 8, true);
+  writeStr(view, 8, "WAVE");
+  writeStr(view, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);          // PCM
+  view.setUint16(22, numCh, true);
+  view.setUint32(24, sr, true);
+  view.setUint32(28, sr * numCh * 2, true);
+  view.setUint16(32, numCh * 2, true);
+  view.setUint16(34, 16, true);
+  writeStr(view, 36, "data");
+  view.setUint32(40, len * numCh * 2, true);
+
+  let off = 44;
+  for (let i = 0; i < len; i++) {
+    for (let ch = 0; ch < numCh; ch++) {
+      const s = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+      view.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+      off += 2;
+    }
+  }
+  return ab;
+}
+
+// Decode `file`, trim to `seconds`, re-encode as WAV File
+async function extractFirstSeconds(file: File, seconds: number): Promise<File> {
+  const arrayBuffer = await file.arrayBuffer();
+  const audioCtx = new AudioContext();
+  let decoded: AudioBuffer;
+  try {
+    decoded = await audioCtx.decodeAudioData(arrayBuffer);
+  } finally {
+    audioCtx.close();
+  }
+  const sr = decoded.sampleRate;
+  const numCh = decoded.numberOfChannels;
+  const targetLen = Math.min(Math.floor(seconds * sr), decoded.length);
+  const offCtx = new OfflineAudioContext(numCh, targetLen, sr);
+  const src = offCtx.createBufferSource();
+  src.buffer = decoded;
+  src.connect(offCtx.destination);
+  src.start(0);
+  const rendered = await offCtx.startRendering();
+  const wav = audioBufferToWav(rendered);
+  return new File([wav], "snippet.wav", { type: "audio/wav" });
 }
 
 // ─── Step indicator ──────────────────────────────────────────────────────────
@@ -153,7 +219,6 @@ function DropZone({
   );
 
   const handleClear = (e: React.MouseEvent) => {
-    // Prevent the click from bubbling to the label (which would re-open the picker)
     e.preventDefault();
     e.stopPropagation();
     if (inputRef.current) inputRef.current.value = "";
@@ -203,9 +268,6 @@ function DropZone({
           <X className="h-3.5 w-3.5" />
         </button>
       )}
-      {/* sr-only instead of hidden — display:none blocks iOS Safari's file picker
-          even when triggered via a native <label>. sr-only keeps it in the DOM
-          and accessible while remaining visually invisible. */}
       {sizeError && (
         <p className="relative z-10 mt-1 text-xs font-medium text-red-400">
           File exceeds 10 MB limit — please choose a smaller file.
@@ -265,7 +327,6 @@ function LivePreview({
         {previewUrl && (
           <img src={previewUrl} alt="Cover preview" className="h-full w-full object-cover" />
         )}
-        {/* Floating track info overlay */}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-3 pt-6">
           <div className="truncate text-sm font-bold" data-testid="preview-title">
             {draft.title || "Track Title"}
@@ -278,12 +339,12 @@ function LivePreview({
 
       {/* Metadata chips */}
       <div className="mb-3 flex flex-wrap gap-1.5">
-        {draft.genre && (
-          <Badge variant="secondary" className="border-white/10 bg-white/5 text-[10px]">{draft.genre}</Badge>
-        )}
-        {draft.mood && (
-          <Badge variant="secondary" className="border-white/10 bg-white/5 text-[10px]">{draft.mood}</Badge>
-        )}
+        {draft.genres.map((g) => (
+          <Badge key={g} variant="secondary" className="border-white/10 bg-white/5 text-[10px]">{g}</Badge>
+        ))}
+        {draft.moods.map((m) => (
+          <Badge key={m} variant="secondary" className="border-fuchsia-500/20 bg-fuchsia-500/8 text-fuchsia-300 text-[10px]">{m}</Badge>
+        ))}
       </div>
 
       {/* Audio preview */}
@@ -332,6 +393,58 @@ function LivePreview({
   );
 }
 
+// ─── Recognition Status Banner ───────────────────────────────────────────────
+
+function RecognitionBanner({ status, matchedTitle, matchedArtist }: {
+  status: RecognitionStatus;
+  matchedTitle?: string;
+  matchedArtist?: string;
+}) {
+  if (status === "idle") return null;
+
+  if (status === "processing") {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-primary/20 bg-primary/8 px-3 py-2.5" data-testid="status-recognition-processing">
+        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary" />
+        <div>
+          <div className="text-xs font-medium text-primary">Recognizing track…</div>
+          <div className="text-[10px] text-muted-foreground">Checking first 15 seconds against music database</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "matched") {
+    return (
+      <div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/25 bg-emerald-500/8 px-3 py-2.5" data-testid="status-recognition-matched">
+        <Zap className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-400" />
+        <div className="min-w-0">
+          <div className="text-xs font-medium text-emerald-400">Track recognized!</div>
+          {matchedTitle && (
+            <div className="mt-0.5 text-[10px] text-muted-foreground truncate">
+              <span className="text-foreground">{matchedTitle}</span>
+              {matchedArtist && <> · {matchedArtist}</>}
+            </div>
+          )}
+          <div className="text-[10px] text-muted-foreground">Form pre-filled with metadata</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "no_match") {
+    return (
+      <div className="flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/4 px-3 py-2.5" data-testid="status-recognition-no-match">
+        <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <div className="text-xs text-muted-foreground">No match found — fill in details manually</div>
+      </div>
+    );
+  }
+
+  // error — silent, don't disrupt the user
+  return null;
+}
+
 // ─── Upload Page ──────────────────────────────────────────────────────────────
 
 export default function Upload() {
@@ -339,12 +452,8 @@ export default function Upload() {
   const { user: authUser, isLoading: authLoading } = useAuth();
   const { genres } = useGenres();
 
-  // Derive whether the logged-in user is already an artist.
-  // authUser.isArtist is the camelCase form stored after toCamelCaseObject;
-  // fall back to the raw snake_case field in case the login path stored it directly.
   const isLoggedInArtist = !!(authUser && ((authUser as any).isArtist || (authUser as any).is_artist));
 
-  // Helper to read the display name from the Django response (may be snake_case or camelCase)
   const authDisplayName = authUser
     ? (authUser as any).display_name || authUser.displayName || authUser.username || ""
     : "";
@@ -352,9 +461,10 @@ export default function Upload() {
   const [draft, setDraft] = useState<UploadDraft>({
     title: "",
     artist: isLoggedInArtist ? authDisplayName : "",
+    originalArtist: "",
     email: isLoggedInArtist ? (authUser?.email ?? "") : "",
-    genre: "Indie",
-    mood: "",
+    genres: ["Indie"],
+    moods: [],
     description: "",
     lyrics: "",
     videoUrl: "",
@@ -363,16 +473,20 @@ export default function Upload() {
     visibility: "public",
   });
 
-  const [step, setStep] = useState(0); // 0 = track info, 1 = files, 2 = done
+  const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState("");
   const [createdTrackId, setCreatedTrackId] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  const [customGenreInput, setCustomGenreInput] = useState("");
 
-  // Android treats `audio/*` as a playback intent → shows "Open With" popup instead of file picker.
-  // Strip the wildcard on Android but keep it on iOS/desktop where it works fine.
+  // Recognition state
+  const [recognitionStatus, setRecognitionStatus] = useState<RecognitionStatus>("idle");
+  const [recognitionMatch, setRecognitionMatch] = useState<{ title: string; artist: string } | null>(null);
+  const recognitionAbortRef = useRef<AbortController | null>(null);
+
   const audioAccept = useMemo(() => {
     const isAndroid = /android/i.test(navigator.userAgent);
     return isAndroid
@@ -380,7 +494,6 @@ export default function Upload() {
       : "audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.aiff,.aif";
   }, []);
 
-  // When auth state resolves (e.g. on page load), sync artist + email into draft
   useEffect(() => {
     if (isLoggedInArtist) {
       setDraft((d) => ({
@@ -392,10 +505,14 @@ export default function Upload() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authUser?.id]);
 
-  // Scroll to top whenever the step changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
+
+  // Cleanup recognition abort on unmount
+  useEffect(() => {
+    return () => { recognitionAbortRef.current?.abort(); };
+  }, []);
 
   const coverGradient = useMemo(() => gradientFromTitle(draft.title), [draft.title]);
 
@@ -421,6 +538,158 @@ export default function Upload() {
     }
   }
 
+  // Toggle a genre in/out of the selected genres array
+  function toggleGenre(g: string) {
+    setDraft((d) => ({
+      ...d,
+      genres: d.genres.includes(g)
+        ? d.genres.filter((x) => x !== g)
+        : [...d.genres, g],
+    }));
+  }
+
+  // Add a custom genre from the text input
+  function addCustomGenre() {
+    const val = customGenreInput.trim();
+    if (!val) return;
+    setDraft((d) => ({
+      ...d,
+      genres: d.genres.includes(val) ? d.genres : [...d.genres, val],
+    }));
+    setCustomGenreInput("");
+  }
+
+  // Toggle a mood in/out of the selected moods array
+  function toggleMood(m: string) {
+    setDraft((d) => ({
+      ...d,
+      moods: d.moods.includes(m)
+        ? d.moods.filter((x) => x !== m)
+        : [...d.moods, m],
+    }));
+  }
+
+  // ── Music recognition pipeline ──────────────────────────────────────────────
+  async function runRecognition(file: File) {
+    // Cancel any in-flight recognition
+    recognitionAbortRef.current?.abort();
+    const abort = new AbortController();
+    recognitionAbortRef.current = abort;
+
+    setRecognitionStatus("processing");
+    setRecognitionMatch(null);
+
+    try {
+      // 1. Extract first 15 seconds as WAV
+      let snippet: File;
+      try {
+        snippet = await extractFirstSeconds(file, 15);
+      } catch {
+        // If audio decoding fails (unsupported codec, etc.) skip recognition silently
+        setRecognitionStatus("error");
+        return;
+      }
+
+      if (abort.signal.aborted) return;
+
+      // 2. Submit for recognition
+      const fd = new FormData();
+      fd.append("audio_file", snippet, "snippet.wav");
+
+      let jobId: string;
+      try {
+        const res = await apiRequestFormData<{ job_id: string }>(
+          "POST",
+          API_ENDPOINTS.shazam.recognize,
+          fd
+        );
+        jobId = res.job_id;
+      } catch {
+        setRecognitionStatus("error");
+        return;
+      }
+
+      if (abort.signal.aborted) return;
+
+      // 3. Poll for result (max 20 × 2s = 40s)
+      for (let i = 0; i < 20; i++) {
+        await sleep(2000);
+        if (abort.signal.aborted) return;
+
+        let result: any;
+        try {
+          result = await apiRequestJson(
+            "GET",
+            API_ENDPOINTS.shazam.recognizeResult(jobId)
+          );
+        } catch {
+          continue; // transient error — keep polling
+        }
+
+        if (abort.signal.aborted) return;
+
+        if (result.status === "done") {
+          if (result.matched && result.track) {
+            const t = result.track;
+            setRecognitionMatch({ title: t.title ?? "", artist: t.artist ?? "" });
+            setRecognitionStatus("matched");
+
+            // Backfill form fields
+            setDraft((d) => {
+              // Merge genres (case-insensitive dedup)
+              const existingLower = d.genres.map((x) => x.toLowerCase());
+              const incoming: string[] = Array.isArray(t.genres) ? t.genres : [];
+              // Also pull genres from rights if present
+              const fromRights: string[] = Array.isArray(result.rights?.genres) ? result.rights.genres : [];
+              const merged = [...d.genres];
+              for (const g of [...incoming, ...fromRights]) {
+                if (g && !existingLower.includes(g.toLowerCase())) {
+                  merged.push(g);
+                  existingLower.push(g.toLowerCase());
+                }
+              }
+              return {
+                ...d,
+                // Only backfill title if user hasn't typed one
+                title: d.title.trim() ? d.title : (t.title ?? d.title),
+                originalArtist: t.artist ?? d.originalArtist,
+                genres: merged,
+              };
+            });
+          } else {
+            setRecognitionStatus("no_match");
+          }
+          return;
+        }
+
+        if (result.status === "failed") {
+          setRecognitionStatus("no_match");
+          return;
+        }
+        // status === "pending" → keep polling
+      }
+
+      // Timed out
+      setRecognitionStatus("no_match");
+    } catch {
+      if (!abort.signal.aborted) setRecognitionStatus("error");
+    }
+  }
+
+  // Called when audio file is selected
+  function handleAudioFile(f: File | null) {
+    // Cancel any prior recognition
+    recognitionAbortRef.current?.abort();
+    if (!f) {
+      setRecognitionStatus("idle");
+      setRecognitionMatch(null);
+      update("audioFile", null);
+      return;
+    }
+    update("audioFile", f);
+    runRecognition(f);
+  }
+
   async function onSubmit() {
     if (!draft.title.trim()) return toast({ title: "Missing title", variant: "destructive" });
     if (!draft.artist.trim()) return toast({ title: "Missing artist name", variant: "destructive" });
@@ -436,11 +705,9 @@ export default function Upload() {
       let isNewUser = false;
 
       if (authUser) {
-        // ── Already logged in — use this account directly, skip all user lookup/create ──
         userId = authUser.id;
         setUploadProgress("Processing audio…");
       } else {
-        // ── Guest flow — look up or create a user account ──
         setUploadProgress("Checking artist profile…");
 
         let existingUser: any = null;
@@ -484,16 +751,26 @@ export default function Upload() {
       try { audioDuration = await getAudioDuration(draft.audioFile); } catch { }
 
       setUploadProgress("Uploading files…");
+
+      const resolvedGenres = draft.genres.length > 0 ? draft.genres : ["Indie"];
+      const originalArtist = draft.originalArtist.trim() || draft.artist.trim();
+
       const formData = new FormData();
       formData.append("user_id", userId);
       formData.append("title", draft.title.trim());
       formData.append("artist", draft.artist.trim());
+      formData.append("original_artist", originalArtist);
       formData.append("artist_slug", artistSlug);
       if (draft.description.trim()) formData.append("description", draft.description.trim());
-      formData.append("genre", draft.genre.trim() || "Indie");
-      if (draft.mood.trim()) formData.append("mood", draft.mood.trim());
-      const tags = draft.mood ? [draft.mood.toLowerCase(), draft.genre.toLowerCase()] : [draft.genre.toLowerCase()];
-      formData.append("tags", JSON.stringify(tags));
+      formData.append("genre", JSON.stringify(resolvedGenres));
+      if (draft.moods.length > 0) formData.append("mood", draft.moods.join(", "));
+
+      const tagParts = [
+        ...draft.moods.map((m) => m.toLowerCase()),
+        ...resolvedGenres.map((g) => g.toLowerCase()),
+      ];
+      formData.append("tags", JSON.stringify(Array.from(new Set(tagParts))));
+
       formData.append("audio_file", draft.audioFile);
       formData.append("audio_file_size", draft.audioFile.size.toString());
       formData.append("audio_duration", Math.round(audioDuration).toString());
@@ -541,7 +818,6 @@ export default function Upload() {
     return (
       <div className="min-h-screen bg-[radial-gradient(1200px_420px_at_20%_0%,rgba(16,185,129,0.18),transparent_60%),radial-gradient(1100px_520px_at_80%_10%,rgba(168,85,247,0.14),transparent_62%),radial-gradient(900px_400px_at_50%_100%,rgba(34,211,238,0.10),transparent_55%)]">
         <div className="mx-auto max-w-lg px-3 py-12 sm:px-4">
-          {/* Back */}
           <Link
             href="/"
             className="mb-8 flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -556,7 +832,6 @@ export default function Upload() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            {/* Success card */}
             <div className="glass glow noise rounded-3xl border border-white/10 p-6 sm:p-8 text-center">
               <motion.div
                 initial={{ scale: 0 }}
@@ -567,7 +842,6 @@ export default function Upload() {
                 <CheckCircle2 className="h-8 w-8 text-primary" />
               </motion.div>
 
-              {/* Cover preview */}
               <div
                 className={cn(
                   "mx-auto mb-5 h-28 w-28 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br",
@@ -611,9 +885,10 @@ export default function Upload() {
                     setDraft({
                       title: "",
                       artist: isLoggedInArtist ? authDisplayName : "",
+                      originalArtist: "",
                       email: isLoggedInArtist ? (authUser?.email ?? "") : "",
-                      genre: "Indie",
-                      mood: "",
+                      genres: ["Indie"],
+                      moods: [],
                       description: "",
                       lyrics: "",
                       videoUrl: "",
@@ -623,6 +898,8 @@ export default function Upload() {
                     });
                     setPreviewUrl(null);
                     setAudioPreviewUrl(null);
+                    setRecognitionStatus("idle");
+                    setRecognitionMatch(null);
                     setSubmitted(false);
                     setStep(0);
                   }}
@@ -633,7 +910,6 @@ export default function Upload() {
               </div>
             </div>
 
-            {/* Artist page link display */}
             <div className="mt-4 glass rounded-2xl border border-white/10 p-4">
               <div className="text-xs text-muted-foreground mb-1.5">Your artist page</div>
               <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/4 px-3 py-2">
@@ -719,7 +995,7 @@ export default function Upload() {
                         />
                       </div>
 
-                      {/* Artist + Email — hidden when the user is a logged-in artist */}
+                      {/* Artist + Email */}
                       {authLoading ? (
                         <div className="h-10 w-full animate-pulse rounded-xl border border-white/10 bg-white/4" />
                       ) : isLoggedInArtist ? (
@@ -759,9 +1035,14 @@ export default function Upload() {
                         </div>
                       )}
 
-                      {/* Genre pills — horizontally scrollable */}
+                      {/* Genre pills — multi-select */}
                       <div className="grid gap-1.5">
-                        <Label className="text-xs">Genre</Label>
+                        <Label className="text-xs">
+                          Genre
+                          {draft.genres.length > 0 && (
+                            <span className="ml-1.5 text-muted-foreground font-normal">({draft.genres.length} selected)</span>
+                          )}
+                        </Label>
                         <div
                           className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
                           ref={(el) => {
@@ -781,10 +1062,10 @@ export default function Upload() {
                             <button
                               key={g}
                               type="button"
-                              onClick={() => update("genre", g)}
+                              onClick={() => toggleGenre(g)}
                               className={cn(
                                 "shrink-0 rounded-full border px-3 py-1 text-xs transition-all",
-                                draft.genre === g
+                                draft.genres.includes(g)
                                   ? "border-primary/50 bg-primary/15 text-primary"
                                   : "border-white/10 bg-white/4 text-muted-foreground hover:border-white/20 hover:text-foreground"
                               )}
@@ -794,31 +1075,62 @@ export default function Upload() {
                             </button>
                           ))}
                         </div>
-                        {/* Custom genre input — shown when the typed value isn't in the list */}
-                        {draft.genre && !genres.includes(draft.genre) && (
+                        {/* Custom genre chips (genres not in the standard list) */}
+                        {draft.genres.filter((g) => !genres.includes(g)).map((g) => (
+                          <div key={g} className="flex items-center gap-1.5">
+                            <span className="rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs text-primary">{g}</span>
+                            <button
+                              type="button"
+                              onClick={() => toggleGenre(g)}
+                              className="flex h-5 w-5 items-center justify-center rounded-full bg-white/8 text-muted-foreground hover:bg-white/14 hover:text-foreground transition"
+                              data-testid={`remove-genre-${g.toLowerCase().replace(/[\s/&]/g, "-")}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                        {/* Add custom genre */}
+                        <div className="flex items-center gap-1.5 mt-0.5">
                           <Input
-                            value={draft.genre}
-                            onChange={(e) => update("genre", e.target.value)}
-                            placeholder="Custom genre…"
-                            className="mt-1 h-9 text-xs"
-                            data-testid="input-genre"
+                            value={customGenreInput}
+                            onChange={(e) => setCustomGenreInput(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustomGenre(); } }}
+                            placeholder="Add custom genre… (Enter)"
+                            className="h-8 flex-1 text-xs"
+                            data-testid="input-custom-genre"
                             disabled={isSubmitting}
                           />
-                        )}
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-8 px-3 text-xs border-white/10 bg-white/5"
+                            onClick={addCustomGenre}
+                            disabled={!customGenreInput.trim() || isSubmitting}
+                            data-testid="button-add-custom-genre"
+                          >
+                            Add
+                          </Button>
+                        </div>
                       </div>
 
-                      {/* Mood pills */}
+                      {/* Mood pills — multi-select */}
                       <div className="grid gap-1.5">
-                        <Label className="text-xs">Mood <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                        <Label className="text-xs">
+                          Mood
+                          <span className="text-muted-foreground font-normal ml-1">
+                            (optional{draft.moods.length > 0 ? `, ${draft.moods.length} selected` : ""})
+                          </span>
+                        </Label>
                         <div className="flex flex-wrap gap-1.5">
                           {MOODS.map((m) => (
                             <button
                               key={m}
                               type="button"
-                              onClick={() => update("mood", draft.mood === m ? "" : m)}
+                              onClick={() => toggleMood(m)}
                               className={cn(
                                 "rounded-full border px-3 py-1 text-xs transition-all",
-                                draft.mood === m
+                                draft.moods.includes(m)
                                   ? "border-fuchsia-500/50 bg-fuchsia-500/15 text-fuchsia-300"
                                   : "border-white/10 bg-white/4 text-muted-foreground hover:border-white/20 hover:text-foreground"
                               )}
@@ -830,7 +1142,7 @@ export default function Upload() {
                         </div>
                       </div>
 
-                      {/* ── Visibility toggle ── */}
+                      {/* Visibility toggle */}
                       <div className="grid gap-1.5">
                         <Label className="text-xs">Visibility</Label>
                         <div className="flex gap-2">
@@ -961,8 +1273,15 @@ export default function Upload() {
                         icon={AudioLines}
                         fileName={draft.audioFile?.name}
                         disabled={isSubmitting}
-                        onFile={(f) => update("audioFile", f)}
+                        onFile={handleAudioFile}
                         data-testid="label-audio-upload"
+                      />
+
+                      {/* Recognition status */}
+                      <RecognitionBanner
+                        status={recognitionStatus}
+                        matchedTitle={recognitionMatch?.title}
+                        matchedArtist={recognitionMatch?.artist}
                       />
 
                       <DropZone

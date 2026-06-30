@@ -77,10 +77,11 @@ export const trackSchema = z.object({
   albumId: z.string().optional(), // Association with album
   title: z.string().min(1).max(200),
   artist: z.string().min(1).max(200),
+  originalArtist: z.string().max(200).optional(), // Original recording artist (from Shazam/recognition)
   artistSlug: z.string(),
   description: z.string().max(2000).optional(),
-  genre: z.string().max(50),
-  mood: z.string().max(50).optional(),
+  genre: z.union([z.string().max(200), z.array(z.string())]).default(""),
+  mood: z.string().max(100).optional(),
   tags: z.array(z.string()).default([]),
 
   // File information
