@@ -594,7 +594,7 @@ export default function Upload() {
 
       // 2. Submit for recognition
       const fd = new FormData();
-      fd.append("audio_file", snippet, "snippet.wav");
+      fd.append("audio", snippet, "snippet.wav");
 
       let jobId: string;
       try {
