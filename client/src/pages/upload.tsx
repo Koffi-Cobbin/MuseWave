@@ -136,10 +136,9 @@ async function extractFirstSeconds(file: File, seconds: number): Promise<File> {
   } finally {
     audioCtx.close();
   }
-  const sr = decoded.sampleRate;
-  const numCh = decoded.numberOfChannels;
-  const targetLen = Math.min(Math.floor(seconds * sr), decoded.length);
-  const offCtx = new OfflineAudioContext(numCh, targetLen, sr);
+  const TARGET_SR = 16_000;
+  const targetLen = Math.floor(seconds * TARGET_SR);
+  const offCtx = new OfflineAudioContext(1, targetLen, TARGET_SR);
   const src = offCtx.createBufferSource();
   src.buffer = decoded;
   src.connect(offCtx.destination);
